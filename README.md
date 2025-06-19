@@ -10,6 +10,7 @@
   - [目录](#目录)
   - [如何使用本指南](#如何使用本指南)
   - [指南内容](#指南内容)
+    - [择校篇](#择校篇)
     - [人生篇](#人生篇)
     - [入学篇](#入学篇)
     - [生活篇](#生活篇)
@@ -34,21 +35,68 @@
     - 提问的智慧
 - ...
 
+### 择校篇
+- 高考招生咨询
+    - 2023年湖北省
+    ![Hubei2023.jpg](wiki/Images/Hubei2023.jpg)
+    ![Hubei20231.jpg](wiki/Images/Hubei20231.jpg)
+    
 ### 入学篇
 - 行前指南
     - 签证
     - 英语（雅思/托福/PTE)
     - ...
+#### 校园地图
+![CampusMap](wiki/Images/Campus_Map.jpg)
+![CampusMap1](wiki/Images/Campus_Map1.jpg)
+#### 科系简写
+| 缩写 | 名称                     |
+|--------------|----------------------------------|
+| ACC          | 会计                            |
+| ADT          | 广告                            |
+| AIT          | 人工智能科技                      |
+| CHS          | 中文系                          |
+| CME          | 化学工程                         |
+| CST          | 计算机科学                       |
+| CYS          | 网络空间安全                      |
+| DSC          | 数据科学                         |
+| DMT          | 多媒体科技                       |
+| ECM          | 电子商务                         |
+| EEE          | 电子信息                         |
+| EGE          | 新能源                          |
+| ENG          | 英文                            |
+| FIA          | 文科&社会科学预科班                |
+| FIN          | 金融                            |
+| FIS          | 理科预科班                       |
+| IBU          | 国际商务                         |
+| JRN          | 新闻                            |
+| MAT          | 数学                            |
+| MBA          | 工商管理硕士                      |
+| MBT          | 海洋科技                         |
+| MEC          | 海洋科学/海洋环境化学             |
+| PHY          | 物理                            |
+| SWE          | 软件工程                         |
+| TCM          | 中医                            |
 - 中国新生迎新系统
 - 常见问题
 - ...
 
 ### 生活篇
 - 马来西亚生活（交通/支付/医疗）
-- 学校设施（客观介绍）
+#### 学校设施（客观介绍）
+##### LY宿舍
+###### 床
+![Bed_Size](wiki/Images/Bed_Size.jpg)
+![Bed_Size1](wiki/Images/Bed_Size1.jpg)
+
 - 学校周边
 
 ### 研学篇
+#### 学校已购软件
+##### Microsoft Office 365 (Only Windows Users)
+##### Canvas
+- 使用学校邮箱 @xmu.edu.my 注册
+- 加入Teams: Xiamen University Malaysia
 - 自学的快乐
 - 实用网站
     - 例如：Slidesgo，diagram.net

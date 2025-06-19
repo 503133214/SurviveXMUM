@@ -78,7 +78,7 @@ export default {
       code: [
         { required: true, message: '请输入验证码', trigger: 'blur' },
         // 根据你的后端调整验证码长度，通常为4-6位
-        { min: 4, max: 6, message: '验证码长度通常为4-6位', trigger: 'blur' },
+        { min: 4, max: 6, message: '验证码错误', trigger: 'blur' },
       ],
     };
 
@@ -220,3 +220,4 @@ export default {
   width: 100%;
 }
 </style>
+
