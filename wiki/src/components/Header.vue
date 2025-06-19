@@ -16,7 +16,7 @@
         <el-button type="primary">Home</el-button>
       </router-link>
       <router-link to="/docs/README">Docs</router-link>
-      <router-link to="/forums">论坛</router-link>
+      <router-link to="/forum">论坛</router-link>
       <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer">GitHub</a>
       
       <a href="/login" target="_blank" rel="noopener noreferrer">

@@ -25,6 +25,12 @@ const routes = [
     name: "Login",
     component: () => import(/* webpackChunkName: "login" */ "@/views/LoginPage.vue"),
   },
+  //论坛编辑器的跳转
+  {
+    path: "/forum",
+    name: "Forum",
+    component: () => import(/* webpackChunkName: "login" */ "@/views/ForumEditor.vue"),
+  }
 ];
 
 const router = createRouter({
