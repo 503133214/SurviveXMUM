@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npm run generate-sidebar && vite",
+    "build": "npm run generate-sidebar && vite build",
+    "preview": "vite preview",
+    "generate-sidebar": "node scripts/generate-sidebar.cjs"
   },
+  
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
     "@sindresorhus/slugify": "^2.2.1",

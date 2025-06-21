@@ -57,6 +57,8 @@ import axios from "axios";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { Menu } from '@element-plus/icons-vue';
+import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
+
 // Element Plus 组件 ElContainer, ElAside, ElMain, ElSkeleton, ElEmpty, ElDrawer, ElButton 已全局注册
 
 // 改为从静态资源获取，不再需要后端API
@@ -158,11 +160,12 @@ export default {
     },
   },
   created() {
-    this.sidebarItems = [
-      { name: "首页", path: "README" },
-      { name: "指南", children: [{ name: "简介", path: "guide/introduction" },{ name: "进阶", path: "guide/advanced" }] },
-      { name: "API 文档", children: [{ name: "总览", path: "api/api-overview" },{ name: "接口列表", path: "api/endpoints" }] },
-    ];
+    this.sidebarItems = generatedSidebarItems; // <--- 在 created 钩子中赋值
+    // this.sidebarItems = [
+    //   { name: "首页", path: "README" },
+    //   { name: "指南", children: [{ name: "简介", path: "guide/introduction" },{ name: "进阶", path: "guide/advanced" }] },
+    //   { name: "API 文档", children: [{ name: "总览", path: "api/api-overview" },{ name: "接口列表", path: "api/endpoints" }] },
+    // ];
   },
   mounted() {
     this.checkMobileView();
