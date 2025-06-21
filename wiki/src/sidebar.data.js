@@ -7,19 +7,6 @@ export default [
     "path": "README"
   },
   {
-    "name": "Guide",
-    "children": [
-      {
-        "name": "Advanced",
-        "path": "guide/advanced"
-      },
-      {
-        "name": "Introduction",
-        "path": "guide/introduction"
-      }
-    ]
-  },
-  {
     "name": "Api",
     "children": [
       {
@@ -35,6 +22,10 @@ export default [
   {
     "name": "人生篇",
     "children": [
+      {
+        "name": "高考招生咨询",
+        "path": "人生篇/高考招生咨询"
+      },
       {
         "name": "关于厦马",
         "path": "人生篇/关于厦马"
@@ -88,6 +79,10 @@ export default [
       {
         "name": "医疗",
         "path": "生活篇/医疗"
+      },
+      {
+        "name": "运动",
+        "path": "生活篇/运动"
       }
     ]
   },
