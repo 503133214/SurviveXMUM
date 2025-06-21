@@ -5,8 +5,8 @@
 你可以通过点击侧边栏或链接，浏览完整的文档内容。
 
 # 校园地图
-![CampusMap](人生篇\img\Campus_Map.jpg)
-![CampusMap1](人生篇\img\Campus_Map1.jpg)
+![CampusMap](人生篇/img/Campus_Map.jpg)
+![CampusMap1](人生篇/img/Campus_Map1.jpg)
 
 # 科系简写
 | 缩写 | 名称                     |

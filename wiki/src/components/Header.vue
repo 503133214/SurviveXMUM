@@ -50,6 +50,7 @@
             <el-dropdown-item command="/docs/README">Docs</el-dropdown-item>
             <el-dropdown-item command="github" divided>GitHub</el-dropdown-item>
             <el-dropdown-item command="website">官网</el-dropdown-item>
+            <el-dropdown-item command="login">登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>

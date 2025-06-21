@@ -4,6 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>用户登录</span>
+          <div style="color: red;font-size: 16px">暂不支持登录功能，敬请期待</div>
         </div>
       </template>
       <el-form
