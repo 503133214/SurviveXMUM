@@ -59,7 +59,6 @@ import Sidebar from "@/components/WikiSidebar.vue";
 import { Menu } from '@element-plus/icons-vue';
 import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
 
-import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
 
 // Element Plus 组件 ElContainer, ElAside, ElMain, ElSkeleton, ElEmpty, ElDrawer, ElButton 已全局注册
 
