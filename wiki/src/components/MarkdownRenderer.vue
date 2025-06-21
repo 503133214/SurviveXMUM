@@ -3,11 +3,11 @@
   <div class="markdown-container" :class="{ 'body-freeze-for-drawer': isTocDrawerOpen && isMobileView }">
     <!-- Toggle Button for Mobile Drawer -->
     <button
-      class="toc-drawer-toggle"
-      @click="toggleTocDrawer"
-      v-if="showTocToggle && tocItems.length > 0"
-      aria-label="Toggle Table of Contents"
-      :aria-expanded="isTocDrawerOpen.toString()"
+        class="toc-drawer-toggle"
+        @click="toggleTocDrawer"
+        v-if="showTocToggle && tocItems.length > 0"
+        aria-label="Toggle Table of Contents"
+        :aria-expanded="isTocDrawerOpen.toString()"
     >
       ☰
     </button>
@@ -18,25 +18,25 @@
 
     <!-- Overlay for Mobile Drawer -->
     <div
-      class="toc-overlay"
-      v-if="isTocDrawerOpen && isMobileView"
-      @click="closeTocDrawer"
+        class="toc-overlay"
+        v-if="isTocDrawerOpen && isMobileView"
+        @click="closeTocDrawer"
     ></div>
 
     <!-- Table of Contents Sidebar / Drawer -->
     <aside
-      class="toc-sidebar-area"
-      :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
-      v-if="tocItems.length > 0"
-      role="navigation"
-      aria-labelledby="toc-title-id"
+        class="toc-sidebar-area"
+        :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
+        v-if="tocItems.length > 0"
+        role="navigation"
+        aria-labelledby="toc-title-id"
     >
       <div class="toc-container">
         <button
-          class="toc-drawer-close-btn"
-          @click="closeTocDrawer"
-          v-if="isMobileView"
-          aria-label="Close Table of Contents"
+            class="toc-drawer-close-btn"
+            @click="closeTocDrawer"
+            v-if="isMobileView"
+            aria-label="Close Table of Contents"
         >
           &times;
         </button>
@@ -44,10 +44,10 @@
         <div class="toc-content">
           <ul class="toc-list">
             <li
-              v-for="item in tocItems"
-              :key="item.id"
-              :class="`toc-level-${item.level}`"
-              class="toc-item"
+                v-for="item in tocItems"
+                :key="item.id"
+                :class="`toc-level-${item.level}`"
+                class="toc-item"
             >
               <a :href="'#' + item.id" @click="handleTocLinkClick(item.id, $event)">
                 {{ item.text }}
@@ -179,36 +179,47 @@ export default {
 </script>
 
 <style>
-/* 在样式顶部或全局CSS中定义页头高度变量 */
-:root {
-  --header-height: 60px; /* 请根据你的实际页头高度调整此值 */
-}
+/* 确保导入的 github-markdown-css 样式能够正确应用 */
+/* github-markdown-css 的样式已经通过 import 'github-markdown-css' 引入 */
 
-/* 移除旧的 .menu 样式，因为它不再使用 */
+:root {
+  --header-height: 60px;
+}
 
 .markdown-container {
   display: flex;
   position: relative;
   width: 100%;
   max-width: 1200px;
-  margin: 0 auto; /* Centers the container */
+  margin: 0 auto;
   gap: 24px;
 }
 
 .main-content-area {
   flex: 1;
-  min-width: 0; /* Important for flex children */
-  max-width: 800px; /* Markdown content max-width */
-  margin: 20px 0; /* Vertical margin, horizontal handled by flex or centering */
+  min-width: 0;
+  max-width: 800px;
+  margin: 20px 0;
   box-sizing: border-box;
 }
 
+/* 修改此处：减少自定义样式，避免与 github-markdown-css 冲突 */
 .markdown-body {
+  /* 保持基本的布局样式 */
   padding: 25px;
   box-sizing: border-box;
   background-color: #fff;
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+  
+  /* 确保文本颜色可见 */
+  color: #24292f;
+  
+  /* 确保字体设置 */
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
 }
 
 /* Desktop TOC styles */
@@ -283,14 +294,14 @@ export default {
   position: fixed;
   /* top: 15px; */ /* 将在媒体查询中覆盖 */
   right: 15px;
-  z-index: 1005; 
+  z-index: 1005;
   background-color: #2c3e50;
   color: white;
   border: none;
   padding: 10px 15px;
-  border-radius: 50%; 
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 20px; 
+  font-size: 20px;
   line-height: 1;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
@@ -299,18 +310,18 @@ export default {
 }
 
 .toc-overlay {
-  display: none; 
+  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.6);
-  z-index: 999; 
+  z-index: 999;
 }
 
 .toc-drawer-close-btn {
-  display: none; 
+  display: none;
   position: absolute;
   top: 10px;
   right: 15px;
@@ -321,7 +332,7 @@ export default {
   cursor: pointer;
   padding: 5px;
   line-height: 1;
-  z-index: 10; 
+  z-index: 10;
 }
 .toc-drawer-close-btn:hover {
   color: #333;
@@ -335,59 +346,59 @@ export default {
 /* --- Responsive Design for Drawer (Mobile) --- */
 @media (max-width: 992px) {
   .toc-drawer-toggle {
-    display: block; 
+    display: block;
     top: calc(var(--header-height) + 15px); /* 定位到页头下方，并增加15px间距 */
     /* right: 15px; */ /* 已在全局样式中设置 */
   }
 
   .main-content-area {
     margin: 20px 15px;
-    order: 0; 
+    order: 0;
   }
-  
+
   .markdown-container {
-    flex-direction: column; 
-    gap: 0; 
+    flex-direction: column;
+    gap: 0;
   }
 
   .toc-sidebar-area {
     position: fixed;
     top: var(--header-height); /* 抽屉从页头下方开始 */
     right: 0;
-    width: 280px; 
+    width: 280px;
     height: calc(100vh - var(--header-height)); /* 抽屉高度为视口高度减去页头高度 */
     background-color: #ffffff;
     box-shadow: -3px 0 10px rgba(0,0,0,0.1);
-    transform: translateX(100%); 
+    transform: translateX(100%);
     transition: transform 0.3s ease-in-out;
-    z-index: 1000; 
-    margin-top: 0; 
-    display: flex; 
+    z-index: 1000;
+    margin-top: 0;
+    display: flex;
     flex-direction: column;
   }
 
   .toc-sidebar-area.is-drawer-open {
-    transform: translateX(0); 
+    transform: translateX(0);
   }
 
-  .toc-container { 
-    position: static; 
-    max-height: none; 
-    overflow-y: auto; 
-    box-shadow: none; 
-    border-radius: 0; 
-    flex-grow: 1; 
+  .toc-container {
+    position: static;
+    max-height: none;
+    overflow-y: auto;
+    box-shadow: none;
+    border-radius: 0;
+    flex-grow: 1;
     padding-top: 50px; /* 为关闭按钮留出空间 */
     padding-bottom: 20px;
   }
-  
+
   .toc-title {
-    padding-left: 15px; 
+    padding-left: 15px;
     margin-top: 0;
   }
 
   .toc-drawer-close-btn {
-    display: block; 
+    display: block;
   }
 }
 
@@ -398,15 +409,15 @@ export default {
   .markdown-body {
     padding: 20px;
   }
-  .toc-sidebar-area { 
-    width: 260px; 
+  .toc-sidebar-area {
+    width: 260px;
     /* top 和 height 已在 992px 断点中通过 var(--header-height) 设置，此处无需重复 */
   }
   .toc-drawer-toggle {
     top: calc(var(--header-height) + 10px); /* 较小屏幕上，与页头间距调整为10px */
-    right: 10px; 
-    padding: 8px 12px; 
-    font-size: 18px; 
+    right: 10px;
+    padding: 8px 12px;
+    font-size: 18px;
   }
   .toc-item a {
     font-size: 13px;
