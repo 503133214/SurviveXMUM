@@ -57,8 +57,13 @@ import axios from "axios";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { Menu } from '@element-plus/icons-vue';
+import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
+
+
 // Element Plus 组件 ElContainer, ElAside, ElMain, ElSkeleton, ElEmpty, ElDrawer, ElButton 已全局注册
-const DOCS_BASE_PATH = "/docs/";
+
+// 改为从静态资源获取，不再需要后端API
+const DOCS_BASE_PATH = "/docs/"; // public目录下的docs文件夹会直接映射为 /docs/
 const MOBILE_BREAKPOINT = 767; // px
 
 export default {
@@ -77,7 +82,7 @@ export default {
     return {
       content: "",
       title: "",
-      sidebarItems: [],
+      sidebarItems: [], // <--- 初始化为空数组
       isLoading: false,
       errorLoading: false,
       drawerVisible: false,
@@ -105,12 +110,20 @@ export default {
       this.errorLoading = false;
       this.content = "";
       this.title = "";
+      
       try {
+        // 使用fetch从静态资源获取markdown文件
         const url = `${DOCS_BASE_PATH}${path}.md`;
-        const res = await axios.get(url);
-        let rawContent = res.data;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        let rawContent = await response.text();
         const lines = rawContent.split("\n");
         const firstLine = lines.find((line) => line.startsWith("# "));
+        
         if (firstLine) {
           this.title = firstLine.replace(/^#\s*/, "");
           const firstNewLineIndex = rawContent.indexOf('\n');
@@ -148,11 +161,12 @@ export default {
     },
   },
   created() {
-    this.sidebarItems = [
-      { name: "首页", path: "README" },
-      { name: "指南", children: [{ name: "简介", path: "guide/introduction" },{ name: "进阶", path: "guide/advanced" }] },
-      { name: "API 文档", children: [{ name: "总览", path: "api/api-overview" },{ name: "接口列表", path: "api/endpoints" }] },
-    ];
+    this.sidebarItems = generatedSidebarItems; // <--- 在 created 钩子中赋值
+    // this.sidebarItems = [
+    //   { name: "首页", path: "README" },
+    //   { name: "指南", children: [{ name: "简介", path: "guide/introduction" },{ name: "进阶", path: "guide/advanced" }] },
+    //   { name: "API 文档", children: [{ name: "总览", path: "api/api-overview" },{ name: "接口列表", path: "api/endpoints" }] },
+    // ];
   },
   mounted() {
     this.checkMobileView();

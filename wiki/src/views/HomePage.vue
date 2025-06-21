@@ -61,7 +61,7 @@ export default {
   data() {
     return {
       ctaButtons: [
-        { text: "前言", path: "/docs/foreword" },
+        { text: "前言", path: "/docs/README" },
         { text: "征集", path: "/docs/contribute/collection" },
         { text: "贡献指南", path: "/docs/contribute/guide" },
         { text: "快问快答", path: "/docs/faq" },
@@ -70,7 +70,7 @@ export default {
         {
           title: "新生指引",
           description: "关于入学、厦大校园生活、心态调整等全方位建议。",
-          path: "/docs/freshman-guide",
+          path: "/docs/README",
         },
         {
           title: "保研须知",

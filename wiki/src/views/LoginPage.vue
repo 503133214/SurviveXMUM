@@ -4,6 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>用户登录</span>
+          <div style="color: red;font-size: 16px">暂不支持登录功能，敬请期待</div>
         </div>
       </template>
       <el-form
@@ -50,12 +51,12 @@
     </el-card>
   </div>
 </template>
-
 <script>
 import { ref, reactive, computed, onUnmounted } from 'vue'; // 确保导入 onUnmounted
 import { ElMessage, ElNotification } from 'element-plus';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { login } from '@/net/index.js';
 // import { useStore } from 'vuex'; // 如果你使用 Vuex 管理认证状态
 
 export default {
@@ -78,7 +79,7 @@ export default {
       code: [
         { required: true, message: '请输入验证码', trigger: 'blur' },
         // 根据你的后端调整验证码长度，通常为4-6位
-        { min: 4, max: 6, message: '验证码长度通常为4-6位', trigger: 'blur' },
+        { min: 4, max: 6, message: '验证码错误', trigger: 'blur' },
       ],
     };
 
@@ -116,10 +117,8 @@ export default {
       isSendingCode.value = true;
       try {
         // 根据文档: /login/send/code POST, email 作为查询参数
-        const response = await axios.post(`/api/login/send/code?email=${encodeURIComponent(loginForm.userEmail)}`);
-        // 假设你的后端通过 /api 代理，或者你为 axios 配置了 baseURL
-        // 如果没有，请使用完整 URL: `http://localhost:8080/login/send/code?email=${loginForm.userEmail}`
-
+        const response = await axios.post(`/login/send/code?email=${encodeURIComponent(loginForm.userEmail)}`);
+        // 为 axios 配置了 baseURL
         if (response.data && response.data.code === 0) { // 根据你的 API 成功码调整
           ElNotification({
             title: '成功',
@@ -148,41 +147,29 @@ export default {
 
     const handleLogin = async () => {
       if (!loginFormRef.value) return;
-      loginFormRef.value.validate(async (valid) => {
+      
+      loginFormRef.value.validate((valid) => {
         if (valid) {
           isLoading.value = true;
-          try {
-            // API: /login/email POST, 请求体: { code, userEmail }
-            const response = await axios.post('/api/login/email', {
-              userEmail: loginForm.userEmail,
-              code: loginForm.code,
-            });
-            // 如果未使用代理: `http://localhost:8080/login/email`
-
-            if (response.data && response.data.code === 0) { // 根据你的 API 成功码调整
+          login(
+            loginForm.userEmail,  // username
+            loginForm.code,       // code
+            (data) => {          // success 回调
+              isLoading.value = false;
               ElNotification({
                 title: '登录成功',
                 message: '欢迎回来！',
                 type: 'success',
               });
-              // --- TODO: 处理登录成功后的逻辑 ---
-              // 1. 存储 token/session (例如，在 localStorage 或 Vuex 中)
-              //    示例: localStorage.setItem('authToken', response.data.data.token); // 如果返回了 token
-              // 2. 如果需要，获取用户信息: await store.dispatch('fetchUser');
-              // 3. 重定向到受保护的页面或主页
-              router.push('/'); // 重定向到主页
-            } else {
-              ElMessage.error(response.data.message || '登录失败，邮箱或验证码错误。');
+              router.push('/'); // 跳转到主页
+            },
+            (message, code, url) => {
+              isLoading.value = false;
+              ElMessage.error(message || '登录失败，邮箱或验证码错误。');
             }
-          } catch (error) {
-            console.error('登录错误:', error);
-            ElMessage.error('登录请求失败，请检查网络或联系管理员。');
-          } finally {
-            isLoading.value = false;
-          }
+          );
         } else {
           ElMessage.error('请检查表单输入是否正确。');
-          return false;
         }
       });
     };
@@ -234,3 +221,4 @@ export default {
   width: 100%;
 }
 </style>
+
