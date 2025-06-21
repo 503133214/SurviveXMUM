@@ -59,6 +59,8 @@ import Sidebar from "@/components/WikiSidebar.vue";
 import { Menu } from '@element-plus/icons-vue';
 import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
 
+import generatedSidebarItems from '@/sidebar.data.js'; // <--- 导入生成的侧边栏数据
+
 // Element Plus 组件 ElContainer, ElAside, ElMain, ElSkeleton, ElEmpty, ElDrawer, ElButton 已全局注册
 
 // 改为从静态资源获取，不再需要后端API
@@ -81,7 +83,7 @@ export default {
     return {
       content: "",
       title: "",
-      sidebarItems: [],
+      sidebarItems: [], // <--- 初始化为空数组
       isLoading: false,
       errorLoading: false,
       drawerVisible: false,

@@ -111,7 +111,7 @@ export default {
     },
     handleMobileNavCommand(command) {
       if (command === 'github') {
-        window.open('https://github.com/yourusername', '_blank', 'noopener,noreferrer');
+        window.open('https://github.com/503133214/SurviveXMUM', '_blank', 'noopener,noreferrer');
       } else if (command === 'website') {
         window.open('https://your-site.com', '_blank', 'noopener,noreferrer');
       } else if (command) {
