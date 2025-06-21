@@ -17,7 +17,7 @@
       </router-link>
       <router-link to="/docs/README">Docs</router-link>
       <router-link to="/forums">论坛</router-link>
-      <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/503133214/SurviveXMUM" target="_blank" rel="noopener noreferrer">GitHub</a>
               <div>
           <a href="/login" target="_blank" rel="noopener noreferrer" v-if="!hasToken">
             <el-button>登录</el-button>
