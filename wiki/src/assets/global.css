@@ -58,6 +58,10 @@ table th,
 table td {
   border: 1px solid #ddd;
   padding: 8px;
+
+  /* Set the background color of table cells. */
+  --bgColor-default: #c6c6c6;
+  --bgColor-muted: #868686;
 }
 
 table th {
