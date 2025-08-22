@@ -66,6 +66,7 @@ table th {
   background-color: #f6f8fa;
 }
 
+/* Zebra Table */
 tbody tr:nth-child(odd) > * {
   background-color: #868686;
 }
