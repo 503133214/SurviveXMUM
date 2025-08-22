@@ -11,7 +11,9 @@ html,
 body,
 #app {
   height: 100%;
-  font-family: 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family:
+    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei",
+    sans-serif;
   background-color: #ffffff;
   color: #333333;
 }
@@ -58,12 +60,16 @@ table th,
 table td {
   border: 1px solid #ddd;
   padding: 8px;
-
-  /* Set the background color of table cells. */
-  --bgColor-default: #c6c6c6;
-  --bgColor-muted: #868686;
 }
 
 table th {
   background-color: #f6f8fa;
+}
+
+tbody tr:nth-child(odd) > * {
+  background-color: #868686;
+}
+
+tbody tr:nth-child(even) > * {
+  background-color: #c6c6c6;
 }
