@@ -33,6 +33,7 @@ a {
   transition: color 0.2s ease;
 }
 
+
 a:hover {
   color: #42b983;
   text-decoration: underline;
@@ -87,6 +88,7 @@ table td {
   padding: 12px 16px;
   text-align: left;
 }
+
 
 table th {
   background-color: #f5f7fa;

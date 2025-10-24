@@ -1,6 +1,8 @@
 # SurviveXMUM
 厦门大学马来西亚分校自救指南
 
+# 项目地址
+http://surivivexmum.wiki/
 ## 简介
 SurviveXMUM 是一个旨在帮助厦门大学马来西亚分校（Xiamen University Malaysia, XMUM）学生更好地适应和生活在校园及周边环境的指南。该项目由厦门大学马来西亚分校的学生发起，旨在提供实用的信息和建议，帮助新生和在校生更好地融入校园生活。本项目使用Vue.js框架开发前端，springboot框架开发后端。
 
