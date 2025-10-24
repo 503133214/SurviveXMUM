@@ -1,4 +1,3 @@
-<!-- src/components/MarkdownRenderer.vue -->
 <template>
   <div class="markdown-container" :class="{ 'body-freeze-for-drawer': isTocDrawerOpen && isMobileView }">
     <!-- Toggle Button for Mobile Drawer -->
@@ -190,66 +189,73 @@ export default {
   display: flex;
   position: relative;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  gap: 24px;
+  gap: 32px;
+  padding: 0 20px;
 }
 
 .main-content-area {
   flex: 1;
   min-width: 0;
-  max-width: 800px;
+  max-width: 900px;
   margin: 20px 0;
   box-sizing: border-box;
 }
 
-/* 修改此处：减少自定义样式，避免与 github-markdown-css 冲突 */
 .markdown-body {
-  /* 保持基本的布局样式 */
-  padding: 25px;
+  padding: 32px;
   box-sizing: border-box;
   background-color: #fff;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
-  
-  /* 确保文本颜色可见 */
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   color: #24292f;
-  
-  /* 确保字体设置 */
-  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif,"Apple Color Emoji","Segoe UI Emoji";
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.7;
   word-wrap: break-word;
+  transition: box-shadow 0.3s ease;
+}
+
+.markdown-body:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
 
 /* Desktop TOC styles */
 .toc-sidebar-area {
-  width: 250px;
+  width: 280px;
   margin-top: 20px;
   box-sizing: border-box;
 }
 
 .toc-container {
   width: 100%;
-  position: sticky; /* Sticky on desktop */
-  top: 20px;
-  max-height: calc(100vh - 40px);
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
-  padding: 20px 15px;
+  padding: 24px 18px;
   font-size: 14px;
   box-sizing: border-box;
   background-color: #fff;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: box-shadow 0.3s ease;
+}
+
+.toc-container:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
 
 .toc-title {
-  font-weight: 600;
-  margin-bottom: 15px;
-  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  font-size: 18px;
   color: #2c3e50;
   text-align: left;
   padding-left: 5px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e4e7ed;
 }
 
 .toc-list {
@@ -262,51 +268,71 @@ export default {
 
 .toc-item a {
   display: block;
-  padding: 8px 10px;
+  padding: 10px 12px;
   color: #555;
   text-decoration: none;
-  border-radius: 4px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  transition: background-color 0.2s ease, color 0.2s ease, border-left-color 0.2s ease;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  transition: all 0.2s ease;
   width: 100%;
   box-sizing: border-box;
   text-align: left;
   border-left: 3px solid transparent;
+  position: relative;
 }
 
 .toc-item a:hover {
-  background-color: #f0f4f8;
-  color: #2980b9;
-  border-left-color: #2980b9;
+  background-color: #f0f7ff;
+  color: #0c64c1;
+  border-left-color: #42b983;
+  padding-left: 16px;
 }
 
-.toc-level-1 a { font-weight: 500; color: #34495e; }
-.toc-level-2 a { padding-left: 25px; }
-.toc-level-3 a { padding-left: 40px; font-size: 13px; }
-.toc-level-4 a { padding-left: 55px; font-size: 12.5px; color: #7f8c8d; }
-.toc-level-5 a, .toc-level-6 a { padding-left: 70px; font-size: 12px; color: #95a5a6; }
+.toc-item a:active {
+  color: #42b983;
+  background-color: #e6f7ff;
+  border-left-color: #0c64c1;
+}
+
+.toc-level-1 a { font-weight: 600; color: #2c3e50; font-size: 14.5px; }
+.toc-level-2 a { padding-left: 28px; }
+.toc-level-3 a { padding-left: 44px; font-size: 13.5px; }
+.toc-level-4 a { padding-left: 60px; font-size: 13px; color: #7f8c8d; }
+.toc-level-5 a, .toc-level-6 a { padding-left: 76px; font-size: 12.5px; color: #95a5a6; }
+
+.toc-level-1 a:hover { padding-left: 16px; }
+.toc-level-2 a:hover { padding-left: 32px; }
+.toc-level-3 a:hover { padding-left: 48px; }
+.toc-level-4 a:hover { padding-left: 64px; }
+.toc-level-5 a:hover, .toc-level-6 a:hover { padding-left: 80px; }
 
 
 /* --- Drawer Specific Styles --- */
 .toc-drawer-toggle {
-  display: none; /* Hidden by default, shown via media query */
+  display: none;
   position: fixed;
-  /* top: 15px; */ /* 将在媒体查询中覆盖 */
-  right: 15px;
+  right: 20px;
   z-index: 1005;
-  background-color: #2c3e50;
+  background: linear-gradient(135deg, #42b983 0%, #3498db 100%);
   color: white;
   border: none;
-  padding: 10px 15px;
+  padding: 12px 16px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 16px rgba(66, 185, 131, 0.4);
+  transition: all 0.3s ease;
 }
+
 .toc-drawer-toggle:hover {
-  background-color: #34495e;
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(66, 185, 131, 0.5);
+}
+
+.toc-drawer-toggle:active {
+  transform: scale(0.95);
 }
 
 .toc-overlay {
@@ -403,25 +429,35 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .markdown-container {
+    padding: 0 12px;
+  }
+  
   .main-content-area {
-    margin: 15px 10px;
+    margin: 12px 0;
   }
+  
   .markdown-body {
-    padding: 20px;
+    padding: 20px 16px;
+    border-radius: 8px;
   }
+  
   .toc-sidebar-area {
-    width: 260px;
-    /* top 和 height 已在 992px 断点中通过 var(--header-height) 设置，此处无需重复 */
+    width: 280px;
   }
+  
   .toc-drawer-toggle {
-    top: calc(var(--header-height) + 10px); /* 较小屏幕上，与页头间距调整为10px */
-    right: 10px;
-    padding: 8px 12px;
-    font-size: 18px;
+    top: calc(var(--header-height) + 12px);
+    right: 12px;
+    padding: 10px 14px;
+    font-size: 20px;
   }
+  
   .toc-item a {
     font-size: 13px;
+    padding: 8px 10px;
   }
+  
   .toc-level-3 a, .toc-level-4 a, .toc-level-5 a, .toc-level-6 a {
     font-size: 12.5px;
   }

@@ -1,4 +1,3 @@
-<!-- src/views/DocPage.vue -->
 <template>
   <el-container class="doc-page-container">
     <!-- 桌面端侧边栏 -->
@@ -75,7 +74,7 @@ export default {
   props: {
     pathMatch: {
       type: String,
-      required: true,
+      default: '',
     },
   },
   data() {
@@ -111,9 +110,12 @@ export default {
       this.content = "";
       this.title = "";
       
+      console.log('Fetching markdown for path:', path);
+      
       try {
         // 使用fetch从静态资源获取markdown文件
         const url = `${DOCS_BASE_PATH}${path}.md`;
+        console.log('Fetching URL:', url);
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -142,6 +144,7 @@ export default {
       }
     },
     onNavigate(newPage) {
+      console.log('Navigating to:', newPage);
       this.$router.push(`/docs/${newPage}`);
     },
     onNavigateAndCloseDrawer(newPage) {
@@ -181,43 +184,92 @@ export default {
 
 <style scoped>
 .doc-page-container {
-  height: calc(100vh - 60px); /* 减去 Header 高度 (60px) */
+  min-height: calc(100vh - 60px);
+  background-color: #f8f9fa;
 }
 
-.doc-sidebar-container { /* 主要用于桌面端 el-aside */
+.doc-sidebar-container {
   overflow-y: auto;
+  background-color: #ffffff;
 }
 
 .doc-main-content {
   padding: 24px;
-  position: relative; /* 用于潜在的内部绝对定位元素 */
+  position: relative;
+  background-color: #f8f9fa;
+}
+
+.loading-state {
+  padding: 40px 20px;
 }
 
 .loading-state .el-skeleton {
-  max-width: 800px;
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.error-state,
+.content-display {
+  max-width: 1200px;
   margin: 0 auto;
 }
 
-.mobile-menu-toggle {
-  margin-bottom: 15px;
-  /* 如果希望按钮固定在屏幕角落，可以使用 fixed 定位：
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 100; // 确保在其他内容之上
-  */
+.content-display h1 {
+  font-size: 2.5rem;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 3px solid #42b983;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* 桌面端侧边栏在小屏幕上通过 v-if 移除，无需额外 CSS 隐藏 */
+.mobile-menu-toggle {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 999;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #42b983 0%, #3498db 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(66, 185, 131, 0.4);
+  transition: all 0.3s ease;
+}
 
-/* 响应式调整：小屏幕设备 */
+.mobile-menu-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(66, 185, 131, 0.5);
+}
+
+/* 响应式调整 */
 @media (max-width: 767px) {
-  .doc-page-container {
-    /* 在移动端，如果抽屉打开，主内容区域可能不需要改变flex-direction */
-    /* 高度仍由 calc(100vh - 60px) 控制，页面滚动由 el-main 内部处理 */
-  }
   .doc-main-content {
-    padding: 15px;
+    padding: 16px 12px;
+  }
+  
+  .content-display h1 {
+    font-size: 2rem;
+  }
+  
+  .mobile-menu-toggle {
+    bottom: 20px;
+    left: 20px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-menu-toggle {
+    display: none;
   }
 }
 </style>

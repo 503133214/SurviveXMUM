@@ -1,4 +1,3 @@
-<!-- src/components/WikiSidebar.vue -->
 <template>
   <el-menu
     :default-active="currentPath"
@@ -70,30 +69,46 @@ export default {
 
 <style scoped>
 .sidebar-el-menu {
-  width: 240px; /* 根据实际视觉调整 */
-  height: calc(100vh - 60px); /* 假设 Header 高度为 60px */
+  width: 240px;
+  height: calc(100vh - 60px);
   overflow-y: auto;
   position: sticky;
-  top: 60px; /* 与 Header 高度匹配 */
-  background-color: #f7f8fa; /* 可选：如果需要自定义背景色 */
-  border-right: 1px solid #e4e7ed; /* 可选：如果需要自定义边框 */
+  top: 60px;
+  background-color: #ffffff;
+  border-right: 1px solid #e4e7ed;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
 }
 
-/* Element Plus 的 el-menu 通常有自己的边框和背景，
-   上面的 background-color 和 border-right 可能不需要，
-   或者可以用来覆盖默认值。*/
+/* 自定义菜单项样式 */
+.sidebar-el-menu :deep(.el-menu-item) {
+  font-size: 14px;
+  padding-left: 24px !important;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
 
-/* 移除了大部分自定义样式，因为 el-menu 会处理它们。
-   如果需要微调 el-menu-item 或 el-sub-menu 的特定样式（如字体、颜色），
-   可以使用更深的选择器或 Element Plus 的 CSS 变量。
-   例如:
-   .sidebar-el-menu .el-menu-item {
-     font-size: 14px;
-   }
-   .sidebar-el-menu .el-sub-menu__title {
-     font-size: 14px;
-   }
-*/
+.sidebar-el-menu :deep(.el-menu-item:hover) {
+  background-color: #f0f7ff;
+  border-left-color: #42b983;
+}
+
+.sidebar-el-menu :deep(.el-menu-item.is-active) {
+  color: #0c64c1;
+  background-color: #f0f7ff;
+  border-left-color: #0c64c1;
+  font-weight: 600;
+}
+
+.sidebar-el-menu :deep(.el-sub-menu__title) {
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.sidebar-el-menu :deep(.el-sub-menu__title:hover) {
+  background-color: #f8f9fa;
+  color: #0c64c1;
+}
 
 /* 响应式调整：针对小屏幕设备 */
 @media (max-width: 767px) {
