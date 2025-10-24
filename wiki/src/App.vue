@@ -1,39 +1,42 @@
 <template>
   <Header />
-
-  <router-view />
+  <router-view v-slot="{ Component }">
+    <transition name="fade" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
 </template>
 
 <script>
-import Header from '@/components/Header.vue'; // 导入 Header 组件
+import Header from '@/components/Header.vue';
 
 export default {
   name: 'App',
   components: {
-    Header, // 注册 Header 组件
+    Header,
   },
 };
 </script>
 
 <style>
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Helvetica Neue', Avenir, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
   color: #2c3e50;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-nav {
-  padding: 30px;
+/* 路由过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-nav a {
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-nav a.router-link-exact-active {
-  color: #42b983;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

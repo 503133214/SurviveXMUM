@@ -1,12 +1,20 @@
-<!-- src/components/Header.vue -->
 <template>
   <header class="site-header">
-    <div class="logo" @click="goHome" role="button" tabindex="0" aria-label="返回首页">XMUM Wiki</div>
-    <!--搜索栏-->
-    <div style="flex: 1;padding: 0 20px;margin-top: 10px;text-align: center;">
-      <el-input placeholder="搜索相关内容..." style="width: 100%;max-width: 300px; height:30px;border-radius:15px">
+    <div class="logo" @click="goHome" role="button" tabindex="0" aria-label="返回首页">
+      <span class="logo-text">XMUM Wiki</span>
+    </div>
+    
+    <!-- 搜索栏 -->
+    <div class="search-container">
+      <el-input 
+        v-model="searchQuery"
+        placeholder="搜索相关内容..." 
+        class="search-input"
+        clearable
+        @keyup.enter="handleSearch"
+      >
         <template #prefix>
-          <el-icon><Search/></el-icon>
+          <el-icon><Search /></el-icon>
         </template>
       </el-input>
     </div>
@@ -74,7 +82,8 @@ export default {
       isMobileView: false,
       MenuIcon: Menu,
       resizeTimeout: null,
-      tokenCheckCounter: 0, // 用于强制刷新computed
+      tokenCheckCounter: 0,
+      searchQuery: '',
     };
   },
   computed: {
@@ -93,6 +102,12 @@ export default {
     },
     goHome() {
       this.$router.push("/");
+    },
+    handleSearch() {
+      if (this.searchQuery.trim()) {
+        console.log('搜索:', this.searchQuery);
+        // TODO: 实现搜索功能
+      }
     },
     UserLogout(){
       logout(() => {
@@ -147,54 +162,139 @@ export default {
   align-items: center;
   justify-content: space-between;
   height: 60px;
-  padding: 0 20px; /* 稍微调整内边距 */
+  padding: 0 20px;
   background-color: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e4e7ed;
   position: sticky;
   top: 0;
   z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease;
+}
+
+.site-header:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .logo {
-  font-size: 20px;
-  font-weight: 700;
-  color: #0c64c1;
+  display: flex;
+  align-items: center;
   cursor: pointer;
-  user-select: none; /* 防止文本选中 */
+  user-select: none;
+  transition: transform 0.2s ease;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #0c64c1 0%, #42b983 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.search-container {
+  flex: 1;
+  max-width: 400px;
+  padding: 0 20px;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.search-input :deep(.el-input__wrapper):hover,
+.search-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #0c64c1 inset;
 }
 
 .desktop-nav {
   display: flex;
   align-items: center;
-  gap: 20px; /* 使用gap替代margin-left，更简洁 */
+  gap: 24px;
 }
 
 .desktop-nav a {
-  color: #333; /* 略微加深颜色以提高对比度 */
+  color: #333;
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.2s ease-in-out;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
-.desktop-nav a:hover,
-.desktop-nav .router-link-active, /* 高亮当前路由 */
-.desktop-nav .router-link-exact-active { /* 高亮精确匹配的当前路由 */
+.desktop-nav a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #0c64c1, #42b983);
+  transition: width 0.3s ease;
+}
+
+.desktop-nav a:hover {
   color: #0c64c1;
+  background-color: #f0f7ff;
+}
+
+.desktop-nav a:hover::after {
+  width: 80%;
+}
+
+.desktop-nav .router-link-active,
+.desktop-nav .router-link-exact-active {
+  color: #0c64c1;
+  background-color: #f0f7ff;
+}
+
+.desktop-nav .router-link-active::after,
+.desktop-nav .router-link-exact-active::after {
+  width: 80%;
 }
 
 .mobile-nav .el-button {
-  /* Element Plus 按钮通常有自己的样式，这里可以微调 */
-  color: #333; /* 确保图标颜色可见 */
+  color: #333;
+  font-size: 20px;
 }
 
-/* 下拉框样式 */
 .el-dropdown-link {
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: opacity 0.2s ease;
 }
 
-.el-dropdown-link:hover .el-avatar {
+.el-dropdown-link:hover {
   opacity: 0.8;
+}
+
+/* 响应式调整 */
+@media (max-width: 767px) {
+  .site-header {
+    padding: 0 12px;
+  }
+  
+  .search-container {
+    max-width: 200px;
+    padding: 0 12px;
+  }
+  
+  .logo-text {
+    font-size: 18px;
+  }
 }
 </style>

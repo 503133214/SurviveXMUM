@@ -3,27 +3,29 @@ import {createRouter, createWebHistory} from "vue-router";
 const routes = [
   {
     path: "/",
-    name: "docs/README.md",
-    // component: HomePage, // 修改为懒加载
+    name: "Home",
     component: () => import(/* webpackChunkName: "home" */ "@/views/HomePage.vue"),
-  },
-  {
-    path: "/docs/:pathMatch(.*)",
-    name: "DocPage",
-    // component: DocPage, // 修改为懒加载
-    component: () => import(/* webpackChunkName: "docpage" */ "@/views/DocPage.vue"),
-    props: true,
-  },
-  {
-    path: "/:pathMatch(.*)", // 确保这个捕获所有路径的路由在最后
-    name: "NotFound",
-    // component: NotFoundPage, // 修改为懒加载
-    component: () => import(/* webpackChunkName: "notfound" */ "@/views/NotFound.vue"),
   },
   {
     path: "/login",
     name: "Login",
     component: () => import(/* webpackChunkName: "login" */ "@/views/LoginPage.vue"),
+  },
+  {
+    path: "/docs/:pathMatch(.*)*",
+    name: "DocPage",
+    component: () => import(/* webpackChunkName: "docpage" */ "@/views/DocPage.vue"),
+    props: route => {
+      const pathMatch = route.params.pathMatch;
+      // 如果 pathMatch 是数组（多段路径），将其合并为字符串
+      const pathString = Array.isArray(pathMatch) ? pathMatch.join('/') : pathMatch;
+      return { pathMatch: pathString || '' };
+    },
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    name: "NotFound",
+    component: () => import(/* webpackChunkName: "notfound" */ "@/views/NotFound.vue"),
   },
 ];
 
