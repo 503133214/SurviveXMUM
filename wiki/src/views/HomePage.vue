@@ -1,4 +1,3 @@
-<!-- src/views/Home.vue -->
 <template>
   <div class="new-home-page">
     <!-- Hero Section -->
@@ -6,8 +5,8 @@
       <div class="hero-overlay"></div>
       <div class="hero-content">
         <h1 class="hero-title">SurviveXMUM</h1>
-        <h2 class="hero-subtitle">更适合厦大学子的生存指南</h2>
-        <p class="hero-welcome">Welcome to XMUM. 学习部出品。</p>
+        <h2 class="hero-subtitle">更适合厦大马校学子的生存指南</h2>
+        <p class="hero-welcome">Welcome to XMUM.</p>
         <div class="hero-cta-buttons">
           <button
             v-for="(button, idx) in ctaButtons"
@@ -24,26 +23,26 @@
         <div class="logo-graphic">
           <span class="logo-text-main">Survive</span>
           <span class="logo-text-main">XMUM</span>
-          <span class="logo-text-p">P</span>
+          <span class="logo-text-p"></span>
         </div>
       </div>
     </section>
 
     <!-- Features Section -->
     <section class="features-section">
-      <div
-        v-for="(card, idx) in featureCards"
-        :key="idx"
-        class="feature-card"
-        @click="navigateTo(card.path)"
-      >
-        <!-- 顶部图标占位 -->
-        <div class="card-icon">
-          <!-- 你可以把下面的 emoji 换成 SVG 或者 <img> -->
-          📘
+      <h2 class="section-title">探索更多</h2>
+      <div class="cards-container">
+        <div
+          v-for="(card, idx) in featureCards"
+          :key="idx"
+          class="feature-card"
+          @click="navigateTo(card.path)"
+        >
+          <div class="card-icon">{{ card.icon }}</div>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.description }}</p>
+          <div class="card-arrow">→</div>
         </div>
-        <h3>{{ card.title }}</h3>
-        <p>{{ card.description }}</p>
       </div>
     </section>
 
@@ -61,26 +60,47 @@ export default {
   data() {
     return {
       ctaButtons: [
-        { text: "前言", path: "/docs/foreword" },
+        { text: "前言", path: "/docs/README" },
         { text: "征集", path: "/docs/contribute/collection" },
         { text: "贡献指南", path: "/docs/contribute/guide" },
         { text: "快问快答", path: "/docs/faq" },
       ],
       featureCards: [
         {
+          icon: "📚",
           title: "新生指引",
           description: "关于入学、厦大校园生活、心态调整等全方位建议。",
-          path: "/docs/freshman-guide",
+          path: "/docs/README",
         },
         {
-          title: "保研须知",
-          description: "保研全流程、竞赛科研干货，一文看懂如何无忧保研。",
-          path: "/docs/postgraduate-recommendation",
+          icon: "🎓",
+          title: "学习篇",
+          description: "学习规划、善用工具、小组作业指南，助你学业有成。",
+          path: "/docs/学习篇/全专业通用网站",
         },
         {
-          title: "学习路线",
-          description: "学习规划、培养方案之外的进阶路线，助你脱颖而出。",
-          path: "/docs/learning-path",
+          icon: "🏠",
+          title: "生活篇",
+          description: "校园设施、周边环境、医疗服务等生活指南。",
+          path: "/docs/生活篇/学校设施",
+        },
+        {
+          icon: "✈️",
+          title: "入学篇",
+          description: "行前准备、机场指南、宿舍信息等入学必备。",
+          path: "/docs/入学篇/行前指南",
+        },
+        {
+          icon: "🌏",
+          title: "人生篇",
+          description: "国际视野、生涯规划、关于厦马的更多了解。",
+          path: "/docs/人生篇/关于厦马",
+        },
+        {
+          icon: "🎯",
+          title: "升学篇",
+          description: "升学规划、申请经验、出路选择等指导。",
+          path: "/docs/升学篇",
         },
       ],
     };
@@ -88,6 +108,7 @@ export default {
   methods: {
     navigateTo(path) {
       if (path) {
+        console.log('HomePage navigating to:', path);
         this.$router.push(path);
       }
     },
@@ -235,52 +256,114 @@ export default {
 /* ===== Features Section ===== */
 .features-section {
   width: 100%;
-  max-width: 1200px;
-  margin: 60px 0 40px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
-  padding: 0 4%;
+  max-width: 1400px;
+  margin: 80px auto 60px;
+  padding: 0 5%;
   box-sizing: border-box;
 }
 
+.section-title {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 50px;
+  color: #2c3e50;
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #42b983, #3498db);
+  border-radius: 2px;
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 28px;
+}
+
 .feature-card {
-  background-color: #ffffff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #42b983, #3498db);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
 .feature-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  border-color: rgba(66, 185, 131, 0.3);
 }
 
-/* 卡片图标区域 */
+.feature-card:hover::before {
+  transform: scaleX(1);
+}
+
 .card-icon {
-  font-size: 2.5rem;
-  margin-bottom: 12px;
-  color: #3498db;
+  font-size: 3rem;
+  margin-bottom: 16px;
+  transition: transform 0.3s ease;
 }
 
-/* 卡片标题 */
+.feature-card:hover .card-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
 .feature-card h3 {
-  font-size: 1.3rem;
-  margin: 0 0 8px;
+  font-size: 1.4rem;
+  margin: 0 0 12px;
   color: #2c3e50;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* 卡片描述 */
 .feature-card p {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: #555;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #666;
   margin: 0;
+  flex-grow: 1;
+}
+
+.card-arrow {
+  margin-top: 16px;
+  font-size: 1.5rem;
+  color: #42b983;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .card-arrow {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* ===== Footer ===== */
@@ -318,6 +401,13 @@ export default {
   .hero-subtitle {
     font-size: 1.5rem;
   }
+  .section-title {
+    font-size: 2rem;
+  }
+  .cards-container {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -335,14 +425,29 @@ export default {
     width: 240px;
     height: 180px;
   }
+  .section-title {
+    font-size: 1.8rem;
+    margin-bottom: 35px;
+  }
+  .features-section {
+    margin: 50px auto 40px;
+  }
 }
 
 @media (max-width: 480px) {
-  .features-section {
+  .cards-container {
     grid-template-columns: 1fr;
     gap: 20px;
-    margin: 40px 0;
-    padding: 0 8%;
+  }
+  .features-section {
+    margin: 40px auto 30px;
+    padding: 0 4%;
+  }
+  .feature-card {
+    padding: 24px 20px;
+  }
+  .section-title {
+    font-size: 1.6rem;
   }
   .hero-title {
     font-size: 2.2rem;

@@ -1,39 +1,30 @@
-<!-- src/components/WikiSidebar.vue -->
 <template>
-  <nav class="sidebar">
-    <ul class="sidebar-list">
-      <li v-for="item in sidebarItems" :key="item.name" class="sidebar-item">
-        <!-- 可折叠的分组 -->
-        <div v-if="item.children && item.children.length > 0" class="sidebar-group">
-          <div class="group-title" @click="toggleGroup(item.name)">
-            <span>{{ item.name }}</span>
-            <span :class="['group-arrow', { 'is-expanded': isGroupExpanded(item.name) }]"></span>
-          </div>
-          <ul v-show="isGroupExpanded(item.name)" class="group-list">
-            <li
-              v-for="child in item.children"
-              :key="child.path"
-              :class="['child-item', { active: currentPath === child.path }]"
-            >
-              <a @click.prevent="goTo(child.path)">{{ child.name }}</a>
-            </li>
-          </ul>
-        </div>
-        <!-- 普通链接项 (顶级，无子项) -->
-        <div
-          v-else
-          :class="['child-item', 'top-level-link', { active: currentPath === item.path }]"
+  <el-menu
+    :default-active="currentPath"
+    :default-openeds="initiallyOpenedSubmenus"
+    class="sidebar-el-menu"
+    @select="handleMenuSelect"
+  >
+    <template v-for="item in sidebarItems" :key="item.name">
+      <!-- 可折叠的分组 -->
+      <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.name">
+        <template #title>
+          <span>{{ item.name }}</span>
+        </template>
+        <el-menu-item
+          v-for="child in item.children"
+          :key="child.path"
+          :index="child.path"
         >
-          <a @click.prevent="goTo(item.path)">
-            <span>{{ item.name }}</span>
-            <!-- 根据图片，顶级链接（如人生篇）有向右箭头，而纯标题（如社团篇）没有 -->
-            <!-- 这里假设所有顶级非分组项都是链接并显示箭头，您可能需要根据数据调整此逻辑 -->
-            <span v-if="item.path" class="link-arrow"></span>
-          </a>
-        </div>
-      </li>
-    </ul>
-  </nav>
+          {{ child.name }}
+        </el-menu-item>
+      </el-sub-menu>
+      <!-- 普通链接项 (顶级，无子项) -->
+      <el-menu-item v-else :index="item.path">
+        <span>{{ item.name }}</span>
+      </el-menu-item>
+    </template>
+  </el-menu>
 </template>
 
 <script>
@@ -49,150 +40,84 @@ export default {
       required: true,
     },
   },
-  data() {
-    return {
-      // 用于存储每个可折叠组的展开状态
-      expandedGroups: {},
-    };
-  },
-  created() {
-    // 初始化时，可以将所有有子项的组默认设置为折叠
-    // 并确保响应性
-    const initialExpandedGroups = {};
-    this.sidebarItems.forEach((item) => {
-      if (item.children && item.children.length > 0) {
-        initialExpandedGroups[item.name] = false; // 默认折叠
+  computed: {
+    initiallyOpenedSubmenus() {
+      const openSubmenus = [];
+      if (this.currentPath) {
+        this.sidebarItems.forEach(item => {
+          if (item.children && item.children.length > 0) {
+            const isActiveGroup = item.children.some(child => child.path === this.currentPath);
+            if (isActiveGroup) {
+              openSubmenus.push(item.name); // item.name is used as el-sub-menu index
+            }
+          }
+        });
       }
-    });
-    this.expandedGroups = initialExpandedGroups;
+      return openSubmenus;
+    }
   },
   methods: {
-    goTo(path) {
-      if (path) { // 确保路径存在才导航
+    handleMenuSelect(path) {
+      // path 是被选中 el-menu-item 的 index
+      if (path) {
         this.$emit("navigate", path);
       }
-    },
-    toggleGroup(groupName) {
-      // 切换指定组的展开/折叠状态
-      this.expandedGroups[groupName] = !this.expandedGroups[groupName];
-    },
-    isGroupExpanded(groupName) {
-      return !!this.expandedGroups[groupName];
     },
   },
 };
 </script>
 
 <style scoped>
-.sidebar {
-  width: 240px; /* 根据实际视觉调整 */
-  background-color: #f7f8fa; /* 类似图片中的浅灰色背景 */
-  border-right: 1px solid #e4e7ed; /* 细分隔线颜色 */
-  height: calc(100vh - 60px); /* 假设 Header 高度为 60px */
+.sidebar-el-menu {
+  width: 240px;
+  height: calc(100vh - 60px);
   overflow-y: auto;
   position: sticky;
-  top: 60px; /* 与 Header 高度匹配 */
-  padding-top: 0;
+  top: 60px;
+  background-color: #ffffff;
+  border-right: 1px solid #e4e7ed;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
 }
 
-.sidebar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.sidebar-item {
-  border-bottom: 1px solid #e4e7ed; /* 顶级项目之间的分隔线 */
-}
-.sidebar-item:last-child {
-  border-bottom: none;
-}
-
-.group-title,
-.child-item a,
-.top-level-link a {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px; /* 统一内边距 */
+/* 自定义菜单项样式 */
+.sidebar-el-menu :deep(.el-menu-item) {
   font-size: 14px;
-  color: #303133; /* 主要文字颜色 */
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
-  box-sizing: border-box;
-  width: 100%;
+  padding-left: 24px !important;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
 }
 
-.group-title {
-  font-weight: 500; /* 组标题稍粗 */
+.sidebar-el-menu :deep(.el-menu-item:hover) {
+  background-color: #f0f7ff;
+  border-left-color: #42b983;
 }
 
-.child-item a, .top-level-link a {
-  font-weight: normal;
+.sidebar-el-menu :deep(.el-menu-item.is-active) {
+  color: #0c64c1;
+  background-color: #f0f7ff;
+  border-left-color: #0c64c1;
+  font-weight: 600;
 }
 
-/* 子项的缩进 */
-.sidebar-group .group-list .child-item a {
-  padding-left: 32px; /* 子项增加左内边距以示层级 */
-  background-color: #ffffff; /* 子项背景可以略有不同或与父级一致 */
-}
-.sidebar-group .group-list .child-item:not(:last-child) a {
-   border-bottom: 1px solid #f0f2f5; /* 子项之间的细分隔线 */
+.sidebar-el-menu :deep(.el-sub-menu__title) {
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
-
-/* 激活状态 - 文字变蓝 */
-.child-item.active a,
-.top-level-link.active a {
-  color: #409eff; /* Element UI 风格的蓝色 */
-  /* background-color: #ecf5ff; */ /* 可选：激活时浅蓝色背景 */
+.sidebar-el-menu :deep(.el-sub-menu__title:hover) {
+  background-color: #f8f9fa;
+  color: #0c64c1;
 }
 
-/* 鼠标悬停状态 */
-.group-title:hover,
-.child-item a:hover,
-.top-level-link a:hover {
-  background-color: #ecf0f3; /* 轻微的悬停背景色 */
-  color: #409eff; /* 悬停时文字也变蓝 */
+/* 响应式调整：针对小屏幕设备 */
+@media (max-width: 767px) {
+  .sidebar-el-menu {
+    position: static; /* 在堆叠布局中覆盖 sticky 定位 */
+    height: auto;     /* 允许内容定义高度 */
+    width: 100%;      /* 在堆叠时占据全部宽度 */
+    border-right: none; /* 在小屏幕且堆叠时，通常不需要右边框 */
+    /* 如果 DocPage.vue 中的 el-aside 已经处理了宽度和边框，这里的 width 和 border-right 可能可以省略 */
+  }
 }
-
-
-/* 箭头图标样式 */
-.group-arrow, .link-arrow {
-  display: inline-block;
-  width: 0;
-  height: 0;
-  margin-left: 8px;
-  vertical-align: middle;
-  transition: transform 0.2s ease-out;
-  flex-shrink: 0; /* 防止箭头被压缩 */
-}
-
-/* 向右的箭头 (用于链接或未展开的组) */
-.link-arrow {
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid #909399; /* 箭头颜色 */
-}
-.group-arrow { /* 默认是向右的，展开后旋转 */
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid #909399; /* 箭头颜色 */
-}
-
-/* 向下的箭头 (用于展开的组) */
-.group-arrow.is-expanded {
-  transform: rotate(90deg);
-}
-
-/* 如果顶级链接（如“社团篇”）不应该有箭头，
-   您可能需要在模板中添加条件 v-if="item.showArrow" 或类似逻辑，
-   并在数据中定义哪些项显示箭头。
-   当前模板为所有顶级非分组项的链接添加了 link-arrow。
-*/
-.top-level-link a .link-arrow {
-  /* 样式已在 .link-arrow 中定义 */
-}
-
 </style>
