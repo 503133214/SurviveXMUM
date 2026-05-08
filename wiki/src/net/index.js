@@ -72,17 +72,50 @@ function post(url,data,success,failure=defaultFailure){
 function unauthorized(){
     return !takeAccessToken()
 }
-function login(username,code,success,failure=defaultFailure){
-    internalPost("/login/email",{
+function login(username,password,success,failure=defaultFailure){
+    internalPost("/login",{
         userEmail: username,
+        password: password
+    },{
+        'Content-Type': 'application/json'
+    },(data)=>{
+        storeAccessToken(data.token)
+        ElMessage.success(`登录成功,欢迎${username}！`)
+        success(data)
+    },failure)
+}
+
+function register(userEmail,password,code,success,failure=defaultFailure){
+    internalPost("/register",{
+        userEmail: userEmail,
+        password: password,
         code: code
     },{
         'Content-Type': 'application/json'
     },(data)=>{
-        storeAccessToken(data)
-        ElMessage.success(`登录成功,欢迎${username}！`)
+        storeAccessToken(data.token)
+        ElMessage.success('注册成功！')
         success(data)
     },failure)
+}
+
+function resetPassword(userEmail,newPassword,code,success,failure=defaultFailure){
+    internalPost("/password/reset",{
+        userEmail: userEmail,
+        newPassword: newPassword,
+        code: code
+    },{
+        'Content-Type': 'application/json'
+    },(data)=>{
+        ElMessage.success('密码重置成功，请使用新密码登录')
+        success(data)
+    },failure)
+}
+
+function sendCode(email,type,success,failure=defaultFailure){
+    internalPost(`/send/code?email=${encodeURIComponent(email)}&type=${type}`,{},{
+        'Content-Type': 'application/json'
+    },success,failure)
 }
 function logout(success, failure = defaultFailure, error = defaultError) {
     // 检查token是否存在且有效
@@ -102,4 +135,4 @@ function logout(success, failure = defaultFailure, error = defaultError) {
         error
     );
 }
-export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken}
+export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode}
