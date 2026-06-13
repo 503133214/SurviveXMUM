@@ -1,4 +1,5 @@
 import {createRouter, createWebHistory} from "vue-router";
+import { BACKEND_ENABLED } from "@/config.js";
 
 const routes = [
   {
@@ -10,23 +11,25 @@ const routes = [
     path: "/login",
     name: "Login",
     component: () => import("@/views/LoginPage.vue"),
+    meta: { requiresBackend: true }
   },
   {
     path: "/profile",
     name: "Profile",
     component: () => import("@/views/ProfilePage.vue"),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiresBackend: true }
   },
   {
     path: "/favorites",
     name: "Favorites",
     component: () => import("@/views/FavoritesPage.vue"),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiresBackend: true }
   },
   {
     path: "/feedback",
     name: "Feedback",
     component: () => import("@/views/FeedbackPage.vue"),
+    meta: { requiresBackend: true }
   },
   {
     path: "/docs/:pathMatch(.*)*",
@@ -51,6 +54,10 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
+  // 后端未接入时，相关路由直接回首页（入口已在界面隐藏，这里防止直接访问）
+  if (to.meta.requiresBackend && !BACKEND_ENABLED) {
+    return next('/')
+  }
   const token = localStorage.getItem('token')
   let isLoggedIn = false
   if (token) {

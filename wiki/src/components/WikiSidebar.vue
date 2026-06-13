@@ -1,123 +1,165 @@
 <template>
-  <el-menu
-    :default-active="currentPath"
-    :default-openeds="initiallyOpenedSubmenus"
-    class="sidebar-el-menu"
-    @select="handleMenuSelect"
-  >
-    <template v-for="item in sidebarItems" :key="item.name">
-      <!-- 可折叠的分组 -->
-      <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.name">
-        <template #title>
-          <span>{{ item.name }}</span>
-        </template>
-        <el-menu-item
-          v-for="child in item.children"
-          :key="child.path"
-          :index="child.path"
-        >
-          {{ child.name }}
-        </el-menu-item>
-      </el-sub-menu>
-      <!-- 普通链接项 (顶级，无子项) -->
-      <el-menu-item v-else :index="item.path">
-        <span>{{ item.name }}</span>
-      </el-menu-item>
-    </template>
-  </el-menu>
+  <div class="wiki-sidebar">
+    <div class="sidebar-filter">
+      <el-input
+        v-model="filter"
+        size="small"
+        placeholder="筛选目录…"
+        clearable
+        :prefix-icon="SearchIcon"
+      />
+    </div>
+
+    <el-menu
+      :default-active="currentPath"
+      :default-openeds="openedSubmenus"
+      :unique-opened="false"
+      class="sidebar-el-menu"
+      @select="onSelect"
+    >
+      <WikiSidebarNode
+        v-for="node in filteredItems"
+        :key="node.path || node.slug"
+        :node="node"
+        @navigate="$emit('navigate', $event)"
+      />
+      <div v-if="filteredItems.length === 0" class="sidebar-empty">无匹配项</div>
+    </el-menu>
+  </div>
 </template>
 
 <script>
+import { markRaw } from "vue";
+import WikiSidebarNode from "@/components/WikiSidebarNode.vue";
+import { Search } from "@element-plus/icons-vue";
+
+// 递归筛选：保留标题命中的页面及其所属分类
+function filterTree(nodes, q) {
+  const out = [];
+  for (const node of nodes) {
+    if (node.type === "category") {
+      const children = filterTree(node.children, q);
+      if (children.length > 0 || node.label.toLowerCase().includes(q)) {
+        out.push({ ...node, children });
+      }
+    } else if ((node.title || "").toLowerCase().includes(q)) {
+      out.push(node);
+    }
+  }
+  return out;
+}
+
+// 收集包含目标路径的所有分类 slug，用于默认展开
+function slugsContaining(nodes, path, trail = []) {
+  let result = [];
+  for (const node of nodes) {
+    if (node.type === "category") {
+      const next = [...trail, node.slug];
+      if (node.children.some((c) => c.path === path)) result.push(...next);
+      result.push(...slugsContaining(node.children, path, next));
+    }
+  }
+  return result;
+}
+
+function allCategorySlugs(nodes) {
+  let result = [];
+  for (const node of nodes) {
+    if (node.type === "category") {
+      result.push(node.slug);
+      result.push(...allCategorySlugs(node.children));
+    }
+  }
+  return result;
+}
+
 export default {
   name: "WikiSidebar",
+  components: { WikiSidebarNode },
   props: {
-    sidebarItems: {
-      type: Array,
-      required: true,
-    },
-    currentPath: {
-      type: String,
-      required: true,
-    },
+    sidebarItems: { type: Array, required: true },
+    currentPath: { type: String, required: true },
+  },
+  emits: ["navigate"],
+  data() {
+    return { filter: "", SearchIcon: markRaw(Search) };
   },
   computed: {
-    initiallyOpenedSubmenus() {
-      const openSubmenus = [];
-      if (this.currentPath) {
-        this.sidebarItems.forEach(item => {
-          if (item.children && item.children.length > 0) {
-            const isActiveGroup = item.children.some(child => child.path === this.currentPath);
-            if (isActiveGroup) {
-              openSubmenus.push(item.name); // item.name is used as el-sub-menu index
-            }
-          }
-        });
-      }
-      return openSubmenus;
-    }
+    filteredItems() {
+      const q = this.filter.trim().toLowerCase();
+      if (!q) return this.sidebarItems;
+      return filterTree(this.sidebarItems, q);
+    },
+    openedSubmenus() {
+      // 筛选时全部展开，否则展开当前页所在分类
+      if (this.filter.trim()) return allCategorySlugs(this.filteredItems);
+      return slugsContaining(this.sidebarItems, this.currentPath);
+    },
   },
   methods: {
-    handleMenuSelect(path) {
-      // path 是被选中 el-menu-item 的 index
-      if (path) {
-        this.$emit("navigate", path);
-      }
+    onSelect(index) {
+      if (index) this.$emit("navigate", index);
     },
   },
 };
 </script>
 
 <style scoped>
-.sidebar-el-menu {
-  width: 240px;
-  height: calc(100vh - 60px);
-  overflow-y: auto;
+.wiki-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height));
   position: sticky;
-  top: 60px;
-  background-color: #ffffff;
-  border-right: 1px solid #e4e7ed;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
+  top: var(--header-height);
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--border);
 }
 
-/* 自定义菜单项样式 */
+.sidebar-filter {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-el-menu {
+  flex: 1;
+  overflow-y: auto;
+  border-right: none;
+  background-color: transparent;
+}
+
+.sidebar-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .sidebar-el-menu :deep(.el-menu-item) {
   font-size: 14px;
-  padding-left: 24px !important;
-  transition: all 0.2s ease;
+  height: 42px;
+  line-height: 42px;
   border-left: 3px solid transparent;
+  transition: all 0.18s ease;
 }
-
 .sidebar-el-menu :deep(.el-menu-item:hover) {
-  background-color: #f0f7ff;
-  border-left-color: #42b983;
+  background-color: var(--bg-hover);
+  border-left-color: var(--brand);
 }
-
 .sidebar-el-menu :deep(.el-menu-item.is-active) {
-  color: #0c64c1;
-  background-color: #f0f7ff;
-  border-left-color: #0c64c1;
+  color: var(--brand-blue);
+  background-color: var(--bg-hover);
+  border-left-color: var(--brand-blue);
   font-weight: 600;
 }
-
 .sidebar-el-menu :deep(.el-sub-menu__title) {
   font-size: 14px;
   font-weight: 600;
-  transition: all 0.2s ease;
 }
-
 .sidebar-el-menu :deep(.el-sub-menu__title:hover) {
-  background-color: #f8f9fa;
-  color: #0c64c1;
+  background-color: var(--bg-hover);
 }
 
-/* 响应式调整：针对小屏幕设备 */
 @media (max-width: 767px) {
-  .sidebar-el-menu {
-    position: static; /* 在堆叠布局中覆盖 sticky 定位 */
-    height: auto;     /* 允许内容定义高度 */
-    width: 100%;      /* 在堆叠时占据全部宽度 */
-    border-right: none; /* 在小屏幕且堆叠时，通常不需要右边框 */
-    /* 如果 DocPage.vue 中的 el-aside 已经处理了宽度和边框，这里的 width 和 border-right 可能可以省略 */
-  }
+  .wiki-sidebar { height: auto; position: static; border-right: none; }
 }
 </style>

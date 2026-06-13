@@ -1,469 +1,407 @@
 <template>
-  <div class="new-home-page">
-    <!-- Hero Section -->
-    <section class="hero-section">
-      <div class="hero-overlay"></div>
-      <div class="hero-content">
-        <h1 class="hero-title">SurviveXMUM</h1>
-        <h2 class="hero-subtitle">更适合厦大马校学子的生存指南</h2>
-        <p class="hero-welcome">Welcome to XMUM.</p>
-        <div class="hero-cta-buttons">
-          <button
-            v-for="(button, idx) in ctaButtons"
-            :key="idx"
-            @click="navigateTo(button.path)"
-            class="cta-button"
-          >
-            {{ button.text }}
-          </button>
-        </div>
+  <div class="home">
+    <!-- ===== Hero ===== -->
+    <section class="hero">
+      <img src="/svg/Simple_Logo.svg" alt="XMUM Wiki" class="hero-logo" />
+      <p class="hero-kicker">厦门大学马来西亚分校 · 学生知识库</p>
+      <h1 class="hero-title">少走弯路的<br />厦马生存指南</h1>
+      <p class="hero-sub">
+        入学、学习、生活、人生 —— 由学长学姐共同维护，写一个 Markdown 即可贡献。
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-solid" @click="go(`/docs/${HOME_PATH}`)">开始阅读</button>
+        <router-link class="btn btn-outline" to="/docs/贡献指南">如何贡献 →</router-link>
       </div>
-      <div class="hero-image-placeholder">
-        <!-- 这里可以放一个真实的 SVG/PNG logo 或者动效 -->
-        <div class="logo-graphic">
-          <span class="logo-text-main">Survive</span>
-          <span class="logo-text-main">XMUM</span>
-          <span class="logo-text-p"></span>
-        </div>
-      </div>
+      <p class="hero-meta">
+        <AnimatedNumber :to="pages.length" /> 篇文档 ·
+        <AnimatedNumber :to="cats.length" /> 个分类 · 持续更新
+      </p>
     </section>
 
-    <!-- Features Section -->
-    <section class="features-section">
-      <h2 class="section-title">探索更多</h2>
-      <div class="cards-container">
-        <div
-          v-for="(card, idx) in featureCards"
-          :key="idx"
-          class="feature-card"
-          @click="navigateTo(card.path)"
+    <!-- ===== 分类卡片网格 ===== -->
+    <section class="block">
+      <div class="block-head">
+        <h2 v-reveal>浏览分类</h2>
+        <p v-reveal>挑一个篇章开始探索。</p>
+      </div>
+
+      <div class="grid">
+        <article
+          v-for="(cat, i) in cats"
+          :key="cat.slug"
+          class="card"
+          v-reveal="{ delay: i * 60 }"
+          @click="openCategory(cat)"
         >
-          <div class="card-icon">{{ card.icon }}</div>
-          <h3>{{ card.title }}</h3>
-          <p>{{ card.description }}</p>
-          <div class="card-arrow">→</div>
-        </div>
+          <div class="card-media" :style="{ background: gradient(i) }">
+            <span class="card-emoji">{{ cat.icon }}</span>
+            <span class="card-count">{{ countPages(cat) }} 篇</span>
+          </div>
+          <div class="card-text">
+            <h3 class="card-title">{{ cat.label }}<span class="card-arrow">→</span></h3>
+            <p class="card-desc">{{ cat.description || hint(cat) }}</p>
+          </div>
+        </article>
       </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="home-footer">
-      <p>Released under the MIT License.</p>
-      <p>Copyright © 2023-2025 XMUM Wiki Team</p>
+    <!-- ===== 最近更新（编辑式列表） ===== -->
+    <section v-if="recent.length" class="block">
+      <div class="block-head">
+        <h2 v-reveal>最近更新</h2>
+        <router-link class="block-link" :to="`/docs/${HOME_PATH}`" v-reveal>
+          全部文档 →
+        </router-link>
+      </div>
+
+      <div class="news">
+        <a
+          v-for="(p, i) in recent"
+          :key="p.path"
+          class="news-row"
+          v-reveal="{ delay: i * 40 }"
+          @click="go(`/docs/${p.path}`)"
+        >
+          <span class="news-date">{{ fmtDate(p.lastUpdated) }}</span>
+          <span class="news-title">{{ p.title }}</span>
+          <span class="news-cat">{{ p.category }}</span>
+          <span class="news-go">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ===== 结尾号召 ===== -->
+    <section class="cta" v-reveal>
+      <h2>发现了错误，或想分享经验？</h2>
+      <p>这份指南由社区共建。你只需要写一个 Markdown 文件。</p>
+      <div class="hero-actions">
+        <router-link class="btn btn-solid" to="/docs/贡献指南">查看贡献指南</router-link>
+        <a class="btn btn-outline" :href="REPO" target="_blank" rel="noopener noreferrer">
+          前往 GitHub →
+        </a>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>SurviveXMUM</span>
+      <span>Released under the MIT License · © 2023–2025 XMUM Wiki Team</span>
     </footer>
   </div>
 </template>
 
 <script>
+import { pages, categories, HOME_PATH, REPO } from "@/wiki";
+import AnimatedNumber from "@/components/AnimatedNumber.vue";
+
+// 仅在卡片"图片区"使用颜色，其余界面保持黑白编辑风
+const GRADIENTS = [
+  "linear-gradient(135deg, #6EE7B7 0%, #3B82F6 100%)",
+  "linear-gradient(135deg, #FBCFE8 0%, #8B5CF6 100%)",
+  "linear-gradient(135deg, #FDE68A 0%, #F97316 100%)",
+  "linear-gradient(135deg, #A5F3FC 0%, #6366F1 100%)",
+  "linear-gradient(135deg, #BBF7D0 0%, #059669 100%)",
+  "linear-gradient(135deg, #FECACA 0%, #DB2777 100%)",
+];
+
 export default {
   name: "HomePage",
+  components: { AnimatedNumber },
   data() {
-    return {
-      ctaButtons: [
-        { text: "前言", path: "/docs/README" },
-        { text: "征集", path: "/docs/contribute/collection" },
-        { text: "贡献指南", path: "/docs/contribute/guide" },
-        { text: "快问快答", path: "/docs/faq" },
-      ],
-      featureCards: [
-        {
-          icon: "📚",
-          title: "新生指引",
-          description: "关于入学、厦大校园生活、心态调整等全方位建议。",
-          path: "/docs/README",
-        },
-        {
-          icon: "🎓",
-          title: "学习篇",
-          description: "学习规划、善用工具、小组作业指南，助你学业有成。",
-          path: "/docs/学习篇/全专业通用网站",
-        },
-        {
-          icon: "🏠",
-          title: "生活篇",
-          description: "校园设施、周边环境、医疗服务等生活指南。",
-          path: "/docs/生活篇/学校设施",
-        },
-        {
-          icon: "✈️",
-          title: "入学篇",
-          description: "行前准备、机场指南、宿舍信息等入学必备。",
-          path: "/docs/入学篇/行前指南",
-        },
-        {
-          icon: "🌏",
-          title: "人生篇",
-          description: "国际视野、生涯规划、关于厦马的更多了解。",
-          path: "/docs/人生篇/关于厦马",
-        },
-        {
-          icon: "🎯",
-          title: "升学篇",
-          description: "升学规划、申请经验、出路选择等指导。",
-          path: "/docs/升学篇",
-        },
-      ],
-    };
+    return { pages, HOME_PATH, REPO };
+  },
+  computed: {
+    cats() {
+      return categories();
+    },
+    recent() {
+      return [...this.pages]
+        .filter((p) => p.lastUpdated && p.path !== HOME_PATH)
+        .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
+        .slice(0, 5);
+    },
   },
   methods: {
-    navigateTo(path) {
-      if (path) {
-        console.log('HomePage navigating to:', path);
-        this.$router.push(path);
+    go(path) {
+      if (path) this.$router.push(path);
+    },
+    gradient(i) {
+      return GRADIENTS[i % GRADIENTS.length];
+    },
+    firstChildPath(node) {
+      for (const child of node.children || []) {
+        if (child.type === "page") return child.path;
+        const deep = this.firstChildPath(child);
+        if (deep) return deep;
       }
+      return null;
+    },
+    openCategory(cat) {
+      const p = this.firstChildPath(cat);
+      if (p) this.go(`/docs/${p}`);
+    },
+    countPages(node) {
+      let n = 0;
+      for (const child of node.children || []) {
+        if (child.type === "page") n++;
+        else n += this.countPages(child);
+      }
+      return n;
+    },
+    hint(cat) {
+      const titles = (cat.children || [])
+        .filter((c) => c.type === "page")
+        .slice(0, 3)
+        .map((c) => c.title)
+        .join("、");
+      return titles ? `包含 ${titles} 等` : "敬请期待";
+    },
+    fmtDate(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "";
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
     },
   },
 };
 </script>
 
 <style scoped>
-/* 整体页面基调 */
-.new-home-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  min-height: 100vh;
-  background-color: #ffffff;
-  color: #2c3e50;
-  position: relative;
-  padding-bottom: 120px; /* 留出页脚空间 */
+.home {
+  background: var(--bg-page);
+  color: var(--text-primary);
 }
 
-/* ===== Hero Section ===== */
-.hero-section {
-  position: relative;
-  width: 100%;
-  height: 480px; /* 可根据需要再调整 */
-  background-color: #f0f4f8;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 5%;
-  box-sizing: border-box;
+/* ===== Hero ===== */
+.hero {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 96px 24px 72px;
+  text-align: center;
 }
-
-/* 半透明覆盖层，让文字更突出 */
-.hero-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(44, 62, 80, 0.15);
-  z-index: 1;
+.hero-logo {
+  width: 88px;
+  height: auto;
+  margin-bottom: 28px;
+  animation: rise 0.7s var(--ease-out) both;
 }
-
-/* Hero 内容在最上层 */
-.hero-content {
-  position: relative;
-  z-index: 2;
-  max-width: 520px;
+html.dark .hero-logo { filter: brightness(0) invert(1); }
+.hero-kicker {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+  animation: rise 0.7s var(--ease-out) 0.05s both;
 }
-
-/* 大标题渐变文字 */
 .hero-title {
-  font-size: 3.8rem;
+  font-size: clamp(2.8rem, 7vw, 5.2rem);
   font-weight: 800;
-  margin: 0 0 0.3em;
-  background: linear-gradient(90deg, #42b983, #3498db);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  line-height: 1.1;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  margin-bottom: 26px;
+  animation: rise 0.8s var(--ease-out) 0.12s both;
 }
-
-/* 副标题 */
-.hero-subtitle {
-  font-size: 1.8rem;
-  font-weight: 500;
-  margin: 0 0 0.5em;
-  color: #34495e;
+.hero-sub {
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto 36px;
+  line-height: 1.6;
+  animation: rise 0.8s var(--ease-out) 0.2s both;
 }
-
-/* 简短引导语 */
-.hero-welcome {
-  font-size: 1.1rem;
-  margin-bottom: 1.2em;
-  color: #7f8c8d;
-}
-
-/* 按钮组 */
-.hero-cta-buttons {
+.hero-actions {
   display: flex;
+  gap: 14px;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
+  animation: rise 0.8s var(--ease-out) 0.28s both;
 }
-.hero-cta-buttons .cta-button {
-  background-color: #3498db;
-  color: #ffffff;
-  border: none;
-  padding: 12px 28px;
-  border-radius: 25px;
-  font-size: 1rem;
-  font-weight: 500;
+.hero-meta {
+  margin-top: 28px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  animation: rise 0.8s var(--ease-out) 0.36s both;
+}
+
+/* ===== Buttons (editorial pills) ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: 999px;
+  font-size: 0.98rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-  box-shadow: 0 4px 12px rgba(52, 73, 94, 0.12);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: transform 0.25s var(--ease-out), background 0.2s ease, color 0.2s ease,
+    border-color 0.2s ease, opacity 0.2s ease;
 }
-.hero-cta-buttons .cta-button:nth-child(2) {
-  background-color: #42b983;
+.btn-solid {
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
-.hero-cta-buttons .cta-button:hover {
+.btn-solid:hover { transform: translateY(-2px); opacity: 0.88; text-decoration: none; }
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.btn-outline:hover {
+  border-color: var(--text-primary);
+  text-decoration: none;
   transform: translateY(-2px);
 }
-.hero-cta-buttons .cta-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(52, 73, 94, 0.1);
-}
 
-/* Hero 右侧的图片/Logo 占位区域 */
-.hero-image-placeholder {
-  position: relative;
-  z-index: 2;
-  width: 360px;
-  height: 300px;
-  background-color: #e0e6ed;
-  border-radius: 12px;
-  flex-shrink: 0;
+/* ===== Section blocks ===== */
+.block {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+.block-head {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
 }
-
-.logo-graphic {
-  text-align: center;
-  color: #2c3e50;
-  font-family: "Georgia", serif;
-}
-.logo-text-main {
-  display: block;
-  font-size: 3em;
-  font-weight: bold;
-  line-height: 1;
-}
-.logo-text-p {
-  display: block;
-  font-size: 1.5em;
-  font-style: italic;
-  margin-top: 6px;
-  border-top: 2px dashed #7f8c8c;
-  padding-top: 6px;
-}
-
-/* ===== Features Section ===== */
-.features-section {
-  width: 100%;
-  max-width: 1400px;
-  margin: 80px auto 60px;
-  padding: 0 5%;
-  box-sizing: border-box;
-}
-
-.section-title {
-  text-align: center;
-  font-size: 2.5rem;
+.block-head h2 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
   font-weight: 700;
-  margin-bottom: 50px;
-  color: #2c3e50;
-  position: relative;
+  letter-spacing: -0.02em;
 }
+.block-head p { color: var(--text-secondary); font-size: 1rem; }
+.block-link { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.block-link:hover { text-decoration: none; opacity: 0.6; }
 
-.section-title::after {
-  content: '';
-  position: absolute;
-  bottom: -15px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 4px;
-  background: linear-gradient(90deg, #42b983, #3498db);
-  border-radius: 2px;
-}
-
-.cards-container {
+/* ===== Card grid (OpenAI-style: image tile + text below) ===== */
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 28px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 28px 24px;
 }
-
-.feature-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 16px;
-  padding: 32px 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.card { cursor: pointer; }
+.card-media {
   position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.feature-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, #42b983, #3498db);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-  border-color: rgba(66, 185, 131, 0.3);
-}
-
-.feature-card:hover::before {
-  transform: scaleX(1);
-}
-
-.card-icon {
-  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16px;
-  transition: transform 0.3s ease;
 }
-
-.feature-card:hover .card-icon {
-  transform: scale(1.1) rotate(5deg);
+.card-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.3s ease;
 }
-
-.feature-card h3 {
-  font-size: 1.4rem;
-  margin: 0 0 12px;
-  color: #2c3e50;
+.card:hover .card-media::after { background: rgba(0, 0, 0, 0.06); }
+.card-emoji {
+  font-size: 3.4rem;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25));
+  transition: transform 0.45s var(--ease-out);
+  z-index: 1;
+}
+.card:hover .card-emoji { transform: scale(1.12); }
+.card-count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
 }
-
-.feature-card p {
-  font-size: 1rem;
-  line-height: 1.7;
-  color: #666;
-  margin: 0;
-  flex-grow: 1;
-}
-
 .card-arrow {
-  margin-top: 16px;
-  font-size: 1.5rem;
-  color: #42b983;
+  font-size: 1rem;
   opacity: 0;
-  transform: translateX(-10px);
-  transition: all 0.3s ease;
+  transform: translateX(-6px);
+  transition: all 0.3s var(--ease-out);
+}
+.card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+.card-desc {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.feature-card:hover .card-arrow {
-  opacity: 1;
-  transform: translateX(0);
+/* ===== Latest list (editorial rows) ===== */
+.news { border-top: 1px solid var(--border); }
+.news-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto 24px;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: background 0.2s ease, padding-left 0.25s var(--ease-out);
 }
+.news-row:hover { background: var(--bg-subtle); padding-left: 20px; text-decoration: none; }
+.news-date { color: var(--text-muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.news-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; }
+.news-cat { color: var(--text-secondary); font-size: 0.85rem; }
+.news-go { color: var(--text-muted); opacity: 0; transition: opacity 0.2s ease; text-align: right; }
+.news-row:hover .news-go { opacity: 1; }
+
+/* ===== CTA ===== */
+.cta {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 80px 24px 96px;
+  text-align: center;
+}
+.cta h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; letter-spacing: -0.025em; margin-bottom: 14px; }
+.cta p { color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 30px; }
 
 /* ===== Footer ===== */
-.home-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: #2c3e50;
-  color: #bdc3c7;
-  text-align: center;
-  padding: 14px 0;
-  font-size: 0.9rem;
-  z-index: 100;
+.foot {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 32px 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
-.home-footer p {
-  margin: 2px 0;
+.foot span:first-child { font-weight: 700; color: var(--text-secondary); letter-spacing: -0.01em; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* ===== 响应式调整 ===== */
-@media (max-width: 1024px) {
-  .hero-section {
-    flex-direction: column;
-    height: auto;
-    padding: 60px 5%;
-  }
-  .hero-image-placeholder {
-    margin-top: 40px;
-    width: 280px;
-    height: 220px;
-  }
-  .hero-title {
-    font-size: 3rem;
-  }
-  .hero-subtitle {
-    font-size: 1.5rem;
-  }
-  .section-title {
-    font-size: 2rem;
-  }
-  .cards-container {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 24px;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 2.6rem;
-  }
-  .hero-subtitle {
-    font-size: 1.3rem;
-  }
-  .hero-cta-buttons .cta-button {
-    padding: 10px 24px;
-    font-size: 0.95rem;
-  }
-  .hero-image-placeholder {
-    width: 240px;
-    height: 180px;
-  }
-  .section-title {
-    font-size: 1.8rem;
-    margin-bottom: 35px;
-  }
-  .features-section {
-    margin: 50px auto 40px;
-  }
-}
-
-@media (max-width: 480px) {
-  .cards-container {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  .features-section {
-    margin: 40px auto 30px;
-    padding: 0 4%;
-  }
-  .feature-card {
-    padding: 24px 20px;
-  }
-  .section-title {
-    font-size: 1.6rem;
-  }
-  .hero-title {
-    font-size: 2.2rem;
-  }
-  .hero-subtitle {
-    font-size: 1.2rem;
-  }
-  .hero-welcome {
-    font-size: 1rem;
-  }
-  .hero-cta-buttons {
-    gap: 8px;
-  }
-  .hero-cta-buttons .cta-button {
-    padding: 8px 20px;
-    font-size: 0.9rem;
-  }
+@media (max-width: 640px) {
+  .hero { padding: 64px 20px 48px; }
+  .news-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .news-date { grid-column: 1 / -1; order: 3; }
+  .news-go { display: none; }
 }
 </style>

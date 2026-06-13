@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run generate-sidebar && vite",
-    "build": "npm run generate-sidebar && vite build",
+    "dev": "npm run wiki:manifest && vite",
+    "build": "npm run wiki:manifest && vite build",
     "preview": "vite preview",
-    "generate-sidebar": "node scripts/generate-sidebar.cjs"
+    "wiki:manifest": "node scripts/generate-manifest.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
