@@ -1,59 +1,52 @@
 <template>
-  <div class="markdown-container" :class="{ 'body-freeze-for-drawer': isTocDrawerOpen && isMobileView }">
-    <!-- Toggle Button for Mobile Drawer -->
+  <div class="markdown-container">
+    <!-- 移动端目录抽屉开关 -->
     <button
-        class="toc-drawer-toggle"
-        @click="toggleTocDrawer"
-        v-if="showTocToggle && tocItems.length > 0"
-        aria-label="Toggle Table of Contents"
-        :aria-expanded="isTocDrawerOpen.toString()"
+      v-if="isMobileView && tocItems.length > 0"
+      class="toc-drawer-toggle"
+      @click="isTocDrawerOpen = !isTocDrawerOpen"
+      :aria-expanded="isTocDrawerOpen.toString()"
+      aria-label="目录"
     >
       ☰
     </button>
 
     <div class="main-content-area">
-      <div class="markdown-body" v-html="renderedHtml"></div>
+      <div ref="bodyEl" class="markdown-body" v-html="renderedHtml"></div>
     </div>
 
-    <!-- Overlay for Mobile Drawer -->
+    <!-- 移动端遮罩 -->
     <div
-        class="toc-overlay"
-        v-if="isTocDrawerOpen && isMobileView"
-        @click="closeTocDrawer"
+      v-if="isTocDrawerOpen && isMobileView"
+      class="toc-overlay"
+      @click="isTocDrawerOpen = false"
     ></div>
 
-    <!-- Table of Contents Sidebar / Drawer -->
+    <!-- 目录 -->
     <aside
-        class="toc-sidebar-area"
-        :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
-        v-if="tocItems.length > 0"
-        role="navigation"
-        aria-labelledby="toc-title-id"
+      v-if="tocItems.length > 0"
+      class="toc-sidebar-area"
+      :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
+      role="navigation"
     >
       <div class="toc-container">
         <button
-            class="toc-drawer-close-btn"
-            @click="closeTocDrawer"
-            v-if="isMobileView"
-            aria-label="Close Table of Contents"
-        >
-          &times;
-        </button>
-        <div class="toc-title" id="toc-title-id">目录</div>
-        <div class="toc-content">
-          <ul class="toc-list">
-            <li
-                v-for="item in tocItems"
-                :key="item.id"
-                :class="`toc-level-${item.level}`"
-                class="toc-item"
-            >
-              <a :href="'#' + item.id" @click="handleTocLinkClick(item.id, $event)">
-                {{ item.text }}
-              </a>
-            </li>
-          </ul>
-        </div>
+          v-if="isMobileView"
+          class="toc-drawer-close-btn"
+          @click="isTocDrawerOpen = false"
+          aria-label="关闭目录"
+        >&times;</button>
+        <div class="toc-title">目录</div>
+        <ul class="toc-list">
+          <li
+            v-for="item in tocItems"
+            :key="item.id"
+            :class="[`toc-level-${item.level}`, { 'is-active': item.id === activeHeading }]"
+            class="toc-item"
+          >
+            <a :href="'#' + item.id" @click="onTocClick(item.id, $event)">{{ item.text }}</a>
+          </li>
+        </ul>
       </div>
     </aside>
   </div>
@@ -61,130 +54,177 @@
 
 <script>
 import MarkdownIt from "markdown-it";
-import 'github-markdown-css';
+
+const MOBILE_BREAKPOINT = 992;
+
+function slugify(s) {
+  return String(s)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w一-龥-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 export default {
   name: "MarkdownRenderer",
   props: {
-    content: {
-      type: String,
-      required: true,
-    },
+    content: { type: String, required: true },
+    // 当前文档所在目录，用于把相对图片/链接解析为绝对路径
+    basePath: { type: String, default: "" },
   },
   data() {
     return {
+      renderedHtml: "",
       tocItems: [],
+      activeHeading: "",
       isTocDrawerOpen: false,
       isMobileView: false,
-      showTocToggle: false,
+      scrollSpy: null,
     };
   },
-  computed: {
-    renderedHtml() {
-      if (!this.content) {
-        return "";
-      }
-      this.tocItems = [];
-      const slugify = (s) => String(s).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fa5\-]/g, '').replace(/\-\-+/g, '-').replace(/^-+|-+$/g, '');
-      const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
-      const originalHeadingOpen = md.renderer.rules.heading_open || function (tokens, idx, options, env, self) { return self.renderToken(tokens, idx, options); };
-      md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
-        const token = tokens[idx];
-        const level = parseInt(token.tag.substring(1));
-        const contentToken = tokens[idx + 1];
-        if (contentToken && contentToken.type === 'inline') {
-          const text = contentToken.content;
-          const id = slugify(text);
-          this.tocItems.push({ level, text, id });
-          token.attrSet('id', id);
-        }
-        return originalHeadingOpen(tokens, idx, options, env, self);
-      };
-      const defaultRender = md.renderer.rules.link_open || function (tokens, idx, options, env, self) { return self.renderToken(tokens, idx, options); };
-      md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
-        const token = tokens[idx];
-        const hrefIndex = token.attrIndex("href");
-        if (hrefIndex >= 0) {
-          const hrefAttr = token.attrs[hrefIndex];
-          let originalHref = hrefAttr[1];
-          if (originalHref && !originalHref.startsWith("http") && !originalHref.startsWith("/") && originalHref.endsWith(".md")) {
-            hrefAttr[1] = `/docs/${originalHref.substring(0, originalHref.length - 3)}`;
-          } else if (originalHref && originalHref.startsWith("./") && originalHref.endsWith(".md")) {
-            hrefAttr[1] = `/docs/${originalHref.substring(2, originalHref.length - 3)}`;
-          }
-        }
-        return defaultRender(tokens, idx, options, env, self);
-      };
-      return md.render(this.content);
-    },
+  watch: {
+    content: { immediate: true, handler() { this.render(); } },
+    basePath() { this.render(); },
   },
   methods: {
-    scrollToHeading(id, event) {
-      if (event) event.preventDefault();
-      const element = document.getElementById(id);
-      if (element) {
-        element.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-        window.history.pushState(null, null, `#${id}`);
-      }
-    },
-    handleTocLinkClick(id, event) {
-      this.scrollToHeading(id, event);
-      if (this.isMobileView && this.isTocDrawerOpen) {
-        this.closeTocDrawer();
-      }
-    },
-    openTocDrawer() {
-      this.isTocDrawerOpen = true;
-      // Optional: Add class to body to prevent scrolling if needed
-      // document.body.classList.add('no-scroll');
-    },
-    closeTocDrawer() {
-      this.isTocDrawerOpen = false;
-      // Optional: Remove class from body
-      // document.body.classList.remove('no-scroll');
-    },
-    toggleTocDrawer() {
-      if (this.isTocDrawerOpen) {
-        this.closeTocDrawer();
-      } else {
-        this.openTocDrawer();
-      }
-    },
-    checkIfMobileView() {
-      const mobileBreakpoint = 992; // Same as CSS media query
-      this.isMobileView = window.innerWidth <= mobileBreakpoint;
-      this.showTocToggle = this.isMobileView;
+    render() {
+      const toc = [];
+      const usedIds = new Set();
+      const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
 
-      // If resizing from mobile to desktop and drawer was open, ensure it's closed
-      // and styles are appropriate for desktop.
-      if (!this.isMobileView && this.isTocDrawerOpen) {
-        this.closeTocDrawer();
+      // 标题：注入 id 并收集目录
+      const origHeading =
+        md.renderer.rules.heading_open ||
+        ((t, i, o, e, s) => s.renderToken(t, i, o));
+      md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        const level = parseInt(token.tag.substring(1), 10);
+        const inline = tokens[idx + 1];
+        if (inline && inline.type === "inline") {
+          const text = inline.content;
+          let id = slugify(text) || `h-${idx}`;
+          let unique = id;
+          let n = 1;
+          while (usedIds.has(unique)) unique = `${id}-${n++}`;
+          usedIds.add(unique);
+          token.attrSet("id", unique);
+          if (level >= 1 && level <= 4) toc.push({ level, text, id: unique });
+        }
+        return origHeading(tokens, idx, options, env, self);
+      };
+
+      // 链接：相对 .md 链接 → /docs 路由
+      const base = this.basePath ? this.basePath.replace(/\/$/, "") + "/" : "";
+      md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        const hi = token.attrIndex("href");
+        if (hi >= 0) {
+          let href = token.attrs[hi][1];
+          if (href && !/^(https?:|\/|#|mailto:)/.test(href)) {
+            const clean = href.replace(/^\.\//, "");
+            if (/\.md$/i.test(clean)) {
+              token.attrs[hi][1] = `/docs/${base}${clean.replace(/\.md$/i, "")}`;
+            } else {
+              token.attrs[hi][1] = `/docs/${base}${clean}`;
+            }
+          }
+          if (/^https?:/.test(href)) {
+            token.attrSet("target", "_blank");
+            token.attrSet("rel", "noopener noreferrer");
+          }
+        }
+        return self.renderToken(tokens, idx, options);
+      };
+
+      // 图片：相对路径 → /docs/<dir>/...
+      md.renderer.rules.image = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        const si = token.attrIndex("src");
+        if (si >= 0) {
+          let src = token.attrs[si][1];
+          if (src && !/^(https?:|\/|data:)/.test(src)) {
+            token.attrs[si][1] = `/docs/${base}${src.replace(/^\.\//, "")}`;
+          }
+        }
+        token.attrSet("loading", "lazy");
+        return self.renderToken(tokens, idx, options);
+      };
+
+      this.renderedHtml = md.render(this.content || "");
+      this.tocItems = toc;
+      this.$nextTick(() => {
+        this.enhanceCodeBlocks();
+        this.setupScrollSpy();
+      });
+    },
+    enhanceCodeBlocks() {
+      const root = this.$refs.bodyEl;
+      if (!root) return;
+      root.querySelectorAll("pre").forEach((pre) => {
+        if (pre.querySelector(".code-copy-btn")) return;
+        pre.style.position = "relative";
+        const btn = document.createElement("button");
+        btn.className = "code-copy-btn";
+        btn.type = "button";
+        btn.textContent = "复制";
+        btn.addEventListener("click", async () => {
+          const code = pre.querySelector("code");
+          try {
+            await navigator.clipboard.writeText(code ? code.innerText : pre.innerText);
+            btn.textContent = "已复制";
+            setTimeout(() => (btn.textContent = "复制"), 1500);
+          } catch {
+            btn.textContent = "复制失败";
+          }
+        });
+        pre.appendChild(btn);
+      });
+    },
+    setupScrollSpy() {
+      if (this.scrollSpy) this.scrollSpy.disconnect();
+      if (this.tocItems.length === 0) return;
+      this.scrollSpy = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) this.activeHeading = entry.target.id;
+          }
+        },
+        { rootMargin: `-${70}px 0px -70% 0px`, threshold: 0 }
+      );
+      this.tocItems.forEach((item) => {
+        const el = document.getElementById(item.id);
+        if (el) this.scrollSpy.observe(el);
+      });
+    },
+    onTocClick(id, event) {
+      event.preventDefault();
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(history.state, "", `#${id}`);
+        this.activeHeading = id;
       }
+      if (this.isMobileView) this.isTocDrawerOpen = false;
+    },
+    checkMobile() {
+      this.isMobileView = window.innerWidth <= MOBILE_BREAKPOINT;
+      if (!this.isMobileView) this.isTocDrawerOpen = false;
     },
   },
   mounted() {
-    this.checkIfMobileView();
-    window.addEventListener('resize', this.checkIfMobileView);
+    this.checkMobile();
+    window.addEventListener("resize", this.checkMobile);
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this.checkIfMobileView);
-    // Clean up body class if it was added
-    // document.body.classList.remove('no-scroll');
+    window.removeEventListener("resize", this.checkMobile);
+    if (this.scrollSpy) this.scrollSpy.disconnect();
   },
 };
 </script>
 
 <style>
-/* 确保导入的 github-markdown-css 样式能够正确应用 */
-/* github-markdown-css 的样式已经通过 import 'github-markdown-css' 引入 */
-
-:root {
-  --header-height: 60px;
-}
-
 .markdown-container {
   display: flex;
   position: relative;
@@ -193,273 +233,249 @@ export default {
   margin: 0 auto;
   gap: 32px;
   padding: 0 20px;
+  align-items: flex-start;
 }
 
 .main-content-area {
   flex: 1;
   min-width: 0;
-  max-width: 900px;
-  margin: 20px 0;
-  box-sizing: border-box;
+  margin: 0;
 }
 
+/* ---- markdown 正文（自带主题，不依赖 github-markdown-css，便于暗色） ---- */
 .markdown-body {
-  padding: 32px;
-  box-sizing: border-box;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  color: #24292f;
-  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,"PingFang SC","Microsoft YaHei",sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+  padding: 36px 40px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-body);
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.75;
   word-wrap: break-word;
-  transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease, background-color 0.3s ease;
 }
+.markdown-body:hover { box-shadow: var(--shadow-md); }
 
-.markdown-body:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.6em 0 0.6em;
+  scroll-margin-top: 80px;
 }
-
-/* Desktop TOC styles */
-.toc-sidebar-area {
-  width: 280px;
-  margin-top: 20px;
-  box-sizing: border-box;
+.markdown-body h1 { font-size: 1.9rem; margin-top: 0; }
+.markdown-body h2 {
+  font-size: 1.5rem;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
 }
+.markdown-body h3 { font-size: 1.25rem; }
+.markdown-body h4 { font-size: 1.05rem; }
+.markdown-body p { margin: 0.9em 0; }
+.markdown-body a { color: var(--brand-blue); font-weight: 500; }
+.markdown-body ul,
+.markdown-body ol { padding-left: 1.6em; margin: 0.8em 0; }
+.markdown-body li { margin: 0.35em 0; }
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  margin: 0.8em 0;
+}
+.markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
 
-.toc-container {
+.markdown-body blockquote {
+  border-left: 4px solid var(--brand);
+  padding: 8px 18px;
+  margin: 1.2em 0;
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.markdown-body blockquote p { margin: 0.3em 0; }
+
+.markdown-body table {
+  border-collapse: collapse;
   width: 100%;
+  margin: 1.4em 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  text-align: left;
+}
+.markdown-body th { background-color: var(--bg-subtle); color: var(--text-primary); font-weight: 600; }
+.markdown-body tr:nth-child(2n) { background-color: var(--bg-subtle); }
+
+.markdown-body code {
+  padding: 0.15em 0.4em;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.88em;
+  color: var(--brand-strong);
+}
+.markdown-body pre {
+  position: relative;
+  padding: 16px 18px;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 1.2em 0;
+}
+.markdown-body pre code {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-body);
+}
+.markdown-body details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin: 0.8em 0;
+  background: var(--bg-surface);
+}
+.markdown-body summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.markdown-body pre:hover .code-copy-btn { opacity: 1; }
+.code-copy-btn:hover { color: var(--brand); border-color: var(--brand); }
+
+/* ---- 目录 ---- */
+.toc-sidebar-area { width: 240px; flex-shrink: 0; }
+.toc-container {
   position: sticky;
   top: 80px;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
-  padding: 24px 18px;
-  font-size: 14px;
-  box-sizing: border-box;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  transition: box-shadow 0.3s ease;
+  padding: 20px 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
-
-.toc-container:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-}
-
 .toc-title {
   font-weight: 700;
-  margin-bottom: 18px;
-  font-size: 18px;
-  color: #2c3e50;
-  text-align: left;
-  padding-left: 5px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #e4e7ed;
+  font-size: 15px;
+  color: var(--text-primary);
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
-
-.toc-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  text-align: left;
-  width: 100%;
-}
-
+.toc-list { list-style: none; padding: 0; margin: 0; }
 .toc-item a {
   display: block;
-  padding: 10px 12px;
-  color: #555;
-  text-decoration: none;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.5;
   border-radius: 6px;
-  font-size: 14px;
-  line-height: 1.6;
-  transition: all 0.2s ease;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: left;
-  border-left: 3px solid transparent;
-  position: relative;
+  border-left: 2px solid transparent;
+  transition: all 0.18s ease;
+  text-decoration: none;
 }
-
-.toc-item a:hover {
-  background-color: #f0f7ff;
-  color: #0c64c1;
-  border-left-color: #42b983;
-  padding-left: 16px;
+.toc-item a:hover { background: var(--bg-hover); color: var(--brand-blue); }
+.toc-item.is-active a {
+  color: var(--brand-blue);
+  background: var(--bg-hover);
+  border-left-color: var(--brand);
+  font-weight: 600;
 }
+.toc-level-1 a { font-weight: 600; }
+.toc-level-2 a { padding-left: 18px; }
+.toc-level-3 a { padding-left: 30px; font-size: 13px; }
+.toc-level-4 a { padding-left: 42px; font-size: 12.5px; color: var(--text-muted); }
 
-.toc-item a:active {
-  color: #42b983;
-  background-color: #e6f7ff;
-  border-left-color: #0c64c1;
-}
-
-.toc-level-1 a { font-weight: 600; color: #2c3e50; font-size: 14.5px; }
-.toc-level-2 a { padding-left: 28px; }
-.toc-level-3 a { padding-left: 44px; font-size: 13.5px; }
-.toc-level-4 a { padding-left: 60px; font-size: 13px; color: #7f8c8d; }
-.toc-level-5 a, .toc-level-6 a { padding-left: 76px; font-size: 12.5px; color: #95a5a6; }
-
-.toc-level-1 a:hover { padding-left: 16px; }
-.toc-level-2 a:hover { padding-left: 32px; }
-.toc-level-3 a:hover { padding-left: 48px; }
-.toc-level-4 a:hover { padding-left: 64px; }
-.toc-level-5 a:hover, .toc-level-6 a:hover { padding-left: 80px; }
-
-
-/* --- Drawer Specific Styles --- */
+/* ---- 移动端目录抽屉 ---- */
 .toc-drawer-toggle {
   display: none;
   position: fixed;
-  right: 20px;
+  top: calc(var(--header-height) + 14px);
+  right: 16px;
   z-index: 1005;
-  background: linear-gradient(135deg, #42b983 0%, #3498db 100%);
-  color: white;
+  width: 44px;
+  height: 44px;
   border: none;
-  padding: 12px 16px;
   border-radius: 50%;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: 20px;
   cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
-  box-shadow: 0 4px 16px rgba(66, 185, 131, 0.4);
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
 }
-
-.toc-drawer-toggle:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(66, 185, 131, 0.5);
-}
-
-.toc-drawer-toggle:active {
-  transform: scale(0.95);
-}
-
 .toc-overlay {
-  display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
-  z-index: 999;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
 }
-
 .toc-drawer-close-btn {
   display: none;
   position: absolute;
-  top: 10px;
-  right: 15px;
+  top: 8px;
+  right: 12px;
   background: none;
   border: none;
-  font-size: 28px;
-  color: #777;
+  font-size: 26px;
+  color: var(--text-muted);
   cursor: pointer;
-  padding: 5px;
-  line-height: 1;
-  z-index: 10;
-}
-.toc-drawer-close-btn:hover {
-  color: #333;
 }
 
-.body-freeze-for-drawer {
-  /* overflow: hidden; */
-}
-
-
-/* --- Responsive Design for Drawer (Mobile) --- */
 @media (max-width: 992px) {
-  .toc-drawer-toggle {
-    display: block;
-    top: calc(var(--header-height) + 15px); /* 定位到页头下方，并增加15px间距 */
-    /* right: 15px; */ /* 已在全局样式中设置 */
-  }
-
-  .main-content-area {
-    margin: 20px 15px;
-    order: 0;
-  }
-
-  .markdown-container {
-    flex-direction: column;
-    gap: 0;
-  }
-
+  .markdown-container { flex-direction: column; gap: 0; padding: 0 12px; }
+  .toc-drawer-toggle { display: block; }
+  .toc-drawer-close-btn { display: block; }
   .toc-sidebar-area {
     position: fixed;
-    top: var(--header-height); /* 抽屉从页头下方开始 */
+    top: var(--header-height);
     right: 0;
     width: 280px;
-    height: calc(100vh - var(--header-height)); /* 抽屉高度为视口高度减去页头高度 */
-    background-color: #ffffff;
-    box-shadow: -3px 0 10px rgba(0,0,0,0.1);
+    max-width: 85vw;
+    height: calc(100vh - var(--header-height));
+    z-index: 1001;
     transform: translateX(100%);
-    transition: transform 0.3s ease-in-out;
-    z-index: 1000;
-    margin-top: 0;
-    display: flex;
-    flex-direction: column;
+    transition: transform 0.3s ease;
   }
-
-  .toc-sidebar-area.is-drawer-open {
-    transform: translateX(0);
-  }
-
+  .toc-sidebar-area.is-drawer-open { transform: translateX(0); }
   .toc-container {
     position: static;
+    height: 100%;
     max-height: none;
-    overflow-y: auto;
-    box-shadow: none;
     border-radius: 0;
-    flex-grow: 1;
-    padding-top: 50px; /* 为关闭按钮留出空间 */
-    padding-bottom: 20px;
-  }
-
-  .toc-title {
-    padding-left: 15px;
-    margin-top: 0;
-  }
-
-  .toc-drawer-close-btn {
-    display: block;
+    padding-top: 44px;
   }
 }
 
 @media (max-width: 768px) {
-  .markdown-container {
-    padding: 0 12px;
-  }
-  
-  .main-content-area {
-    margin: 12px 0;
-  }
-  
-  .markdown-body {
-    padding: 20px 16px;
-    border-radius: 8px;
-  }
-  
-  .toc-sidebar-area {
-    width: 280px;
-  }
-  
-  .toc-drawer-toggle {
-    top: calc(var(--header-height) + 12px);
-    right: 12px;
-    padding: 10px 14px;
-    font-size: 20px;
-  }
-  
-  .toc-item a {
-    font-size: 13px;
-    padding: 8px 10px;
-  }
-  
-  .toc-level-3 a, .toc-level-4 a, .toc-level-5 a, .toc-level-6 a {
-    font-size: 12.5px;
-  }
+  .markdown-body { padding: 22px 18px; border-radius: var(--radius-sm); }
 }
 </style>

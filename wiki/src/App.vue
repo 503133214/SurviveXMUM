@@ -20,23 +20,12 @@ export default {
 
 <style>
 #app {
-  font-family: 'Helvetica Neue', Avenir, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
+  color: var(--text-body);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-/* 路由过渡动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

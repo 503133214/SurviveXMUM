@@ -1,36 +1,28 @@
 <template>
-  <header class="site-header">
+  <header class="site-header" :class="{ scrolled: isScrolled }">
     <div class="logo" @click="goHome" role="button" tabindex="0" aria-label="返回首页">
-      <span class="logo-text">XMUM Wiki</span>
+      <img src="/svg/Text_logo_hor.svg" alt="XMUM Wiki" class="logo-img" />
     </div>
 
     <div class="search-container">
-      <el-input
-        v-model="searchQuery"
-        placeholder="搜索相关内容..."
-        class="search-input"
-        clearable
-        @keyup.enter="handleSearch"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
+      <GlobalSearch />
     </div>
 
     <nav v-if="!isMobileView" class="desktop-nav">
-      <router-link to="/">
-        <el-button type="primary">Home</el-button>
-      </router-link>
-      <router-link to="/docs/README">Docs</router-link>
-      <router-link to="/forums">论坛</router-link>
-      <router-link to="/feedback">反馈</router-link>
-      <a href="https://github.com/503133214/SurviveXMUM" target="_blank" rel="noopener noreferrer">GitHub</a>
-      <div>
+      <router-link to="/">首页</router-link>
+      <router-link :to="`/docs/${HOME_PATH}`">文档</router-link>
+      <router-link v-if="backendEnabled" to="/feedback">反馈</router-link>
+      <a :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
+
+      <button class="theme-toggle" @click="toggleTheme" :aria-label="isDark ? '切换到亮色' : '切换到暗色'">
+        {{ isDark ? '☀️' : '🌙' }}
+      </button>
+
+      <template v-if="backendEnabled">
         <router-link to="/login" v-if="!hasToken">
-          <el-button>登录</el-button>
+          <el-button type="primary" round>登录</el-button>
         </router-link>
-        <el-dropdown v-if="hasToken" @command="handleUserCommand">
+        <el-dropdown v-else @command="handleUserCommand">
           <span class="el-dropdown-link">
             <el-avatar v-if="userAvatar" :src="userAvatar" :size="32" />
             <el-avatar v-else :size="32">{{ userName.charAt(0) }}</el-avatar>
@@ -53,28 +45,29 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-      </div>
+      </template>
     </nav>
 
-    <div v-if="isMobileView" class="mobile-nav">
+    <div v-else class="mobile-nav">
+      <button class="theme-toggle" @click="toggleTheme" aria-label="切换主题">
+        {{ isDark ? '☀️' : '🌙' }}
+      </button>
       <el-dropdown trigger="click" @command="handleMobileNavCommand">
         <el-button :icon="MenuIcon" text circle aria-label="导航菜单"></el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="/">
-              <el-button type="primary">Home</el-button>
-            </el-dropdown-item>
-            <el-dropdown-item command="/docs/README">Docs</el-dropdown-item>
-            <el-dropdown-item command="/forums">论坛</el-dropdown-item>
-            <el-dropdown-item command="/feedback">反馈</el-dropdown-item>
+            <el-dropdown-item command="/">首页</el-dropdown-item>
+            <el-dropdown-item :command="`/docs/${HOME_PATH}`">文档</el-dropdown-item>
+            <el-dropdown-item v-if="backendEnabled" command="/feedback">反馈</el-dropdown-item>
             <el-dropdown-item command="github" divided>GitHub</el-dropdown-item>
-            <el-dropdown-item command="website">官网</el-dropdown-item>
-            <template v-if="hasToken">
-              <el-dropdown-item command="/profile" divided>个人中心</el-dropdown-item>
-              <el-dropdown-item command="/favorites">我的收藏</el-dropdown-item>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+            <template v-if="backendEnabled">
+              <template v-if="hasToken">
+                <el-dropdown-item command="/profile" divided>个人中心</el-dropdown-item>
+                <el-dropdown-item command="/favorites">我的收藏</el-dropdown-item>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              </template>
+              <el-dropdown-item v-else command="login" divided>登录</el-dropdown-item>
             </template>
-            <el-dropdown-item v-else command="login" divided>登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -83,28 +76,35 @@
 </template>
 
 <script>
-import { Menu, Search, User, Star, ChatDotRound, SwitchButton } from '@element-plus/icons-vue';
+import { markRaw } from "vue";
+import { Menu, User, Star, ChatDotRound, SwitchButton } from "@element-plus/icons-vue";
 import { logout, takeAccessToken } from "@/net/index.js";
-import { useUserStore } from '@/store/userStore.js';
+import { useUserStore } from "@/store/userStore.js";
+import { useTheme } from "@/composables/useTheme.js";
+import GlobalSearch from "@/components/GlobalSearch.vue";
+import { HOME_PATH, REPO } from "@/wiki";
+import { BACKEND_ENABLED } from "@/config.js";
 
 const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: {
-    User,
-    Search,
-    Star,
-    ChatDotRound,
-    SwitchButton
+  components: { GlobalSearch, User, Star, ChatDotRound, SwitchButton },
+  setup() {
+    const { isDark, toggleTheme } = useTheme();
+    return { isDark, toggleTheme };
   },
   data() {
     return {
       isMobileView: false,
-      MenuIcon: Menu,
+      isScrolled: false,
+      MenuIcon: markRaw(Menu),
       resizeTimeout: null,
       tokenCheckCounter: 0,
-      searchQuery: '',
+      tokenCheckInterval: null,
+      backendEnabled: BACKEND_ENABLED,
+      HOME_PATH,
+      REPO,
     };
   },
   computed: {
@@ -114,13 +114,11 @@ export default {
       return token && token.trim && token.trim().length > 0;
     },
     userName() {
-      const store = useUserStore();
-      return store.username || '用户';
+      return useUserStore().username || "用户";
     },
     userAvatar() {
-      const store = useUserStore();
-      return store.avatar || '';
-    }
+      return useUserStore().avatar || "";
+    },
   },
   methods: {
     refreshTokenStatus() {
@@ -129,62 +127,54 @@ export default {
     goHome() {
       this.$router.push("/");
     },
-    handleSearch() {
-      if (this.searchQuery.trim()) {
-        console.log('搜索:', this.searchQuery);
-      }
-    },
-    UserLogout(){
+    UserLogout() {
       const userStore = useUserStore();
       logout(() => {
         userStore.clearUserInfo();
         this.refreshTokenStatus();
-        window.location.href = '/';
+        window.location.href = "/";
       });
     },
     handleUserCommand(command) {
-      if (command === 'logout') {
-        this.UserLogout();
-      } else {
-        this.$router.push(command);
-      }
+      if (command === "logout") this.UserLogout();
+      else this.$router.push(command);
     },
     checkMobileView() {
       this.isMobileView = window.innerWidth <= MOBILE_BREAKPOINT;
     },
     handleResize() {
       clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = setTimeout(() => {
-        this.checkMobileView();
-      }, 100);
+      this.resizeTimeout = setTimeout(this.checkMobileView, 100);
+    },
+    handleScroll() {
+      this.isScrolled = window.scrollY > 8;
     },
     handleMobileNavCommand(command) {
-      if (command === 'github') {
-        window.open('https://github.com/503133214/SurviveXMUM', '_blank', 'noopener,noreferrer');
-      } else if (command === 'website') {
-        window.open('https://your-site.com', '_blank', 'noopener,noreferrer');
-      } else if (command === 'logout') {
+      if (command === "github") {
+        window.open(REPO, "_blank", "noopener,noreferrer");
+      } else if (command === "login") {
+        this.$router.push("/login");
+      } else if (command === "logout") {
         this.UserLogout();
       } else if (command) {
         this.$router.push(command);
       }
-    }
+    },
   },
   mounted() {
     this.checkMobileView();
-    window.addEventListener('resize', this.handleResize);
-    this.tokenCheckInterval = setInterval(() => {
-      this.refreshTokenStatus();
-    }, 30000);
-    window.addEventListener('storage', this.refreshTokenStatus);
+    this.handleScroll();
+    window.addEventListener("resize", this.handleResize);
+    window.addEventListener("scroll", this.handleScroll, { passive: true });
+    this.tokenCheckInterval = setInterval(this.refreshTokenStatus, 30000);
+    window.addEventListener("storage", this.refreshTokenStatus);
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this.handleResize);
-    window.removeEventListener('storage', this.refreshTokenStatus);
+    window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("scroll", this.handleScroll);
+    window.removeEventListener("storage", this.refreshTokenStatus);
     clearTimeout(this.resizeTimeout);
-    if (this.tokenCheckInterval) {
-      clearInterval(this.tokenCheckInterval);
-    }
+    if (this.tokenCheckInterval) clearInterval(this.tokenCheckInterval);
   },
 };
 </script>
@@ -194,19 +184,20 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  height: var(--header-height);
   padding: 0 20px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--glass-bg);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid transparent;
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
-
-.site-header:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+.site-header.scrolled {
+  border-bottom-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .logo {
@@ -214,131 +205,104 @@ export default {
   align-items: center;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
 }
-
-.logo:hover {
-  transform: scale(1.05);
+.logo:hover { opacity: 0.75; }
+.logo-img {
+  height: 26px;
+  width: auto;
+  display: block;
 }
-
-.logo-text {
-  font-size: 22px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #0c64c1 0%, #42b983 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+html.dark .logo-img { filter: brightness(0) invert(1); }
 
 .search-container {
   flex: 1;
-  max-width: 400px;
-  padding: 0 20px;
-}
-
-.search-input {
-  width: 100%;
-}
-
-.search-input :deep(.el-input__wrapper) {
-  border-radius: 20px;
-  transition: all 0.3s ease;
-}
-
-.search-input :deep(.el-input__wrapper):hover,
-.search-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px #0c64c1 inset;
+  max-width: 440px;
+  padding: 0 24px;
 }
 
 .desktop-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 6px;
+  flex-shrink: 0;
 }
-
-.desktop-nav a {
-  color: #333;
-  text-decoration: none;
+.desktop-nav > a {
+  color: var(--text-secondary);
   font-weight: 500;
-  font-size: 15px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  font-size: 14.5px;
+  padding: 7px 12px;
+  border-radius: 8px;
   position: relative;
+  transition: color 0.2s ease, background 0.2s ease;
 }
+.desktop-nav > a:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+  text-decoration: none;
+}
+.desktop-nav .router-link-active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.desktop-nav :deep(.el-button) { margin-left: 6px; }
 
-.desktop-nav a::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #0c64c1, #42b983);
-  transition: width 0.3s ease;
+/* 登录按钮：编辑风纯黑/纯白 */
+:deep(.el-button--primary) {
+  --el-button-bg-color: var(--accent);
+  --el-button-border-color: var(--accent);
+  --el-button-text-color: var(--accent-contrast);
+  --el-button-hover-bg-color: var(--accent);
+  --el-button-hover-border-color: var(--accent);
+  --el-button-hover-text-color: var(--accent-contrast);
+  --el-button-active-bg-color: var(--accent);
+  --el-button-active-border-color: var(--accent);
+  font-weight: 600;
 }
+:deep(.el-button--primary:hover) { opacity: 0.88; }
 
-.desktop-nav a:hover {
-  color: #0c64c1;
-  background-color: #f0f7ff;
+.theme-toggle {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s var(--ease-spring), border-color 0.2s ease, background 0.2s ease;
 }
+.theme-toggle:hover {
+  border-color: var(--brand);
+  background: var(--bg-hover);
+  transform: rotate(40deg) scale(1.08);
+}
+.theme-toggle:active { transform: rotate(180deg) scale(0.95); }
 
-.desktop-nav a:hover::after {
-  width: 80%;
-}
-
-.desktop-nav .router-link-active,
-.desktop-nav .router-link-exact-active {
-  color: #0c64c1;
-  background-color: #f0f7ff;
-}
-
-.desktop-nav .router-link-active::after,
-.desktop-nav .router-link-exact-active::after {
-  width: 80%;
-}
-
-.mobile-nav .el-button {
-  color: #333;
-  font-size: 20px;
-}
+.mobile-nav { display: flex; align-items: center; gap: 8px; }
 
 .el-dropdown-link {
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: opacity 0.2s ease;
 }
-
-.el-dropdown-link:hover {
-  opacity: 0.8;
-}
-
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Responsive adjustments */
 @media (max-width: 767px) {
-  .site-header {
-    padding: 0 12px;
-  }
-
-  .search-container {
-    max-width: 200px;
-    padding: 0 12px;
-  }
-
-  .logo-text {
-    font-size: 18px;
-  }
+  .site-header { padding: 0 12px; }
+  .search-container { max-width: none; padding: 0 10px; }
+  .logo-text { font-size: 17px; }
 }
 </style>
