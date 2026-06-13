@@ -32,20 +32,26 @@ const OUTPUT_PATH = path.resolve(__dirname, '../src/wiki.data.js');
 // Categories listed here keep this order; anything else is appended by `order`
 // then alphabetically. Tweak freely — unknown folders still show up.
 const DEFAULT_CATEGORY_ORDER = [
-  '入学篇',
-  '学习篇',
-  '生活篇',
   '人生篇',
+  '入学篇',
+  '生活篇',
+  '学习篇',
+  '专业篇',
   '升学篇',
+  '走进社会篇',
+  '访谈篇',
   'api',
 ];
 
 const CATEGORY_ICON_FALLBACK = {
-  入学篇: '✈️',
-  学习篇: '🎓',
-  生活篇: '🏠',
   人生篇: '🌏',
-  升学篇: '🎯',
+  入学篇: '✈️',
+  生活篇: '🏠',
+  学习篇: '🎓',
+  专业篇: '🎯',
+  升学篇: '🎓',
+  走进社会篇: '💼',
+  访谈篇: '🎙️',
   api: '🔌',
 };
 
