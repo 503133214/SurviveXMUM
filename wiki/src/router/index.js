@@ -1,5 +1,4 @@
-import {createRouter, createWebHistory} from "vue-router";
-import { BACKEND_ENABLED } from "@/config.js";
+import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
   {
@@ -11,34 +10,38 @@ const routes = [
     path: "/login",
     name: "Login",
     component: () => import("@/views/LoginPage.vue"),
-    meta: { requiresBackend: true }
   },
   {
     path: "/profile",
     name: "Profile",
     component: () => import("@/views/ProfilePage.vue"),
-    meta: { requiresAuth: true, requiresBackend: true }
+    meta: { requiresAuth: true },
   },
   {
-    path: "/favorites",
-    name: "Favorites",
-    component: () => import("@/views/FavoritesPage.vue"),
-    meta: { requiresAuth: true, requiresBackend: true }
+    path: "/edit/:pathMatch(.*)*",
+    name: "Edit",
+    component: () => import("@/views/EditPage.vue"),
+    meta: { requiresAuth: true },
+    props: (route) => {
+      const pm = route.params.pathMatch;
+      const pathString = Array.isArray(pm) ? pm.join("/") : pm;
+      return { targetPath: pathString || "" };
+    },
   },
   {
-    path: "/feedback",
-    name: "Feedback",
-    component: () => import("@/views/FeedbackPage.vue"),
-    meta: { requiresBackend: true }
+    path: "/admin",
+    name: "Admin",
+    component: () => import("@/views/AdminPage.vue"),
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: "/docs/:pathMatch(.*)*",
     name: "DocPage",
     component: () => import("@/views/DocPage.vue"),
-    props: route => {
+    props: (route) => {
       const pathMatch = route.params.pathMatch;
-      const pathString = Array.isArray(pathMatch) ? pathMatch.join('/') : pathMatch;
-      return { pathMatch: pathString || '' };
+      const pathString = Array.isArray(pathMatch) ? pathMatch.join("/") : pathMatch;
+      return { pathMatch: pathString || "" };
     },
   },
   {
@@ -53,26 +56,29 @@ const router = createRouter({
   routes,
 });
 
+// 从 localStorage 的 JWT 解析登录态与角色（无需等待 fetchUserInfo）。
+function readAuth() {
+  const raw = localStorage.getItem("token");
+  if (!raw) return { loggedIn: false, role: null };
+  try {
+    const authObj = JSON.parse(raw);
+    if (!(authObj.expire > Date.now())) return { loggedIn: false, role: null };
+    const payload = JSON.parse(atob(authObj.token.split(".")[1]));
+    return { loggedIn: true, role: payload.role || null };
+  } catch {
+    return { loggedIn: false, role: null };
+  }
+}
+
 router.beforeEach((to, from, next) => {
-  // 后端未接入时，相关路由直接回首页（入口已在界面隐藏，这里防止直接访问）
-  if (to.meta.requiresBackend && !BACKEND_ENABLED) {
-    return next('/')
+  const { loggedIn, role } = readAuth();
+  if (to.meta.requiresAuth && !loggedIn) {
+    return next({ path: "/login", query: { redirect: to.fullPath } });
   }
-  const token = localStorage.getItem('token')
-  let isLoggedIn = false
-  if (token) {
-    try {
-      const authObj = JSON.parse(token)
-      isLoggedIn = authObj.expire > Date.now()
-    } catch {
-      isLoggedIn = false
-    }
+  if (to.meta.requiresAdmin && role !== "ADMIN") {
+    return next("/");
   }
-  if (to.meta.requiresAuth && !isLoggedIn) {
-    next('/login')
-  } else {
-    next()
-  }
-})
+  next();
+});
 
 export default router;

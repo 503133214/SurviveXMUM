@@ -1,0 +1,68 @@
+server:
+  port: 8080
+  # 注意：不设置 context-path，nginx 通过 location /api/ → proxy_pass .../ 去掉前缀
+
+spring:
+  application:
+    name: xmum-wiki-backend
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:wiki}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+      connection-test-query: SELECT 1
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      continue-on-error: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:1}
+      timeout: 3000ms
+
+  mail:
+    host: ${SMTP_HOST:smtp.163.com}
+    port: ${SMTP_PORT:465}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: ${SMTP_SSL:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      table-underline: true
+
+wiki:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-please-override-with-a-long-random-string-32+}
+    expire-days: 7
+  allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:xmu.edu.my}
+  restrict-email-domain: ${RESTRICT_EMAIL_DOMAIN:true}
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+  admin:
+    email: ${WIKI_ADMIN_EMAIL:}
+    password: ${WIKI_ADMIN_PASSWORD:}
+
+logging:
+  level:
+    wiki.xmum: INFO

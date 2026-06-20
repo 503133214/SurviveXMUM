@@ -11,7 +11,7 @@
     <nav v-if="!isMobileView" class="desktop-nav">
       <router-link to="/">首页</router-link>
       <router-link :to="`/docs/${HOME_PATH}`">文档</router-link>
-      <router-link v-if="backendEnabled" to="/feedback">反馈</router-link>
+      <router-link v-if="hasToken" to="/edit">✍️ 写文章</router-link>
       <a :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
 
       <button class="theme-toggle" @click="toggleTheme" :aria-label="isDark ? '切换到亮色' : '切换到暗色'">
@@ -33,11 +33,11 @@
               <el-dropdown-item command="/profile">
                 <el-icon><User /></el-icon>个人中心
               </el-dropdown-item>
-              <el-dropdown-item command="/favorites">
-                <el-icon><Star /></el-icon>我的收藏
+              <el-dropdown-item command="/edit">
+                <el-icon><EditPen /></el-icon>写文章
               </el-dropdown-item>
-              <el-dropdown-item command="/feedback">
-                <el-icon><ChatDotRound /></el-icon>系统反馈
+              <el-dropdown-item v-if="isAdmin" command="/admin">
+                <el-icon><Setting /></el-icon>管理后台
               </el-dropdown-item>
               <el-dropdown-item divided command="logout">
                 <el-icon><SwitchButton /></el-icon>退出登录
@@ -58,12 +58,12 @@
           <el-dropdown-menu>
             <el-dropdown-item command="/">首页</el-dropdown-item>
             <el-dropdown-item :command="`/docs/${HOME_PATH}`">文档</el-dropdown-item>
-            <el-dropdown-item v-if="backendEnabled" command="/feedback">反馈</el-dropdown-item>
+            <el-dropdown-item v-if="hasToken" command="/edit">写文章</el-dropdown-item>
             <el-dropdown-item command="github" divided>GitHub</el-dropdown-item>
             <template v-if="backendEnabled">
               <template v-if="hasToken">
                 <el-dropdown-item command="/profile" divided>个人中心</el-dropdown-item>
-                <el-dropdown-item command="/favorites">我的收藏</el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" command="/admin">管理后台</el-dropdown-item>
                 <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </template>
               <el-dropdown-item v-else command="login" divided>登录</el-dropdown-item>
@@ -77,7 +77,7 @@
 
 <script>
 import { markRaw } from "vue";
-import { Menu, User, Star, ChatDotRound, SwitchButton } from "@element-plus/icons-vue";
+import { Menu, User, EditPen, Setting, SwitchButton } from "@element-plus/icons-vue";
 import { logout, takeAccessToken } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
 import { useTheme } from "@/composables/useTheme.js";
@@ -89,7 +89,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, User, Star, ChatDotRound, SwitchButton },
+  components: { GlobalSearch, User, EditPen, Setting, SwitchButton },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
@@ -118,6 +118,9 @@ export default {
     },
     userAvatar() {
       return useUserStore().avatar || "";
+    },
+    isAdmin() {
+      return useUserStore().userInfo?.role === "ADMIN";
     },
   },
   methods: {

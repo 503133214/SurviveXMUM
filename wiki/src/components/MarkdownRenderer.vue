@@ -54,8 +54,16 @@
 
 <script>
 import MarkdownIt from "markdown-it";
+import DOMPurify from "dompurify";
 
 const MOBILE_BREAKPOINT = 992;
+
+// 链接默认在新标签打开时补 rel，防止 tabnabbing。
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
+    node.setAttribute("rel", "noopener noreferrer");
+  }
+});
 
 function slugify(s) {
   return String(s)
@@ -152,7 +160,12 @@ export default {
         return self.renderToken(tokens, idx, options);
       };
 
-      this.renderedHtml = md.render(this.content || "");
+      // 内容现在来自用户投稿（不可信）：先渲染再用 DOMPurify 消毒，移除 <script>/onclick 等。
+      // 保留 <details>/<summary>、链接 target 等合法用法。
+      const dirty = md.render(this.content || "");
+      this.renderedHtml = DOMPurify.sanitize(dirty, {
+        ADD_ATTR: ["target", "id", "loading"],
+      });
       this.tocItems = toc;
       this.$nextTick(() => {
         this.enhanceCodeBlocks();

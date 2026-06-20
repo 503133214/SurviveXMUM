@@ -135,4 +135,25 @@ function logout(success, failure = defaultFailure, error = defaultError) {
         error
     );
 }
-export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode}
+// ---- Wiki 投稿 / 审核 ----
+function submitRevision(payload, success, failure = defaultFailure) {
+    post('/wiki/revision', payload, success, failure)
+}
+function getMyRevisions(success, failure = defaultFailure) {
+    get('/wiki/revision/mine', success, failure)
+}
+function adminListRevisions(status, success, failure = defaultFailure) {
+    get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
+}
+function adminGetRevision(id, success, failure = defaultFailure) {
+    get(`/admin/revision/${id}`, success, failure)
+}
+function adminApproveRevision(id, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/approve`, {}, success, failure)
+}
+function adminRejectRevision(id, comment, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/reject`, { comment }, success, failure)
+}
+
+export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
+    submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision}

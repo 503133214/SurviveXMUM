@@ -11,8 +11,12 @@ import { useUserStore } from "./store/userStore.js";
 import { initTheme } from "./composables/useTheme.js";
 import { reveal } from "./directives/reveal.js";
 import { BACKEND_ENABLED } from "./config.js";
+import { loadManifest } from "./wiki/index.js";
 
 initTheme();
+
+// 所有 API 走 /api 前缀：dev 由 vite proxy 转发，prod 由 nginx 反向代理到 Spring Boot。
+axios.defaults.baseURL = "/api";
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -20,7 +24,9 @@ app.use(pinia);
 app.use(router);
 app.use(ElementPlus);
 app.directive("reveal", reveal);
-axios.defaults.baseURL = 'http://localhost:8080';
+
+// 拉取内容清单（侧栏/首页/搜索）。不阻塞挂载，数据就绪后响应式填充。
+loadManifest();
 
 router.isReady().then(() => {
   if (!BACKEND_ENABLED) return;
