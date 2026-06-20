@@ -102,7 +102,7 @@ export default {
       ],
       list: [],
       current: null,
-      loadingList: false,
+      loadingList: true,
       acting: false,
     }
   },
@@ -127,7 +127,12 @@ export default {
       this.loadingList = true
       adminListRevisions(
         this.status,
-        (data) => { this.list = data || []; this.loadingList = false },
+        (data) => {
+          this.list = data || []
+          this.loadingList = false
+          // 自动打开第一条，避免详情区空白
+          if (this.list.length && !this.current) this.openDetail(this.list[0].id)
+        },
         (msg) => { this.loadingList = false; ElMessage.error(msg || '加载失败') }
       )
     },

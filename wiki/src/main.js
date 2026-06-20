@@ -17,6 +17,8 @@ initTheme();
 
 // 所有 API 走 /api 前缀：dev 由 vite proxy 转发，prod 由 nginx 反向代理到 Spring Boot。
 axios.defaults.baseURL = "/api";
+// 弱网下快速失败，避免请求无限挂起导致界面一直空白。
+axios.defaults.timeout = 20000;
 
 const app = createApp(App);
 const pinia = createPinia();

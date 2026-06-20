@@ -17,20 +17,36 @@ export const HOME_PATH = 'README'
 export const REPO = 'https://github.com/503133214/SurviveXMUM'
 export const EDIT_BASE = `${REPO}/edit/main/wiki/public/docs`
 
-/** Load the content manifest from the backend once and populate the reactive caches. */
+const CACHE_KEY = 'wiki_manifest_v1'
+
+function applyManifest(m) {
+  tree.splice(0, tree.length, ...(m.tree || []))
+  pages.splice(0, pages.length, ...(m.pages || []))
+  state.home = m.home || null
+  state.generatedAt = m.generatedAt || null
+  state.loaded = true
+}
+
+/**
+ * Load the content manifest. Renders instantly from a sessionStorage cache (so
+ * the sidebar/home appear immediately even on slow networks), then refreshes
+ * from the backend in the background.
+ */
 export async function loadManifest(force = false) {
   if (state.loaded && !force) return
   if (state.loading) return
+  // 1) 用缓存即时渲染（弱网/重载时不再白屏等待）
+  try {
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    if (cached && !tree.length) applyManifest(JSON.parse(cached))
+  } catch { /* ignore */ }
+  // 2) 后台拉取最新并更新缓存
   state.loading = true
   try {
     const { data } = await axios.get('/wiki/manifest')
     if (data && data.code === 0 && data.data) {
-      const m = data.data
-      tree.splice(0, tree.length, ...(m.tree || []))
-      pages.splice(0, pages.length, ...(m.pages || []))
-      state.home = m.home || null
-      state.generatedAt = m.generatedAt || null
-      state.loaded = true
+      applyManifest(data.data)
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.data)) } catch { /* quota */ }
     }
   } catch (e) {
     console.warn('加载内容清单失败:', e)
