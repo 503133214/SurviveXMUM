@@ -38,7 +38,8 @@
       <!-- 详情 -->
       <main class="ad-detail">
         <div v-if="!current" class="placeholder">
-          <p>👈 从左侧选择一条投稿进行审核</p>
+          <el-icon :size="40"><Tickets /></el-icon>
+          <p>从左侧选择一条投稿开始审核</p>
         </div>
         <template v-else>
           <div class="dt-head">
@@ -84,6 +85,7 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Tickets } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision,
@@ -91,7 +93,7 @@ import {
 
 export default {
   name: 'AdminPage',
-  components: { MarkdownRenderer: markRaw(MarkdownRenderer) },
+  components: { MarkdownRenderer: markRaw(MarkdownRenderer), Tickets },
   data() {
     return {
       status: 'PENDING',
@@ -188,22 +190,31 @@ export default {
 }
 .seg button.active { background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
-.ad-body { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+.ad-body { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
 .ad-list {
   border: 1px solid var(--border); border-radius: var(--radius);
-  overflow: hidden; background: var(--bg-surface);
-  max-height: 72vh; overflow-y: auto;
+  overflow: hidden auto; background: var(--bg-surface);
+  max-height: calc(100vh - 180px);
+  position: sticky; top: calc(var(--header-height) + 20px);
 }
 .ad-list ul { list-style: none; margin: 0; padding: 0; }
 .ad-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
+.ad-list li:last-child { border-bottom: none; }
 .ad-list li:hover { background: var(--bg-hover); }
 .ad-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
 .li-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .li-title { font-weight: 600; color: var(--text-primary); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.li-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
+.li-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
+.li-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li-meta span:last-child { flex-shrink: 0; }
 
-.ad-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 60vh; }
-.placeholder { display: flex; align-items: center; justify-content: center; min-height: 60vh; color: var(--text-muted); }
+.ad-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
+.placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  min-height: 64vh; color: var(--text-muted);
+}
+.placeholder .el-icon { color: var(--border-strong); }
+.placeholder p { margin: 0; font-size: 14px; }
 .dt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .dt-head h2 { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
 .dt-meta { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

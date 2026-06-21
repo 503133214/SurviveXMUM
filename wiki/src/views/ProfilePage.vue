@@ -7,7 +7,7 @@
         <p class="pf-email">{{ email }} <span v-if="isAdmin" class="role-badge">管理员</span></p>
       </div>
       <div class="pf-actions">
-        <router-link to="/edit" class="btn-solid">✍️ 写文章</router-link>
+        <router-link to="/edit" class="btn-solid">写文章</router-link>
         <router-link v-if="isAdmin" to="/admin" class="btn-ghost">管理后台</router-link>
       </div>
     </header>
@@ -19,7 +19,7 @@
       </div>
 
       <div v-if="loading" class="muted">加载中…</div>
-      <el-empty v-else-if="!revisions.length" description="还没有投稿，去写一篇吧 🙌" />
+      <el-empty v-else-if="!revisions.length" description="还没有投稿，去写一篇吧" />
 
       <ul v-else class="rev-list">
         <li v-for="r in revisions" :key="r.id" class="rev-item">

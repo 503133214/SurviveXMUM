@@ -1,6 +1,10 @@
 import axios from 'axios';
 import {ElMessage} from "element-plus";
+import {ref} from "vue";
 const authItemName="token";
+// 登录态版本号：写入/清除 token 时自增，供组件（如 Header）即时响应同一标签页内的登录/登出，
+// 无需等待轮询或 storage 事件（storage 事件只在其它标签页触发，同标签页不会触发）。
+export const authVersion = ref(0);
 const defaultFailure=(message,code,url)=>{
     console.warn(`请求地址：${url},状态码：${code},错误信息: ${message}`)
     ElMessage.warning(message)
@@ -22,6 +26,7 @@ function storeAccessToken(token) {
     const authObj = { token: token, expire: expire };
     const str = JSON.stringify(authObj);
     localStorage.setItem(authItemName, str);
+    authVersion.value++;
 }
 function takeAccessToken(){
     const token=localStorage.getItem(authItemName);
@@ -38,6 +43,7 @@ function takeAccessToken(){
 }
 function deleteAccessToken(){
     localStorage.removeItem(authItemName)
+    authVersion.value++;
 }
 function internalPost(url,data,headers,success,failure,error=defaultError){
     axios.post(url, data, { headers: headers }).then(({ data }) => {

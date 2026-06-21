@@ -53,22 +53,22 @@
           <header class="doc-header">
             <h1 class="doc-title">{{ title }}</h1>
             <div class="doc-meta">
-              <span v-if="lastUpdated" class="meta-item">🕒 更新于 {{ lastUpdated }}</span>
+              <span v-if="lastUpdated" class="meta-item">更新于 {{ lastUpdated }}</span>
               <router-link
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item edit-link"
                 :to="editUrl"
-              >✏️ 编辑此页</router-link>
+              >编辑此页</router-link>
               <router-link
                 v-else-if="!errorLoading"
                 class="meta-item edit-link"
                 to="/login"
-              >✏️ 登录后可编辑</router-link>
+              >登录后可编辑</router-link>
             </div>
           </header>
 
           <MarkdownRenderer v-if="content" :content="content" :base-path="baseDir" />
-          <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容 🙌" />
+          <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容" />
 
           <!-- 上一篇 / 下一篇 -->
           <nav v-if="(prev || next) && !errorLoading" class="doc-pager">

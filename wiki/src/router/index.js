@@ -70,7 +70,10 @@ function readAuth() {
   }
 }
 
+// 记录正在前往的目标，供 onError 在动态加载失败时整页跳转过去。
+let pendingFullPath = null;
 router.beforeEach((to, from, next) => {
+  pendingFullPath = to.fullPath;
   const { loggedIn, role } = readAuth();
   if (to.meta.requiresAuth && !loggedIn) {
     return next({ path: "/login", query: { redirect: to.fullPath } });
@@ -79,6 +82,26 @@ router.beforeEach((to, from, next) => {
     return next("/");
   }
   next();
+});
+
+// 导航成功后清掉该路径的“已重试”标记，使后续真正的失败仍能再次自愈。
+router.afterEach((to) => {
+  sessionStorage.removeItem("chunk-reload:" + to.fullPath);
+});
+
+// 部署后，旧标签页里内存中的旧 index 会去 import 已被替换的旧 chunk（文件名带 hash），
+// 导致“动态模块加载失败” → 路由内容空白（如管理后台白屏）。此时强制整页加载到目标地址，
+// 浏览器会重新拿到最新的 index.html 与 chunk。用 sessionStorage 防止失败时无限刷新。
+router.onError((error) => {
+  const msg = (error && error.message) || "";
+  if (/dynamically imported module|module script failed|Failed to fetch/i.test(msg)) {
+    const target = pendingFullPath || window.location.pathname;
+    const key = "chunk-reload:" + target;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      window.location.assign(target);
+    }
+  }
 });
 
 export default router;

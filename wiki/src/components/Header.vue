@@ -9,24 +9,23 @@
     </div>
 
     <nav v-if="!isMobileView" class="desktop-nav">
-      <router-link to="/">首页</router-link>
       <router-link :to="`/docs/${HOME_PATH}`">文档</router-link>
-      <router-link v-if="hasToken" to="/edit">✍️ 写文章</router-link>
-      <a :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a v-if="!hasToken" :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
 
       <button class="theme-toggle" @click="toggleTheme" :aria-label="isDark ? '切换到亮色' : '切换到暗色'">
-        {{ isDark ? '☀️' : '🌙' }}
+        <el-icon :size="17"><Sunny v-if="isDark" /><Moon v-else /></el-icon>
       </button>
 
       <template v-if="backendEnabled">
         <router-link to="/login" v-if="!hasToken">
           <el-button type="primary" round>登录</el-button>
         </router-link>
-        <el-dropdown v-else @command="handleUserCommand">
+        <el-dropdown v-else @command="handleUserCommand" trigger="click">
           <span class="el-dropdown-link">
-            <el-avatar v-if="userAvatar" :src="userAvatar" :size="32" />
-            <el-avatar v-else :size="32">{{ userName.charAt(0) }}</el-avatar>
+            <el-avatar v-if="userAvatar" :src="userAvatar" :size="30" />
+            <el-avatar v-else :size="30">{{ userName.charAt(0) }}</el-avatar>
             <span class="user-name">{{ userName }}</span>
+            <el-icon class="caret" :size="13"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -39,7 +38,10 @@
               <el-dropdown-item v-if="isAdmin" command="/admin">
                 <el-icon><Setting /></el-icon>管理后台
               </el-dropdown-item>
-              <el-dropdown-item divided command="logout">
+              <el-dropdown-item divided command="github">
+                <el-icon><Link /></el-icon>GitHub
+              </el-dropdown-item>
+              <el-dropdown-item command="logout">
                 <el-icon><SwitchButton /></el-icon>退出登录
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -50,23 +52,38 @@
 
     <div v-else class="mobile-nav">
       <button class="theme-toggle" @click="toggleTheme" aria-label="切换主题">
-        {{ isDark ? '☀️' : '🌙' }}
+        <el-icon :size="17"><Sunny v-if="isDark" /><Moon v-else /></el-icon>
       </button>
       <el-dropdown trigger="click" @command="handleMobileNavCommand">
         <el-button :icon="MenuIcon" text circle aria-label="导航菜单"></el-button>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="/">首页</el-dropdown-item>
-            <el-dropdown-item :command="`/docs/${HOME_PATH}`">文档</el-dropdown-item>
-            <el-dropdown-item v-if="hasToken" command="/edit">写文章</el-dropdown-item>
-            <el-dropdown-item command="github" divided>GitHub</el-dropdown-item>
+            <el-dropdown-item :command="`/docs/${HOME_PATH}`">
+              <el-icon><Document /></el-icon>文档
+            </el-dropdown-item>
             <template v-if="backendEnabled">
               <template v-if="hasToken">
-                <el-dropdown-item command="/profile" divided>个人中心</el-dropdown-item>
-                <el-dropdown-item v-if="isAdmin" command="/admin">管理后台</el-dropdown-item>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="/profile">
+                  <el-icon><User /></el-icon>个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="/edit">
+                  <el-icon><EditPen /></el-icon>写文章
+                </el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" command="/admin">
+                  <el-icon><Setting /></el-icon>管理后台
+                </el-dropdown-item>
               </template>
-              <el-dropdown-item v-else command="login" divided>登录</el-dropdown-item>
+            </template>
+            <el-dropdown-item command="github" divided>
+              <el-icon><Link /></el-icon>GitHub
+            </el-dropdown-item>
+            <template v-if="backendEnabled">
+              <el-dropdown-item v-if="hasToken" command="logout">
+                <el-icon><SwitchButton /></el-icon>退出登录
+              </el-dropdown-item>
+              <el-dropdown-item v-else command="login">
+                <el-icon><User /></el-icon>登录
+              </el-dropdown-item>
             </template>
           </el-dropdown-menu>
         </template>
@@ -77,8 +94,8 @@
 
 <script>
 import { markRaw } from "vue";
-import { Menu, User, EditPen, Setting, SwitchButton } from "@element-plus/icons-vue";
-import { logout, takeAccessToken } from "@/net/index.js";
+import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown } from "@element-plus/icons-vue";
+import { logout, takeAccessToken, authVersion } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
 import { useTheme } from "@/composables/useTheme.js";
 import GlobalSearch from "@/components/GlobalSearch.vue";
@@ -89,7 +106,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, User, EditPen, Setting, SwitchButton },
+  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
@@ -100,8 +117,6 @@ export default {
       isScrolled: false,
       MenuIcon: markRaw(Menu),
       resizeTimeout: null,
-      tokenCheckCounter: 0,
-      tokenCheckInterval: null,
       backendEnabled: BACKEND_ENABLED,
       HOME_PATH,
       REPO,
@@ -109,7 +124,9 @@ export default {
   },
   computed: {
     hasToken() {
-      this.tokenCheckCounter;
+      // 依赖 authVersion：登录/登出会立即自增它，使本计算属性同步刷新
+      // （不再依赖 30s 轮询或 storage 事件，storage 事件只在其它标签页触发）。
+      authVersion.value;
       const token = takeAccessToken();
       return token && token.trim && token.trim().length > 0;
     },
@@ -124,8 +141,8 @@ export default {
     },
   },
   methods: {
-    refreshTokenStatus() {
-      this.tokenCheckCounter++;
+    bumpAuthVersion() {
+      authVersion.value++;
     },
     goHome() {
       this.$router.push("/");
@@ -134,12 +151,12 @@ export default {
       const userStore = useUserStore();
       logout(() => {
         userStore.clearUserInfo();
-        this.refreshTokenStatus();
         window.location.href = "/";
       });
     },
     handleUserCommand(command) {
       if (command === "logout") this.UserLogout();
+      else if (command === "github") window.open(REPO, "_blank", "noopener,noreferrer");
       else this.$router.push(command);
     },
     checkMobileView() {
@@ -169,15 +186,14 @@ export default {
     this.handleScroll();
     window.addEventListener("resize", this.handleResize);
     window.addEventListener("scroll", this.handleScroll, { passive: true });
-    this.tokenCheckInterval = setInterval(this.refreshTokenStatus, 30000);
-    window.addEventListener("storage", this.refreshTokenStatus);
+    // 其它标签页登录/登出会触发 storage 事件，这里同步刷新本标签页的登录态。
+    window.addEventListener("storage", this.bumpAuthVersion);
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.handleResize);
     window.removeEventListener("scroll", this.handleScroll);
-    window.removeEventListener("storage", this.refreshTokenStatus);
+    window.removeEventListener("storage", this.bumpAuthVersion);
     clearTimeout(this.resizeTimeout);
-    if (this.tokenCheckInterval) clearInterval(this.tokenCheckInterval);
   },
 };
 </script>
@@ -266,24 +282,23 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
 :deep(.el-button--primary:hover) { opacity: 0.88; }
 
 .theme-toggle {
-  background: var(--bg-subtle);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  color: var(--text-secondary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.4s var(--ease-spring), border-color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 .theme-toggle:hover {
-  border-color: var(--brand);
+  border-color: var(--border-strong);
   background: var(--bg-hover);
-  transform: rotate(40deg) scale(1.08);
+  color: var(--text-primary);
 }
-.theme-toggle:active { transform: rotate(180deg) scale(0.95); }
 
 .mobile-nav { display: flex; align-items: center; gap: 8px; }
 
@@ -291,8 +306,17 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  padding: 3px 8px 3px 3px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
+.el-dropdown-link:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border);
+}
+.el-dropdown-link .caret { color: var(--text-muted); }
 .user-name {
   font-size: 14px;
   font-weight: 500;
