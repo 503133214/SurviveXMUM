@@ -14,7 +14,7 @@
     >
       <template #prefix><el-icon><Search /></el-icon></template>
       <template #suffix>
-        <span class="kbd" v-if="!query">⌘K</span>
+        <span class="kbd" v-if="!open && !query">{{ shortcutLabel }}</span>
       </template>
     </el-input>
 
@@ -61,14 +61,18 @@ export default {
   name: "GlobalSearch",
   components: { Search },
   props: {
-    placeholder: { type: String, default: "搜索文档… (⌘K)" },
+    placeholder: { type: String, default: "搜索文档…" },
   },
   data() {
-    return { query: "", open: false, activeIndex: 0 };
+    const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || "");
+    return { query: "", open: false, activeIndex: 0, isMac };
   },
   computed: {
     results() {
       return searchPages(this.query);
+    },
+    shortcutLabel() {
+      return this.isMac ? "⌘K" : "Ctrl K";
     },
   },
   watch: {
