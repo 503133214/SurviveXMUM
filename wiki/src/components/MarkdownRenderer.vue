@@ -1,8 +1,8 @@
 <template>
-  <div class="markdown-container">
+  <div class="markdown-container" :class="{ 'is-embedded': embedded }">
     <!-- 移动端目录抽屉开关 -->
     <button
-      v-if="isMobileView && tocItems.length > 0"
+      v-if="!embedded && isMobileView && tocItems.length > 0"
       class="toc-drawer-toggle"
       @click="isTocDrawerOpen = !isTocDrawerOpen"
       :aria-expanded="isTocDrawerOpen.toString()"
@@ -24,7 +24,7 @@
 
     <!-- 目录 -->
     <aside
-      v-if="tocItems.length > 0"
+      v-if="!embedded && tocItems.length > 0"
       class="toc-sidebar-area"
       :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
       role="navigation"
@@ -81,6 +81,8 @@ export default {
     content: { type: String, required: true },
     // 当前文档所在目录，用于把相对图片/链接解析为绝对路径
     basePath: { type: String, default: "" },
+    // 编辑器和审核页只需要正文，不复用正式文档页的目录和卡片外壳。
+    embedded: { type: Boolean, default: false },
   },
   data() {
     return {
@@ -254,6 +256,20 @@ export default {
   min-width: 0;
   margin: 0;
 }
+
+.markdown-container.is-embedded {
+  display: block;
+  max-width: none;
+  padding: 0;
+}
+.markdown-container.is-embedded .markdown-body {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.markdown-container.is-embedded .markdown-body:hover { box-shadow: none; }
 
 /* ---- markdown 正文（自带主题，不依赖 github-markdown-css，便于暗色） ---- */
 .markdown-body {

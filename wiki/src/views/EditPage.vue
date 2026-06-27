@@ -71,7 +71,12 @@
           <span>实时预览</span>
         </div>
         <div class="md-preview markdown-scope">
-          <MarkdownRenderer v-if="form.content.trim()" :content="form.content" :base-path="baseDir" />
+          <MarkdownRenderer
+            v-if="form.content.trim()"
+            :content="form.content"
+            :base-path="baseDir"
+            embedded
+          />
           <p v-else class="preview-empty">预览将在这里实时显示…</p>
         </div>
       </div>
@@ -163,7 +168,8 @@ export default {
 
 <style scoped>
 .edit-page {
-  max-width: 1100px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 28px 24px 64px;
 }
@@ -284,7 +290,7 @@ export default {
 .md-preview { flex: 1; padding: 20px 24px; overflow-y: auto; }
 .preview-empty { color: var(--text-muted); font-size: 14px; }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .meta-grid { grid-template-columns: 1fr; }
   .editor-grid { grid-template-columns: 1fr; height: auto; }
   .pane { min-height: 360px; }
