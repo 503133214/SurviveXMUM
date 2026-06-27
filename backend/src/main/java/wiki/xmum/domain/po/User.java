@@ -18,6 +18,7 @@ public class User {
     private String avatar;
     private String role;      // USER / ADMIN
     private String status;    // ACTIVE / BANNED
+    private Integer deleted;  // 软删除 0/1
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -8,11 +8,13 @@ import wiki.xmum.domain.dto.RevisionSubmitDTO;
 import wiki.xmum.domain.po.WikiCategory;
 import wiki.xmum.domain.po.WikiPage;
 import wiki.xmum.domain.po.WikiRevision;
+import wiki.xmum.domain.po.User;
 import wiki.xmum.domain.vo.RevisionDetailVO;
 import wiki.xmum.domain.vo.RevisionVO;
 import wiki.xmum.mapper.WikiCategoryMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.mapper.WikiRevisionMapper;
+import wiki.xmum.mapper.UserMapper;
 import wiki.xmum.security.AuthUser;
 import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
@@ -26,11 +28,14 @@ public class RevisionService {
     private final WikiRevisionMapper revisionMapper;
     private final WikiPageMapper pageMapper;
     private final WikiCategoryMapper categoryMapper;
+    private final UserMapper userMapper;
 
-    public RevisionService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper) {
+    public RevisionService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper,
+                           WikiCategoryMapper categoryMapper, UserMapper userMapper) {
         this.revisionMapper = revisionMapper;
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
+        this.userMapper = userMapper;
     }
 
     // ---------- 用户投稿 ----------
@@ -43,16 +48,21 @@ public class RevisionService {
 
         String targetPath;
         Long pageId = null;
+        Integer baseVersion = null;
         if ("UPDATE".equals(type)) {
             if (dto.getPath() == null || dto.getPath().isBlank()) {
                 throw new BizException("缺少要修改的页面路径");
             }
-            WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, dto.getPath()));
+            WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                    .eq(WikiPage::getPath, dto.getPath())
+                    .eq(WikiPage::getDeleted, 0));
             if (page == null) {
                 throw new BizException("要修改的页面不存在");
             }
             targetPath = page.getPath();
             pageId = page.getId();
+            baseVersion = dto.getBaseVersion() != null
+                    ? dto.getBaseVersion() : (page.getVersion() == null ? 0 : page.getVersion());
         } else {
             // CREATE：路径 = 分类/标题（无分类则用标题）
             String cat = dto.getCategorySlug();
@@ -73,6 +83,7 @@ public class RevisionService {
         rev.setDescription(dto.getDescription());
         rev.setTags(dto.getTags() == null ? "[]" : JsonUtil.toJson(dto.getTags()));
         rev.setContent(dto.getContent());
+        rev.setBaseVersion(baseVersion);
         rev.setType(type);
         rev.setStatus("PENDING");
         rev.setAuthorId(user.getId());
@@ -108,10 +119,25 @@ public class RevisionService {
     public RevisionDetailVO detail(Long id) {
         WikiRevision r = revisionMapper.selectById(id);
         if (r == null) throw new BizException(404, "投稿不存在");
-        String currentContent = null;
-        WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, r.getTargetPath()));
-        if (page != null) currentContent = page.getContent();
-        return RevisionDetailVO.from(r, currentContent);
+        WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                .eq(WikiPage::getPath, r.getTargetPath())
+                .eq(WikiPage::getDeleted, 0));
+        String currentContent = page == null ? null : page.getContent();
+        Integer currentVersion = page == null ? null
+                : (page.getVersion() == null ? 0 : page.getVersion());
+        RevisionDetailVO vo = RevisionDetailVO.from(r, currentContent);
+        vo.setCurrentVersion(currentVersion);
+        vo.setStale(r.getBaseVersion() != null && currentVersion != null
+                && !r.getBaseVersion().equals(currentVersion));
+        if (r.getAuthorId() != null) {
+            User author = userMapper.selectById(r.getAuthorId());
+            if (author != null) vo.setAuthorNickname(author.getNickname());
+        }
+        if (r.getReviewerId() != null) {
+            User reviewer = userMapper.selectById(r.getReviewerId());
+            if (reviewer != null) vo.setReviewerEmail(reviewer.getEmail());
+        }
+        return vo;
     }
 
     @Transactional
@@ -140,6 +166,8 @@ public class RevisionService {
             p.setContent(r.getContent());
             p.setSortOrder(999);
             p.setStatus("PUBLISHED");
+            p.setVersion(0);
+            p.setDeleted(0);
             p.setAuthorId(r.getAuthorId());
             p.setViewCount(0);
             pageMapper.insert(p);
@@ -152,6 +180,8 @@ public class RevisionService {
             page.setTags(r.getTags());
             page.setHeadings(JsonUtil.toJson(headings));
             page.setContent(r.getContent());
+            page.setDeleted(0);
+            page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
             pageMapper.updateById(page);
         }
 

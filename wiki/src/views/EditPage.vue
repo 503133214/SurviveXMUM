@@ -141,6 +141,7 @@ export default {
       uploadProgress: 0,
       isDragging: false,
       form: { categorySlug: '', title: '', icon: '', description: '', content: '' },
+      baseVersion: null,
       tagsText: '',
     }
   },
@@ -169,6 +170,7 @@ export default {
         this.form.icon = d.icon || ''
         this.form.description = d.description || ''
         this.form.content = d.content || ''
+        this.baseVersion = d.version ?? 0
         this.tagsText = (d.tags || []).join(', ')
       } catch (e) {
         ElMessage.error('无法加载原文内容')
@@ -313,6 +315,7 @@ export default {
         description: this.form.description || null,
         tags,
         content: this.form.content,
+        baseVersion: this.isUpdate ? this.baseVersion : undefined,
       }
       submitRevision(
         payload,

@@ -24,6 +24,8 @@ public class WikiPage {
     private String content;    // markdown
     private Integer sortOrder;
     private String status;     // PUBLISHED
+    private Integer version;   // 乐观锁版本号
+    private Integer deleted;   // 软删除 0/1
     private Long authorId;
     private Integer viewCount;
     private LocalDateTime createdAt;

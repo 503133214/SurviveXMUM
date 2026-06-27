@@ -25,7 +25,12 @@ public class RevisionDetailVO {
     private String content;          // 投稿内容
     private String currentContent;   // 当前线上内容（UPDATE 时有；CREATE 时为 null）
     private String authorEmail;
+    private String authorNickname;
     private String reviewComment;
+    private String reviewerEmail;
+    private Integer baseVersion;
+    private Integer currentVersion;
+    private boolean stale;
     private String createdAt;
     private String reviewedAt;
 
@@ -48,6 +53,7 @@ public class RevisionDetailVO {
         v.currentContent = currentContent;
         v.authorEmail = r.getAuthorEmail();
         v.reviewComment = r.getReviewComment();
+        v.baseVersion = r.getBaseVersion();
         v.createdAt = iso(r.getCreatedAt());
         v.reviewedAt = iso(r.getReviewedAt());
         return v;

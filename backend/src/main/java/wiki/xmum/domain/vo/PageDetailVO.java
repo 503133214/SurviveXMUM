@@ -19,5 +19,6 @@ public class PageDetailVO {
     private List<String> tags;
     private List<String> headings;
     private String content;
+    private Integer version;
     private String lastUpdated;
 }
