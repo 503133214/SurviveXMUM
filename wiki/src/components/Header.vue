@@ -20,7 +20,13 @@
         <router-link to="/login" v-if="!hasToken">
           <el-button type="primary" round>登录</el-button>
         </router-link>
-        <el-dropdown v-else @command="handleUserCommand" trigger="click">
+        <el-dropdown
+          v-else
+          @command="handleUserCommand"
+          trigger="click"
+          popper-class="user-menu"
+          :show-timeout="80"
+        >
           <span class="el-dropdown-link">
             <el-avatar v-if="userAvatar" :src="userAvatar" :size="30" />
             <el-avatar v-else :size="30">{{ userName.charAt(0) }}</el-avatar>
@@ -28,23 +34,36 @@
             <el-icon class="caret" :size="13"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="/profile">
-                <el-icon><User /></el-icon>个人中心
-              </el-dropdown-item>
-              <el-dropdown-item command="/edit">
-                <el-icon><EditPen /></el-icon>写文章
-              </el-dropdown-item>
-              <el-dropdown-item v-if="isAdmin" command="/admin">
-                <el-icon><Setting /></el-icon>管理后台
-              </el-dropdown-item>
-              <el-dropdown-item divided command="github">
-                <el-icon><Link /></el-icon>GitHub
-              </el-dropdown-item>
-              <el-dropdown-item command="logout">
-                <el-icon><SwitchButton /></el-icon>退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
+            <div class="um-card">
+              <div class="um-id">
+                <el-avatar v-if="userAvatar" :src="userAvatar" :size="36" />
+                <el-avatar v-else :size="36">{{ userName.charAt(0) }}</el-avatar>
+                <div class="um-meta">
+                  <span class="um-name">
+                    {{ userName }}
+                    <span v-if="isAdmin" class="um-badge">管理员</span>
+                  </span>
+                  <span class="um-email">{{ userEmail }}</span>
+                </div>
+              </div>
+              <el-dropdown-menu>
+                <el-dropdown-item command="/profile">
+                  <el-icon><User /></el-icon>个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="/edit">
+                  <el-icon><EditPen /></el-icon>写文章
+                </el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" command="/admin">
+                  <el-icon><Setting /></el-icon>管理后台
+                </el-dropdown-item>
+                <el-dropdown-item divided command="github">
+                  <el-icon><Link /></el-icon>GitHub
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" class="um-logout">
+                  <el-icon><SwitchButton /></el-icon>退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </div>
           </template>
         </el-dropdown>
       </template>
@@ -135,6 +154,9 @@ export default {
     },
     userAvatar() {
       return useUserStore().avatar || "";
+    },
+    userEmail() {
+      return useUserStore().userInfo?.userEmail || "";
     },
     isAdmin() {
       return useUserStore().userInfo?.role === "ADMIN";
@@ -332,4 +354,100 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
   .search-container { max-width: none; padding: 0 10px; }
   .logo-text { font-size: 17px; }
 }
+</style>
+
+<style>
+.user-menu.el-dropdown__popper {
+  overflow: hidden;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+.user-menu.el-dropdown__popper .el-popper__arrow { display: none; }
+.user-menu .um-card { min-width: 232px; padding: 6px; }
+.user-menu .um-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.user-menu .um-id .el-avatar {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.user-menu .um-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.user-menu .um-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.user-menu .um-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.user-menu .um-email {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-menu .el-dropdown-menu {
+  padding: 4px 0 0;
+  border: none;
+  background: transparent;
+}
+.user-menu .el-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 1px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-body);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.user-menu .el-dropdown-menu__item .el-icon {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+.user-menu .el-dropdown-menu__item:not(.is-disabled):hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.user-menu .el-dropdown-menu__item:not(.is-disabled):hover .el-icon {
+  color: var(--text-primary);
+}
+.user-menu .el-dropdown-menu__item--divided {
+  margin-top: 5px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.user-menu .el-dropdown-menu__item--divided::before { display: none; }
+.user-menu .um-logout,
+.user-menu .um-logout .el-icon { color: #c0392b; }
+.user-menu .um-logout:not(.is-disabled):hover,
+.user-menu .um-logout:not(.is-disabled):hover .el-icon { color: #c0392b; }
+.user-menu .um-logout:not(.is-disabled):hover { background: #fbe9e9; }
+html.dark .user-menu .um-logout:not(.is-disabled):hover { background: rgba(192, 57, 43, 0.16); }
 </style>
