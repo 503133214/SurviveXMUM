@@ -201,6 +201,9 @@ function submitRevision(payload, success, failure = defaultFailure) {
 function getMyRevisions(success, failure = defaultFailure) {
     get('/wiki/revision/mine', success, failure)
 }
+function getMyRevision(id, success, failure = defaultFailure) {
+    get(`/wiki/revision/${id}`, success, failure)
+}
 function adminListRevisions(status, success, failure = defaultFailure) {
     get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
 }

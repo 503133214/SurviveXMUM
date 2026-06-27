@@ -101,6 +101,11 @@
             </div>
           </div>
 
+          <div v-if="current.status === 'REJECTED'" class="rejection-note">
+            <strong>驳回原因</strong>
+            <p>{{ current.reviewComment || '未填写驳回原因' }}</p>
+          </div>
+
           <div class="review-toolbar">
             <div class="review-tabs" role="tablist" aria-label="审核视图">
               <button
@@ -460,6 +465,22 @@ html.dark .t-update { background: rgba(58,82,196,.22); color: #aab8ff; }
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
+}
+.rejection-note {
+  display: flex;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(192,57,43,.18);
+  background: #fff7f7;
+  color: #9f2f24;
+  font-size: 13px;
+}
+.rejection-note strong { flex-shrink: 0; }
+.rejection-note p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+html.dark .rejection-note {
+  border-bottom-color: rgba(243,160,151,.2);
+  background: rgba(192,57,43,.1);
+  color: #f3a097;
 }
 
 .review-toolbar {
