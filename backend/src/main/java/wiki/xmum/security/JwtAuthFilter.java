@@ -52,9 +52,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 String email = claims.get("email", String.class);
                 String role = claims.get("role", String.class);
                 AuthUser principal = new AuthUser(id, email, role);
+                // 超管同时拥有 ROLE_SUPER_ADMIN 与 ROLE_ADMIN：既满足 super-only 规则，
+                // 也满足所有现有 /admin/** 的 ADMIN 规则。
+                List<SimpleGrantedAuthority> authorities =
+                        "SUPER_ADMIN".equals(role)
+                                ? List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"),
+                                          new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                : List.of(new SimpleGrantedAuthority("ROLE_" + role));
                 var auth = new UsernamePasswordAuthenticationToken(
-                        principal, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                        principal, null, authorities);
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (Exception ignored) {

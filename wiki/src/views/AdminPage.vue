@@ -16,14 +16,14 @@
 
     <section class="ac-main">
       <AdminPagesPanel v-if="activeSection === 'pages'" />
-      <AdminUsersPanel v-else-if="activeSection === 'users'" />
+      <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
 
       <div v-else class="admin-page">
         <header class="ad-head">
           <h1>投稿审核</h1>
       <div class="seg">
         <button v-for="s in tabs" :key="s.key" :class="{ active: status === s.key }" @click="switchStatus(s.key)">
-          {{ s.label }}
+          {{ s.label }}<span v-if="counts[s.key] != null" class="seg-count">{{ counts[s.key] }}</span>
         </button>
       </div>
     </header>
@@ -76,7 +76,17 @@
                 <span class="rev-type" :class="current.type === 'CREATE' ? 't-create' : 't-update'">
                   {{ current.type === 'CREATE' ? '新建' : '修改' }}
                 </span>
-                路径 <code>{{ current.targetPath }}</code> · 投稿人 {{ current.authorEmail }}
+                路径 <code>{{ current.targetPath }}</code>
+                · 投稿人 <template v-if="current.authorNickname">{{ current.authorNickname }} </template>{{ current.authorEmail }}
+                · 提交于 {{ fmt(current.createdAt) }}
+                <template v-if="current.status !== 'PENDING'">
+                  <br />
+                  <span class="dt-review">
+                    {{ statusText(current.status) }}
+                    <template v-if="current.reviewerEmail">· 审核人 {{ current.reviewerEmail }}</template>
+                    <template v-if="current.reviewedAt">· {{ fmt(current.reviewedAt) }}</template>
+                  </span>
+                </template>
               </p>
             </div>
             <div v-if="current.status === 'PENDING' && !isMobileAdmin" class="dt-actions">
@@ -150,8 +160,9 @@ import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
+import { useUserStore } from '@/store/userStore.js'
 import {
-  adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision,
+  adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
 } from '@/net/index.js'
 
 export default {
@@ -166,17 +177,13 @@ export default {
   data() {
     return {
       activeSection: 'review',
-      adminSections: [
-        { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
-        { key: 'pages', label: '页面管理', icon: markRaw(Document) },
-        { key: 'users', label: '用户管理', icon: markRaw(User) },
-      ],
       status: 'PENDING',
       tabs: [
         { key: 'PENDING', label: '待审核' },
         { key: 'APPROVED', label: '已通过' },
         { key: 'REJECTED', label: '已驳回' },
       ],
+      counts: {},
       list: [],
       current: null,
       loadingList: true,
@@ -188,6 +195,16 @@ export default {
     }
   },
   computed: {
+    isSuperAdmin() { return useUserStore().isSuperAdmin },
+    adminSections() {
+      const s = [
+        { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
+        { key: 'pages', label: '页面管理', icon: markRaw(Document) },
+      ]
+      // 用户管理仅超级管理员可见
+      if (this.isSuperAdmin) s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+      return s
+    },
     currentLabel() { return this.tabs.find((t) => t.key === this.status)?.label || '' },
     reviewViews() {
       if (this.current?.type !== 'UPDATE') return [{ key: 'submitted', label: '投稿预览' }]
@@ -215,6 +232,7 @@ export default {
     this.syncMobileAdmin()
     this.adminMediaQuery.addEventListener('change', this.syncMobileAdmin)
     this.loadList()
+    this.loadCounts()
   },
   beforeUnmount() {
     this.adminMediaQuery?.removeEventListener('change', this.syncMobileAdmin)
@@ -236,6 +254,9 @@ export default {
         `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     },
     switchStatus(s) { this.status = s; this.current = null; this.loadList() },
+    loadCounts() {
+      adminRevisionCounts((data) => { this.counts = data || {} }, () => {})
+    },
     loadList() {
       this.loadingList = true
       adminListRevisions(
@@ -287,6 +308,7 @@ export default {
     afterAction() {
       this.current = null
       this.loadList()
+      this.loadCounts()
     },
   },
 }
@@ -352,6 +374,14 @@ export default {
   border-radius: 999px; cursor: pointer; transition: all .2s var(--ease-out);
 }
 .seg button.active { background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.seg-count {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px;
+  margin-left: 6px; padding: 0 5px; border-radius: 999px;
+  background: var(--bg-hover); color: var(--text-muted);
+  font-size: 11px; font-weight: 700; vertical-align: 1px;
+}
+.seg button.active .seg-count { background: var(--accent); color: var(--accent-contrast); }
+.dt-review { color: var(--text-secondary); font-size: 12.5px; }
 
 .mobile-admin-notice {
   display: none;

@@ -14,7 +14,8 @@
         @keyup.enter="search"
         @clear="search"
       />
-      <el-select v-model="query.role" placeholder="角色" clearable style="width: 120px" @change="search">
+      <el-select v-model="query.role" placeholder="角色" clearable style="width: 130px" @change="search">
+        <el-option label="超级管理员" value="SUPER_ADMIN" />
         <el-option label="管理员" value="ADMIN" />
         <el-option label="普通用户" value="USER" />
       </el-select>
@@ -33,10 +34,10 @@
         </template>
       </el-table-column>
       <el-table-column prop="nickname" label="昵称" min-width="120" />
-      <el-table-column label="角色" width="100">
+      <el-table-column label="角色" width="110">
         <template #default="{ row }">
-          <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'info'" effect="plain" size="small">
-            {{ row.role === 'ADMIN' ? '管理员' : '用户' }}
+          <el-tag :type="roleTagType(row.role)" effect="plain" size="small">
+            {{ roleLabel(row.role) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -56,8 +57,9 @@
       <el-table-column label="注册时间" width="160">
         <template #default="{ row }">{{ fmt(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
+          <el-button link type="info" @click="openHistory(row)">投稿历史</el-button>
           <el-button v-if="row.deleted" link type="primary" @click="restore(row)">恢复</el-button>
           <template v-else>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
@@ -109,6 +111,7 @@
             <el-select v-model="form.role" style="width: 100%">
               <el-option label="普通用户" value="USER" />
               <el-option label="管理员" value="ADMIN" />
+              <el-option label="超级管理员" value="SUPER_ADMIN" />
             </el-select>
           </el-form-item>
           <el-form-item label="状态">
@@ -126,6 +129,27 @@
         </button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="history.visible" :title="`投稿历史 · ${history.email}`" size="460px">
+      <div v-if="history.loading" class="hist-muted">加载中…</div>
+      <el-empty v-else-if="!history.list.length" description="该用户暂无投稿" />
+      <ul v-else class="hist-list">
+        <li v-for="r in history.list" :key="r.id" class="hist-item">
+          <div class="hist-top">
+            <span class="hist-type" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
+              {{ r.type === 'CREATE' ? '新建' : '修改' }}
+            </span>
+            <span class="hist-title">{{ r.title }}</span>
+            <span class="hist-status" :class="`s-${r.status.toLowerCase()}`">{{ statusText(r.status) }}</span>
+          </div>
+          <div class="hist-meta">
+            <code>{{ r.targetPath }}</code>
+            <span>{{ fmt(r.createdAt) }}</span>
+          </div>
+          <p v-if="r.status === 'REJECTED' && r.reviewComment" class="hist-reason">驳回：{{ r.reviewComment }}</p>
+        </li>
+      </ul>
+    </el-drawer>
   </div>
 </template>
 
@@ -134,6 +158,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListUsers, adminCreateUser, adminUpdateUser, adminDeleteUser, adminRestoreUser,
+  adminListUserRevisions,
 } from '@/net/index.js'
 
 const emptyUser = () => ({
@@ -156,6 +181,7 @@ export default {
       dialog: { visible: false, mode: 'create' },
       form: emptyUser(),
       saving: false,
+      history: { visible: false, loading: false, email: '', list: [] },
     }
   },
   computed: {
@@ -169,6 +195,23 @@ export default {
   methods: {
     isSelf(user) {
       return String(user.id) === this.myId
+    },
+    roleLabel(role) {
+      return role === 'SUPER_ADMIN' ? '超级管理员' : role === 'ADMIN' ? '管理员' : '用户'
+    },
+    roleTagType(role) {
+      return role === 'SUPER_ADMIN' ? 'danger' : role === 'ADMIN' ? 'warning' : 'info'
+    },
+    statusText(s) {
+      return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回' }[s] || s
+    },
+    openHistory(user) {
+      this.history = { visible: true, loading: true, email: user.email, list: [] }
+      adminListUserRevisions(
+        user.id,
+        (data) => { this.history.list = data || []; this.history.loading = false },
+        (message) => { this.history.loading = false; ElMessage.error(message || '加载投稿历史失败') }
+      )
     },
     fmt(iso) {
       if (!iso) return ''
@@ -312,6 +355,22 @@ export default {
 .btn-solid:disabled { cursor: not-allowed; opacity: .6; }
 .btn-ghost { margin-right: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); }
 .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.hist-muted { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+.hist-list { list-style: none; margin: 0; padding: 0; }
+.hist-item { padding: 12px 2px; border-bottom: 1px solid var(--border); }
+.hist-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.hist-title { font-weight: 600; color: var(--text-primary); font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-type { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; flex-shrink: 0; }
+.t-create { background: #e6f4ec; color: #137a3f; }
+.t-update { background: #eef1fb; color: #3a52c4; }
+.hist-status { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
+.s-pending { background: #fff4e0; color: #b3691a; }
+.s-approved { background: #e6f4ec; color: #137a3f; }
+.s-rejected { background: #fbe9e9; color: #c0392b; }
+.hist-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
+.hist-meta code { background: var(--bg-subtle); padding: 1px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-reason { margin: 6px 0 0; font-size: 12.5px; color: #c0392b; }
 
 @media (max-width: 640px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }

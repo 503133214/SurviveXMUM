@@ -41,10 +41,10 @@ public class AdminSeeder implements CommandLineRunner {
         String email = adminEmail.toLowerCase();
         User existing = userMapper.selectOne(Wrappers.<User>lambdaQuery().eq(User::getEmail, email));
         if (existing != null) {
-            if (!"ADMIN".equals(existing.getRole())) {
-                existing.setRole("ADMIN");
+            if (!"SUPER_ADMIN".equals(existing.getRole())) {
+                existing.setRole("SUPER_ADMIN");
                 userMapper.updateById(existing);
-                log.info("已将 {} 提升为管理员", email);
+                log.info("已将 {} 提升为超级管理员", email);
             }
             return;
         }
@@ -55,10 +55,10 @@ public class AdminSeeder implements CommandLineRunner {
         User admin = new User();
         admin.setEmail(email);
         admin.setPassword(passwordEncoder.encode(adminPassword));
-        admin.setNickname("管理员");
-        admin.setRole("ADMIN");
+        admin.setNickname("超级管理员");
+        admin.setRole("SUPER_ADMIN");
         admin.setStatus("ACTIVE");
         userMapper.insert(admin);
-        log.info("已创建管理员账号 {}", email);
+        log.info("已创建超级管理员账号 {}", email);
     }
 }

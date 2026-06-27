@@ -113,7 +113,39 @@ public class RevisionService {
         } else {
             q.orderByDesc(WikiRevision::getCreatedAt);
         }
-        return revisionMapper.selectList(q).stream().map(RevisionVO::from).toList();
+        return toVOsWithReviewer(revisionMapper.selectList(q));
+    }
+
+    /** 某用户的全部投稿历史（倒序）。 */
+    public List<RevisionVO> listByAuthor(Long authorId) {
+        return toVOsWithReviewer(revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
+                .eq(WikiRevision::getAuthorId, authorId)
+                .orderByDesc(WikiRevision::getCreatedAt)));
+    }
+
+    /** 各状态投稿数量，供前端 tab 角标。 */
+    public java.util.Map<String, Long> counts() {
+        java.util.Map<String, Long> m = new java.util.LinkedHashMap<>();
+        for (String s : List.of("PENDING", "APPROVED", "REJECTED")) {
+            m.put(s, revisionMapper.selectCount(Wrappers.<WikiRevision>lambdaQuery().eq(WikiRevision::getStatus, s)));
+        }
+        return m;
+    }
+
+    /** 列表项转 VO，并按 reviewerId 批量回填审核人邮箱。 */
+    private List<RevisionVO> toVOsWithReviewer(List<WikiRevision> list) {
+        List<RevisionVO> rows = list.stream().map(RevisionVO::from).toList();
+        List<Long> reviewerIds = list.stream().map(WikiRevision::getReviewerId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        if (!reviewerIds.isEmpty()) {
+            var emailById = userMapper.selectBatchIds(reviewerIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(User::getId, User::getEmail, (a, b) -> a));
+            for (int i = 0; i < rows.size(); i++) {
+                Long rid = list.get(i).getReviewerId();
+                if (rid != null) rows.get(i).setReviewerEmail(emailById.get(rid));
+            }
+        }
+        return rows;
     }
 
     public RevisionDetailVO detail(Long id) {

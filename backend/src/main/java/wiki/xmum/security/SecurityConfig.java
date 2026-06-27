@@ -42,7 +42,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/wiki/manifest", "/wiki/page").permitAll()
                 // 健康检查
                 .requestMatchers("/health", "/actuator/health").permitAll()
-                // 管理端
+                // 用户管理整段仅超级管理员（须在 /admin/** 规则之前，更具体优先）
+                .requestMatchers("/admin/users", "/admin/users/**").hasRole("SUPER_ADMIN")
+                // 其余管理端 ADMIN 即可（超管也带 ROLE_ADMIN）
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 // 其余需登录
                 .anyRequest().authenticated())

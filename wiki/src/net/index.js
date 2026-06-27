@@ -213,6 +213,12 @@ function adminApproveRevision(id, success, failure = defaultFailure) {
 function adminRejectRevision(id, comment, success, failure = defaultFailure) {
     post(`/admin/revision/${id}/reject`, { comment }, success, failure)
 }
+function adminRevisionCounts(success, failure = defaultFailure) {
+    get('/admin/revisions/counts', success, failure)
+}
+function adminListUserRevisions(userId, success, failure = defaultFailure) {
+    get(`/admin/users/${userId}/revisions`, success, failure)
+}
 function adminListUsers(query, success, failure = defaultFailure) {
     get(`/admin/users?${queryString(query)}`, success, failure)
 }
@@ -249,5 +255,6 @@ function adminRestorePage(id, success, failure = defaultFailure) {
 
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
+    adminRevisionCounts,adminListUserRevisions,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}

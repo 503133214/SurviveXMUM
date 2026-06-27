@@ -4,10 +4,13 @@ import org.springframework.web.bind.annotation.*;
 import wiki.xmum.common.ApiResponse;
 import wiki.xmum.domain.dto.UserUpsertDTO;
 import wiki.xmum.domain.vo.PageResult;
+import wiki.xmum.domain.vo.RevisionVO;
 import wiki.xmum.domain.vo.UserAdminVO;
 import wiki.xmum.security.CurrentUser;
+import wiki.xmum.service.RevisionService;
 import wiki.xmum.service.UserAdminService;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -15,9 +18,11 @@ import java.util.Map;
 public class UserAdminController {
 
     private final UserAdminService service;
+    private final RevisionService revisionService;
 
-    public UserAdminController(UserAdminService service) {
+    public UserAdminController(UserAdminService service, RevisionService revisionService) {
         this.service = service;
+        this.revisionService = revisionService;
     }
 
     @GetMapping
@@ -52,5 +57,11 @@ public class UserAdminController {
     public ApiResponse<Void> restore(@PathVariable Long id) {
         service.restore(id);
         return ApiResponse.ok(null);
+    }
+
+    /** 某用户的投稿历史（仅超管，由 SecurityConfig 限定 /admin/users/**）。 */
+    @GetMapping("/{id}/revisions")
+    public ApiResponse<List<RevisionVO>> userRevisions(@PathVariable Long id) {
+        return ApiResponse.ok(revisionService.listByAuthor(id));
     }
 }

@@ -41,7 +41,8 @@
                 <div class="um-meta">
                   <span class="um-name">
                     {{ userName }}
-                    <span v-if="isAdmin" class="um-badge">管理员</span>
+                    <span v-if="isSuperAdmin" class="um-badge um-badge-super">超级管理员</span>
+                    <span v-else-if="isAdmin" class="um-badge">管理员</span>
                   </span>
                   <span class="um-email">{{ userEmail }}</span>
                 </div>
@@ -159,7 +160,10 @@ export default {
       return useUserStore().userInfo?.userEmail || "";
     },
     isAdmin() {
-      return useUserStore().userInfo?.role === "ADMIN";
+      return useUserStore().isAdmin;
+    },
+    isSuperAdmin() {
+      return useUserStore().isSuperAdmin;
     },
   },
   methods: {
@@ -402,6 +406,11 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
   color: var(--text-secondary);
   font-size: 10.5px;
   font-weight: 600;
+}
+.user-menu .um-badge-super {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 .user-menu .um-email {
   overflow: hidden;

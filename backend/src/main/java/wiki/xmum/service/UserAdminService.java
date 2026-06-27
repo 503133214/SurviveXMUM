@@ -75,13 +75,13 @@ public class UserAdminService {
         String newRole = normalizeRole(dto.getRole() == null ? u.getRole() : dto.getRole());
         String newStatus = normalizeStatus(dto.getStatus() == null ? u.getStatus() : dto.getStatus());
 
-        if (isSelf && !"ADMIN".equals(newRole)) throw new BizException("不能降级自己的管理员权限");
+        if (isSelf && !newRole.equals(u.getRole())) throw new BizException("不能修改自己的角色");
         if (isSelf && "BANNED".equals(newStatus)) throw new BizException("不能封禁自己");
-        if (isSeed && (!"ADMIN".equals(newRole) || "BANNED".equals(newStatus))) {
-            throw new BizException("初始管理员账号不可降级或封禁");
+        if (isSeed && (!"SUPER_ADMIN".equals(newRole) || "BANNED".equals(newStatus))) {
+            throw new BizException("初始超级管理员不可降级或封禁");
         }
-        boolean wasActiveAdmin = "ADMIN".equals(u.getRole()) && "ACTIVE".equals(u.getStatus());
-        boolean willBeActiveAdmin = "ADMIN".equals(newRole) && "ACTIVE".equals(newStatus);
+        boolean wasActiveAdmin = isAdminRole(u.getRole()) && "ACTIVE".equals(u.getStatus());
+        boolean willBeActiveAdmin = isAdminRole(newRole) && "ACTIVE".equals(newStatus);
         if (wasActiveAdmin && !willBeActiveAdmin && countActiveAdminsExcept(u.getId()) == 0) {
             throw new BizException("至少需保留一名在岗管理员");
         }
@@ -100,9 +100,9 @@ public class UserAdminService {
         User u = mustGet(id);
         if (u.getId().equals(actor.getId())) throw new BizException("不能删除自己");
         if (seedAdminEmail != null && seedAdminEmail.equalsIgnoreCase(u.getEmail())) {
-            throw new BizException("初始管理员账号不可删除");
+            throw new BizException("初始超级管理员不可删除");
         }
-        if ("ADMIN".equals(u.getRole()) && "ACTIVE".equals(u.getStatus())
+        if (isAdminRole(u.getRole()) && "ACTIVE".equals(u.getStatus())
                 && countActiveAdminsExcept(u.getId()) == 0) {
             throw new BizException("至少需保留一名在岗管理员");
         }
@@ -118,10 +118,14 @@ public class UserAdminService {
 
     private long countActiveAdminsExcept(Long excludeId) {
         return userMapper.selectCount(Wrappers.<User>lambdaQuery()
-                .eq(User::getRole, "ADMIN")
+                .in(User::getRole, java.util.List.of("ADMIN", "SUPER_ADMIN"))
                 .eq(User::getStatus, "ACTIVE")
                 .eq(User::getDeleted, 0)
                 .ne(User::getId, excludeId));
+    }
+
+    private static boolean isAdminRole(String role) {
+        return "ADMIN".equals(role) || "SUPER_ADMIN".equals(role);
     }
 
     private User mustGet(Long id) {
@@ -145,7 +149,9 @@ public class UserAdminService {
     }
 
     private static String normalizeRole(String role) {
-        return "ADMIN".equalsIgnoreCase(role) ? "ADMIN" : "USER";
+        if ("SUPER_ADMIN".equalsIgnoreCase(role)) return "SUPER_ADMIN";
+        if ("ADMIN".equalsIgnoreCase(role)) return "ADMIN";
+        return "USER";
     }
 
     private static String normalizeStatus(String status) {

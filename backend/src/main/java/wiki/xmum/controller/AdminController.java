@@ -28,6 +28,11 @@ public class AdminController {
         return ApiResponse.ok(revisionService.listByStatus(status));
     }
 
+    @GetMapping("/revisions/counts")
+    public ApiResponse<java.util.Map<String, Long>> revisionCounts() {
+        return ApiResponse.ok(revisionService.counts());
+    }
+
     @GetMapping("/revision/{id}")
     public ApiResponse<RevisionDetailVO> detail(@PathVariable Long id) {
         return ApiResponse.ok(revisionService.detail(id));

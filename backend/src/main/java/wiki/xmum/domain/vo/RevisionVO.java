@@ -19,6 +19,7 @@ public class RevisionVO {
     private String categorySlug;
     private String authorEmail;
     private String reviewComment;
+    private String reviewerEmail;   // 审核人（已通过/已驳回时回填）
     private String createdAt;
     private String reviewedAt;
 
