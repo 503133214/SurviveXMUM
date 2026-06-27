@@ -258,6 +258,6 @@ function adminRestorePage(id, success, failure = defaultFailure) {
 
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
-    adminRevisionCounts,adminListUserRevisions,
+    adminRevisionCounts,adminListUserRevisions,getMyRevision,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}
