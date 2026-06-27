@@ -1,0 +1,28 @@
+# SurviveXMUM 一键部署
+# 仅容器化前端 + 后端，复用宿主机上现有的 MySQL / Redis / MinIO（不动数据）。
+services:
+  backend:
+    build:
+      context: ./backend
+    image: survivexmum-backend:latest
+    container_name: wiki-backend
+    # host 网络：容器内 localhost 直达宿主机 MySQL:3306 / Redis:6379 / MinIO:9000，
+    # 连接配置与原 systemd jar 完全一致，后端自身监听 8080。
+    network_mode: host
+    # 复用服务器上原有的生产环境变量（含 DB/JWT/MinIO/邮件等密钥）。
+    # 首次部署前执行：cp /etc/wiki-backend.env backend/.env.prod
+    env_file:
+      - ./backend/.env.prod
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./wiki
+    image: survivexmum-frontend:latest
+    container_name: wiki-frontend
+    # 只监听本机回环，由宿主机 nginx 反代到这里（location / → 前端）。
+    ports:
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
