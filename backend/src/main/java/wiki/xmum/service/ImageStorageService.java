@@ -2,6 +2,7 @@ package wiki.xmum.service;
 
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import wiki.xmum.common.BizException;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@ConditionalOnProperty(prefix = "wiki.storage", name = "enabled", havingValue = "true")
 public class ImageStorageService {
     private static final Map<String, String> CONTENT_TYPES = Map.of(
         "image/jpeg", "jpg",

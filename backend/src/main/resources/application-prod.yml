@@ -26,6 +26,7 @@ wiki:
   jwt:
     secret: ${JWT_SECRET}
   storage:
+    enabled: ${MINIO_ENABLED:true}
     endpoint: ${MINIO_ENDPOINT:http://83.229.122.162:9000}
     access-key: ${MINIO_ACCESS_KEY}
     secret-key: ${MINIO_SECRET_KEY}

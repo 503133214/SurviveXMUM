@@ -6,6 +6,12 @@ spring:
   application:
     name: xmum-wiki-backend
 
+  config:
+    import:
+      # IntelliJ 从仓库根目录启动；Maven 通常从 backend/ 启动。
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+
   profiles:
     default: dev
 
@@ -54,6 +60,7 @@ wiki:
     email: ${WIKI_ADMIN_EMAIL:}
     password: ${WIKI_ADMIN_PASSWORD:}
   storage:
+    enabled: ${MINIO_ENABLED:false}
     endpoint: ${MINIO_ENDPOINT:http://83.229.122.162:9000}
     access-key: ${MINIO_ACCESS_KEY:}
     secret-key: ${MINIO_SECRET_KEY:}

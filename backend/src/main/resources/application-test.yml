@@ -25,6 +25,7 @@ wiki:
   mail:
     enabled: false
   storage:
+    enabled: ${TEST_MINIO_ENABLED:false}
     endpoint: ${TEST_MINIO_ENDPOINT:http://localhost:9000}
     access-key: ${TEST_MINIO_ACCESS_KEY:minioadmin}
     secret-key: ${TEST_MINIO_SECRET_KEY:minioadmin}
