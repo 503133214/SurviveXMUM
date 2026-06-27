@@ -63,6 +63,24 @@ function internalGet(url,headers,success,failure,error=defaultError){
         }
     }).catch(err => error(err))
 }
+function internalPut(url,data,headers,success,failure,error=defaultError){
+    axios.put(url, data, { headers: headers }).then(({ data }) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, url)
+        }
+    }).catch(err => error(err))
+}
+function internalDelete(url,headers,success,failure,error=defaultError){
+    axios.delete(url, { headers: headers }).then(({ data }) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, url)
+        }
+    }).catch(err => error(err))
+}
 function accessHeader(){
     const token = takeAccessToken()
     return token ?{
@@ -74,6 +92,19 @@ function get(url,success,failure=defaultFailure){
 }
 function post(url,data,success,failure=defaultFailure){
     internalPost(url,data,accessHeader(),success,failure)
+}
+function put(url,data,success,failure=defaultFailure){
+    internalPut(url,data,accessHeader(),success,failure)
+}
+function remove(url,success,failure=defaultFailure){
+    internalDelete(url,accessHeader(),success,failure)
+}
+function queryString(params){
+    const query = new URLSearchParams()
+    Object.entries(params || {}).forEach(([key,value]) => {
+        if (value !== '' && value !== null && value !== undefined) query.set(key,String(value))
+    })
+    return query.toString()
 }
 function uploadImage(file,onProgress,success,failure=defaultFailure){
     const formData = new FormData()
@@ -182,6 +213,41 @@ function adminApproveRevision(id, success, failure = defaultFailure) {
 function adminRejectRevision(id, comment, success, failure = defaultFailure) {
     post(`/admin/revision/${id}/reject`, { comment }, success, failure)
 }
+function adminListUsers(query, success, failure = defaultFailure) {
+    get(`/admin/users?${queryString(query)}`, success, failure)
+}
+function adminCreateUser(payload, success, failure = defaultFailure) {
+    post('/admin/users', payload, success, failure)
+}
+function adminUpdateUser(id, payload, success, failure = defaultFailure) {
+    put(`/admin/users/${id}`, payload, success, failure)
+}
+function adminDeleteUser(id, success, failure = defaultFailure) {
+    remove(`/admin/users/${id}`, success, failure)
+}
+function adminRestoreUser(id, success, failure = defaultFailure) {
+    post(`/admin/users/${id}/restore`, {}, success, failure)
+}
+function adminListPages(query, success, failure = defaultFailure) {
+    get(`/admin/pages?${queryString(query)}`, success, failure)
+}
+function adminGetPage(id, success, failure = defaultFailure) {
+    get(`/admin/page/${id}`, success, failure)
+}
+function adminCreatePage(payload, success, failure = defaultFailure) {
+    post('/admin/pages', payload, success, failure)
+}
+function adminUpdatePage(id, payload, success, failure = defaultFailure) {
+    put(`/admin/page/${id}`, payload, success, failure)
+}
+function adminDeletePage(id, success, failure = defaultFailure) {
+    remove(`/admin/page/${id}`, success, failure)
+}
+function adminRestorePage(id, success, failure = defaultFailure) {
+    post(`/admin/page/${id}/restore`, {}, success, failure)
+}
 
-export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
-    uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision}
+export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
+    uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
+    adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
+    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}

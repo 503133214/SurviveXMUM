@@ -20,6 +20,7 @@ public class WikiRevision {
     private String description;
     private String tags;
     private String content;
+    private Integer baseVersion; // 投稿时目标页版本
     private String type;         // CREATE / UPDATE
     private String status;       // PENDING / APPROVED / REJECTED
     private Long authorId;

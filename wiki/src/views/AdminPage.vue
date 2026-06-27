@@ -1,7 +1,26 @@
 <template>
-  <div class="admin-page">
-    <header class="ad-head">
-      <h1>管理后台 · 投稿审核</h1>
+  <div class="admin-console">
+    <aside class="ac-nav">
+      <div class="ac-title">管理后台</div>
+      <button
+        v-for="section in adminSections"
+        :key="section.key"
+        class="ac-item"
+        :class="{ active: activeSection === section.key }"
+        @click="activeSection = section.key"
+      >
+        <el-icon><component :is="section.icon" /></el-icon>
+        <span>{{ section.label }}</span>
+      </button>
+    </aside>
+
+    <section class="ac-main">
+      <AdminPagesPanel v-if="activeSection === 'pages'" />
+      <AdminUsersPanel v-else-if="activeSection === 'users'" />
+
+      <div v-else class="admin-page">
+        <header class="ad-head">
+          <h1>投稿审核</h1>
       <div class="seg">
         <button v-for="s in tabs" :key="s.key" :class="{ active: status === s.key }" @click="switchStatus(s.key)">
           {{ s.label }}
@@ -118,15 +137,19 @@
         </template>
       </main>
     </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Tickets } from '@element-plus/icons-vue'
+import { Document, Tickets, User } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
+import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
+import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision,
 } from '@/net/index.js'
@@ -136,10 +159,18 @@ export default {
   components: {
     MarkdownRenderer: markRaw(MarkdownRenderer),
     MarkdownDiff: markRaw(MarkdownDiff),
+    AdminPagesPanel: markRaw(AdminPagesPanel),
+    AdminUsersPanel: markRaw(AdminUsersPanel),
     Tickets,
   },
   data() {
     return {
+      activeSection: 'review',
+      adminSections: [
+        { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
+        { key: 'pages', label: '页面管理', icon: markRaw(Document) },
+        { key: 'users', label: '用户管理', icon: markRaw(User) },
+      ],
       status: 'PENDING',
       tabs: [
         { key: 'PENDING', label: '待审核' },
@@ -262,7 +293,56 @@ export default {
 </script>
 
 <style scoped>
-.admin-page { width: 100%; max-width: 1600px; margin: 0 auto; padding: 32px 24px 64px; }
+.admin-console {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: start;
+  gap: 28px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+.ac-nav {
+  position: sticky;
+  top: calc(var(--header-height) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ac-title {
+  padding: 6px 12px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+.ac-item:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.ac-item.active {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ac-item .el-icon { color: var(--text-muted); font-size: 17px; }
+.ac-item.active .el-icon { color: var(--text-primary); }
+.ac-main { min-width: 0; }
+.admin-page { width: 100%; }
 .ad-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 .ad-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
 .seg { display: flex; background: var(--bg-subtle); border-radius: 999px; padding: 4px; }
@@ -397,8 +477,16 @@ html.dark .t-update { background: rgba(58,82,196,.22); color: #aab8ff; }
   .ad-body { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 860px) {
+  .admin-console { grid-template-columns: 1fr; gap: 16px; }
+  .ac-nav { position: static; flex-direction: row; overflow-x: auto; }
+  .ac-title { display: none; }
+  .ac-item { flex: 1 0 auto; justify-content: center; white-space: nowrap; }
+  .ac-item.active { box-shadow: inset 0 -3px 0 var(--accent); }
+}
+
 @media (max-width: 768px) {
-  .admin-page { padding: 20px 16px 48px; }
+  .admin-console { padding: 20px 16px 48px; }
   .ad-head { align-items: flex-start; margin-bottom: 16px; }
   .ad-head h1 { width: 100%; font-size: 1.25rem; }
   .seg { width: 100%; }

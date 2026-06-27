@@ -63,7 +63,9 @@ public class WikiContentService {
                 .thenComparing(c -> c.getLabel() == null ? "" : c.getLabel()));
 
         List<WikiPage> allPages = pageMapper.selectList(
-                Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getStatus, "PUBLISHED"));
+                Wrappers.<WikiPage>lambdaQuery()
+                        .eq(WikiPage::getStatus, "PUBLISHED")
+                        .eq(WikiPage::getDeleted, 0));
 
         // home: 根 README
         WikiPage homePage = allPages.stream().filter(p -> HOME_PATH.equals(p.getPath())).findFirst().orElse(null);
@@ -119,7 +121,9 @@ public class WikiContentService {
 
     public PageDetailVO getPage(String path) {
         if (path == null || path.isBlank()) path = HOME_PATH;
-        WikiPage p = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, path));
+        WikiPage p = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                .eq(WikiPage::getPath, path)
+                .eq(WikiPage::getDeleted, 0));
         if (p == null) {
             throw new BizException(404, "页面不存在：" + path);
         }
@@ -134,6 +138,7 @@ public class WikiContentService {
         vo.setTags(JsonUtil.toStringList(p.getTags()));
         vo.setHeadings(JsonUtil.toStringList(p.getHeadings()));
         vo.setContent(p.getContent());
+        vo.setVersion(p.getVersion() == null ? 0 : p.getVersion());
         vo.setLastUpdated(iso(p.getUpdatedAt()));
         return vo;
     }

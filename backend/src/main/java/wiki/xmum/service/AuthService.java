@@ -103,7 +103,7 @@ public class AuthService {
     public AuthVO login(LoginDTO dto) {
         String email = dto.getUserEmail().toLowerCase();
         User u = findByEmail(email);
-        if (u == null || !passwordEncoder.matches(dto.getPassword(), u.getPassword())) {
+        if (u == null || isDeleted(u) || !passwordEncoder.matches(dto.getPassword(), u.getPassword())) {
             throw new BizException("邮箱或密码错误");
         }
         if ("BANNED".equals(u.getStatus())) {
@@ -115,7 +115,7 @@ public class AuthService {
     public void resetPassword(ResetPasswordDTO dto) {
         String email = dto.getUserEmail().toLowerCase();
         User u = findByEmail(email);
-        if (u == null) {
+        if (u == null || isDeleted(u)) {
             throw new BizException("该邮箱尚未注册");
         }
         codeService.verify(email, "reset", dto.getCode());
@@ -136,5 +136,9 @@ public class AuthService {
             throw new BizException(401, "用户不存在或登录已失效");
         }
         return UserInfoVO.from(u);
+    }
+
+    static boolean isDeleted(User user) {
+        return user.getDeleted() != null && user.getDeleted() == 1;
     }
 }

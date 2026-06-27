@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `avatar`      VARCHAR(255) DEFAULT NULL,
   `role`        VARCHAR(20)  NOT NULL DEFAULT 'USER',   -- USER / ADMIN
   `status`      VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE', -- ACTIVE / BANNED
+  `deleted`     TINYINT      NOT NULL DEFAULT 0,
   `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -43,6 +44,8 @@ CREATE TABLE IF NOT EXISTS `wiki_page` (
   `content`      MEDIUMTEXT   DEFAULT NULL,             -- markdown
   `sort_order`   INT          NOT NULL DEFAULT 0,
   `status`       VARCHAR(20)  NOT NULL DEFAULT 'PUBLISHED',
+  `version`      INT          NOT NULL DEFAULT 0,
+  `deleted`      TINYINT      NOT NULL DEFAULT 0,
   `author_id`    BIGINT       DEFAULT NULL,
   `view_count`   INT          NOT NULL DEFAULT 0,
   `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -61,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `wiki_revision` (
   `description`   VARCHAR(500) DEFAULT NULL,
   `tags`          VARCHAR(500) DEFAULT NULL,
   `content`       MEDIUMTEXT   DEFAULT NULL,
+  `base_version`  INT          DEFAULT NULL,
   `type`          VARCHAR(20)  NOT NULL,                -- CREATE / UPDATE
   `status`        VARCHAR(20)  NOT NULL DEFAULT 'PENDING', -- PENDING / APPROVED / REJECTED
   `author_id`     BIGINT       NOT NULL,

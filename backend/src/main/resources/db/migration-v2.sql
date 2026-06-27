@@ -1,0 +1,25 @@
+-- 为现有数据库补充页面/用户管理和并发校验字段（可重复执行）。
+
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE `user` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user' AND COLUMN_NAME='deleted');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE `wiki_page` ADD COLUMN `version` INT NOT NULL DEFAULT 0',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='wiki_page' AND COLUMN_NAME='version');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE `wiki_page` ADD COLUMN `deleted` TINYINT NOT NULL DEFAULT 0',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='wiki_page' AND COLUMN_NAME='deleted');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @ddl := (SELECT IF(COUNT(*)=0,
+  'ALTER TABLE `wiki_revision` ADD COLUMN `base_version` INT DEFAULT NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='wiki_revision' AND COLUMN_NAME='base_version');
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
