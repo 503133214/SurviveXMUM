@@ -17,6 +17,7 @@
         ref="formRef"
         :model="form"
         :rules="rules"
+        :validate-on-rule-change="false"
         label-position="top"
         @submit.prevent="handleSubmit"
         class="auth-form"
@@ -54,8 +55,8 @@
         </button>
       </el-form>
 
-      <div class="auth-foot">
-        <a v-if="mode !== 'forgot'" @click="switchMode('forgot')">忘记密码？</a>
+      <div v-if="mode !== 'register'" class="auth-foot">
+        <a v-if="mode === 'login'" @click="switchMode('forgot')">忘记密码？</a>
         <a v-else @click="switchMode('login')">← 返回登录</a>
       </div>
 
@@ -67,7 +68,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onUnmounted } from 'vue'
+import { ref, reactive, computed, nextTick, onUnmounted } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { login, register, resetPassword, sendCode } from '@/net/index.js'
@@ -173,11 +174,12 @@ export default {
       })
     }
 
-    const switchMode = (newMode) => {
+    const switchMode = async (newMode) => {
       mode.value = newMode
       form.password = ''
       form.confirmPassword = ''
       form.code = ''
+      await nextTick()
       if (formRef.value) formRef.value.clearValidate()
     }
 

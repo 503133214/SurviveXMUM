@@ -1,8 +1,8 @@
 <template>
-  <div class="markdown-container">
+  <div class="markdown-container" :class="{ 'is-embedded': embedded }">
     <!-- 移动端目录抽屉开关 -->
     <button
-      v-if="isMobileView && tocItems.length > 0"
+      v-if="!embedded && isMobileView && tocItems.length > 0"
       class="toc-drawer-toggle"
       @click="isTocDrawerOpen = !isTocDrawerOpen"
       :aria-expanded="isTocDrawerOpen.toString()"
@@ -24,7 +24,7 @@
 
     <!-- 目录 -->
     <aside
-      v-if="tocItems.length > 0"
+      v-if="!embedded && tocItems.length > 0"
       class="toc-sidebar-area"
       :class="{ 'is-drawer-open': isTocDrawerOpen && isMobileView }"
       role="navigation"
@@ -81,7 +81,12 @@ export default {
     content: { type: String, required: true },
     // 当前文档所在目录，用于把相对图片/链接解析为绝对路径
     basePath: { type: String, default: "" },
+    // 编辑器和审核页只需要正文，不复用正式文档页的目录和卡片外壳。
+    embedded: { type: Boolean, default: false },
+    // 编辑器预览里允许拖动右下角手柄缩放图片，并把新宽度写回 Markdown。
+    resizable: { type: Boolean, default: false },
   },
+  emits: ["resize-image"],
   data() {
     return {
       renderedHtml: "",
@@ -100,6 +105,7 @@ export default {
     render() {
       const toc = [];
       const usedIds = new Set();
+      let imgIndex = 0;
       const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
 
       // 标题：注入 id 并收集目录
@@ -146,31 +152,86 @@ export default {
         return self.renderToken(tokens, idx, options);
       };
 
-      // 图片：相对路径 → /docs/<dir>/...
+      // 图片：相对路径 → /docs/<dir>/...，并解析 =WxH 尺寸标记
       md.renderer.rules.image = (tokens, idx, options, env, self) => {
         const token = tokens[idx];
         const si = token.attrIndex("src");
         if (si >= 0) {
           let src = token.attrs[si][1];
-          if (src && !/^(https?:|\/|data:)/.test(src)) {
-            token.attrs[si][1] = `/docs/${base}${src.replace(/^\.\//, "")}`;
+          // 由 `![](url =500x)` 语法预处理而来的尺寸标记，转成 width/height 属性
+          const sz = src.match(/#__sz=(\d+)(?:x(\d+))?$/);
+          if (sz) {
+            src = src.replace(/#__sz=\d+(?:x\d+)?$/, "");
+            token.attrSet("width", sz[1]);
+            if (sz[2]) token.attrSet("height", sz[2]);
           }
+          if (src && !/^(https?:|\/|data:)/.test(src)) {
+            src = `/docs/${base}${src.replace(/^\.\//, "")}`;
+          }
+          token.attrs[si][1] = src;
         }
         token.attrSet("loading", "lazy");
+        token.attrSet("data-img-index", String(imgIndex++));
         return self.renderToken(tokens, idx, options);
       };
 
+      // `![](url =500x)` 是 Markdown 原生解析不了的，先把尺寸折叠进 URL 的 hash 标记，
+      // 交给上面的 image 规则还原成 width/height 属性。
+      const sized = (this.content || "").replace(
+        /!\[([^\]]*)\]\(\s*(\S+?)\s+=(\d+)x(\d*)\s*\)/g,
+        (_m, alt, url, w, h) => `![${alt}](${url}#__sz=${w}${h ? "x" + h : ""})`
+      );
+
       // 内容现在来自用户投稿（不可信）：先渲染再用 DOMPurify 消毒，移除 <script>/onclick 等。
       // 保留 <details>/<summary>、链接 target 等合法用法。
-      const dirty = md.render(this.content || "");
+      const dirty = md.render(sized);
       this.renderedHtml = DOMPurify.sanitize(dirty, {
-        ADD_ATTR: ["target", "id", "loading"],
+        ADD_ATTR: ["target", "id", "loading", "width", "height"],
       });
       this.tocItems = toc;
       this.$nextTick(() => {
         this.enhanceCodeBlocks();
+        this.enhanceResizableImages();
         this.setupScrollSpy();
       });
+    },
+    enhanceResizableImages() {
+      if (!this.resizable) return;
+      const root = this.$refs.bodyEl;
+      if (!root) return;
+      root.querySelectorAll("img").forEach((img) => {
+        if (img.parentElement && img.parentElement.classList.contains("img-resize-wrap")) return;
+        const wrap = document.createElement("span");
+        wrap.className = "img-resize-wrap";
+        img.parentNode.insertBefore(wrap, img);
+        wrap.appendChild(img);
+        const handle = document.createElement("span");
+        handle.className = "img-resize-handle";
+        handle.title = "拖动调整图片大小";
+        wrap.appendChild(handle);
+        handle.addEventListener("pointerdown", (e) => this.startImageResize(e, img, handle));
+      });
+    },
+    startImageResize(event, img, handle) {
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = event.clientX;
+      const startWidth = img.getBoundingClientRect().width;
+      try { handle.setPointerCapture(event.pointerId); } catch (_) { /* 忽略 */ }
+      const onMove = (ev) => {
+        const next = Math.max(40, Math.round(startWidth + (ev.clientX - startX)));
+        img.style.width = next + "px";
+        img.style.height = "auto";
+      };
+      const onUp = () => {
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        const index = parseInt(img.getAttribute("data-img-index") || "0", 10);
+        const width = Math.round(img.getBoundingClientRect().width);
+        this.$emit("resize-image", { index, width });
+      };
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
     },
     enhanceCodeBlocks() {
       const root = this.$refs.bodyEl;
@@ -255,6 +316,20 @@ export default {
   margin: 0;
 }
 
+.markdown-container.is-embedded {
+  display: block;
+  max-width: none;
+  padding: 0;
+}
+.markdown-container.is-embedded .markdown-body {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.markdown-container.is-embedded .markdown-body:hover { box-shadow: none; }
+
 /* ---- markdown 正文（自带主题，不依赖 github-markdown-css，便于暗色） ---- */
 .markdown-body {
   padding: 36px 40px;
@@ -296,10 +371,39 @@ export default {
 .markdown-body img {
   max-width: 100%;
   height: auto;
+  display: block;
+  margin: 0.8em auto; /* 图片统一居中 */
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
-  margin: 0.8em 0;
 }
+/* 可缩放图片：用包裹层承载右下角拖动手柄，并保持居中 */
+.markdown-body .img-resize-wrap {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.8em auto;
+}
+.markdown-body .img-resize-wrap img {
+  margin: 0;
+}
+.markdown-body .img-resize-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #2563eb);
+  border: 2px solid var(--bg-surface, #fff);
+  box-shadow: var(--shadow-sm);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  touch-action: none;
+}
+.markdown-body .img-resize-wrap:hover .img-resize-handle,
+.markdown-body .img-resize-handle:active { opacity: 1; }
 .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
 
 .markdown-body blockquote {

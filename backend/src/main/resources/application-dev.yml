@@ -1,0 +1,31 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:wiki}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 5
+      connection-test-query: SELECT 1
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 本地 Redis 密码通过环境变量设置。
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:1}
+      timeout: 3000ms
+
+wiki:
+  storage:
+    enabled: ${MINIO_ENABLED:true}
+
+logging:
+  level:
+    wiki.xmum: DEBUG

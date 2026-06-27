@@ -108,6 +108,8 @@ export default {
 .wiki-sidebar {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   height: calc(100vh - var(--header-height));
   position: sticky;
   top: var(--header-height);
@@ -122,6 +124,9 @@ export default {
 
 .sidebar-el-menu {
   flex: 1;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   border-right: none;
   background-color: transparent;
@@ -135,6 +140,8 @@ export default {
 }
 
 .sidebar-el-menu :deep(.el-menu-item) {
+  min-width: 0;
+  overflow: hidden;
   font-size: 14px;
   height: 42px;
   line-height: 42px;
@@ -152,6 +159,8 @@ export default {
   font-weight: 600;
 }
 .sidebar-el-menu :deep(.el-sub-menu__title) {
+  min-width: 0;
+  overflow: hidden;
   font-size: 14px;
   font-weight: 600;
 }
