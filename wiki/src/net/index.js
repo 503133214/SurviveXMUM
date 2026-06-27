@@ -75,6 +75,28 @@ function get(url,success,failure=defaultFailure){
 function post(url,data,success,failure=defaultFailure){
     internalPost(url,data,accessHeader(),success,failure)
 }
+function uploadImage(file,onProgress,success,failure=defaultFailure){
+    const formData = new FormData()
+    formData.append('file', file)
+    axios.post('/wiki/image', formData, {
+        headers: accessHeader(),
+        timeout: 60000,
+        onUploadProgress: (event) => {
+            if (!event.total || !onProgress) return
+            onProgress(Math.round((event.loaded * 100) / event.total))
+        }
+    }).then(({data}) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, '/wiki/image')
+        }
+    }).catch((err) => {
+        const message = err.response?.data?.message
+            || (err.code === 'ECONNABORTED' ? '图片上传超时，请重试' : '图片上传失败，请稍后重试')
+        failure(message, err.response?.status || -1, '/wiki/image')
+    })
+}
 function unauthorized(){
     return !takeAccessToken()
 }
@@ -162,4 +184,4 @@ function adminRejectRevision(id, comment, success, failure = defaultFailure) {
 }
 
 export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
-    submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision}
+    uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision}
