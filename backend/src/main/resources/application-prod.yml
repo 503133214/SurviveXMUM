@@ -1,0 +1,38 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:wiki}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+      connection-test-query: SELECT 1
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 生产 Redis 无密码时无需设置 REDIS_PASSWORD。
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:1}
+      timeout: 3000ms
+
+wiki:
+  jwt:
+    secret: ${JWT_SECRET}
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://83.229.122.162:9000}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${MINIO_BUCKET:wiki}
+    # 当前可用地址。配置 HTTPS 反向代理后用 MINIO_PUBLIC_URL 覆盖。
+    public-url: ${MINIO_PUBLIC_URL:http://83.229.122.162:9000/wiki}
+
+logging:
+  level:
+    wiki.xmum: INFO

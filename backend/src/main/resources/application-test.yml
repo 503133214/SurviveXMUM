@@ -1,0 +1,32 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${TEST_DB_HOST:localhost}:${TEST_DB_PORT:3306}/${TEST_DB_NAME:wiki_test}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${TEST_DB_USER:root}
+    password: ${TEST_DB_PASSWORD:}
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 3
+      connection-test-query: SELECT 1
+
+  data:
+    redis:
+      host: ${TEST_REDIS_HOST:localhost}
+      port: ${TEST_REDIS_PORT:6379}
+      password: ${TEST_REDIS_PASSWORD:}
+      database: ${TEST_REDIS_DB:2}
+      timeout: 3000ms
+
+wiki:
+  mail:
+    enabled: false
+  storage:
+    endpoint: ${TEST_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${TEST_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${TEST_MINIO_SECRET_KEY:minioadmin}
+    bucket: ${TEST_MINIO_BUCKET:wiki-test}
+    public-url: ${TEST_MINIO_PUBLIC_URL:http://localhost:9000/wiki-test}
