@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import wiki.xmum.common.ApiResponse;
 import wiki.xmum.domain.dto.RevisionSubmitDTO;
+import wiki.xmum.domain.vo.RevisionDetailVO;
 import wiki.xmum.domain.vo.RevisionVO;
 import wiki.xmum.security.CurrentUser;
 import wiki.xmum.service.RevisionService;
@@ -33,5 +34,10 @@ public class RevisionController {
     @GetMapping("/revision/mine")
     public ApiResponse<List<RevisionVO>> mine() {
         return ApiResponse.ok(revisionService.mine(CurrentUser.get()));
+    }
+
+    @GetMapping("/revision/{id}")
+    public ApiResponse<RevisionDetailVO> mineDetail(@PathVariable Long id) {
+        return ApiResponse.ok(revisionService.mineDetail(id, CurrentUser.get()));
     }
 }

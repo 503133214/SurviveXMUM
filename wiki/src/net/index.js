@@ -201,6 +201,9 @@ function submitRevision(payload, success, failure = defaultFailure) {
 function getMyRevisions(success, failure = defaultFailure) {
     get('/wiki/revision/mine', success, failure)
 }
+function getMyRevision(id, success, failure = defaultFailure) {
+    get(`/wiki/revision/${id}`, success, failure)
+}
 function adminListRevisions(status, success, failure = defaultFailure) {
     get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
 }
@@ -248,6 +251,6 @@ function adminRestorePage(id, success, failure = defaultFailure) {
 }
 
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
-    uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
+    uploadImage,submitRevision,getMyRevisions,getMyRevision,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}

@@ -20,7 +20,9 @@ import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class RevisionService {
@@ -97,7 +99,33 @@ public class RevisionService {
                 Wrappers.<WikiRevision>lambdaQuery()
                         .eq(WikiRevision::getAuthorId, user.getId())
                         .orderByDesc(WikiRevision::getCreatedAt));
-        return list.stream().map(RevisionVO::from).toList();
+        Set<String> approvedPaths = list.stream()
+                .filter(r -> "APPROVED".equals(r.getStatus()))
+                .map(WikiRevision::getTargetPath)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> publishedPaths = approvedPaths.isEmpty()
+                ? Set.of()
+                : new HashSet<>(pageMapper.selectList(Wrappers.<WikiPage>lambdaQuery()
+                        .in(WikiPage::getPath, approvedPaths)
+                        .eq(WikiPage::getDeleted, 0)
+                        .eq(WikiPage::getStatus, "PUBLISHED"))
+                        .stream().map(WikiPage::getPath).toList());
+
+        return list.stream().map(r -> {
+            RevisionVO vo = RevisionVO.from(r);
+            if ("APPROVED".equals(r.getStatus()) && !publishedPaths.contains(r.getTargetPath())) {
+                vo.setStatus("REMOVED");
+            }
+            return vo;
+        }).toList();
+    }
+
+    public RevisionDetailVO mineDetail(Long id, AuthUser user) {
+        WikiRevision revision = revisionMapper.selectById(id);
+        if (revision == null || !user.getId().equals(revision.getAuthorId())) {
+            throw new BizException(404, "投稿不存在");
+        }
+        return detail(id);
     }
 
     // ---------- 管理审核 ----------

@@ -35,17 +35,21 @@
       <el-empty v-else-if="!revisions.length" description="还没有投稿，去写一篇吧" />
 
       <ul v-else class="rev-list">
-        <li v-for="r in revisions" :key="r.id" class="rev-item">
+        <li
+          v-for="r in revisions"
+          :key="r.id"
+          class="rev-item"
+          role="button"
+          tabindex="0"
+          @click="openRevision(r)"
+          @keydown.enter="openRevision(r)"
+          @keydown.space.prevent="openRevision(r)"
+        >
           <div class="rev-mark" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
             {{ r.type === 'CREATE' ? '新' : '改' }}
           </div>
           <div class="rev-main">
-            <router-link
-              v-if="r.status === 'APPROVED'"
-              class="rev-title"
-              :to="`/docs/${r.targetPath}`"
-            >{{ r.title }}</router-link>
-            <span v-else class="rev-title">{{ r.title }}</span>
+            <span class="rev-title">{{ r.title }}</span>
             <div class="rev-meta">
               <span>{{ r.type === 'CREATE' ? '新建文章' : '修改文章' }}</span>
               <span class="meta-separator" aria-hidden="true"></span>
@@ -61,25 +65,55 @@
               <el-icon><Calendar /></el-icon>
               {{ fmt(r.createdAt) }}
             </span>
-            <el-icon v-if="r.status === 'APPROVED'" class="row-arrow"><ArrowRight /></el-icon>
+            <el-icon class="row-arrow"><ArrowRight /></el-icon>
           </div>
         </li>
       </ul>
     </section>
+
+    <el-dialog
+      v-model="detailVisible"
+      :title="selectedRevision?.title || '投稿详情'"
+      width="min(820px, 92vw)"
+      destroy-on-close
+    >
+      <div v-if="detailLoading" class="loading-state">加载投稿中…</div>
+      <div v-else-if="selectedRevision" class="revision-detail">
+        <div class="detail-meta">
+          <span class="status" :class="`s-${selectedRevision.status.toLowerCase()}`">
+            {{ statusText(selectedRevision.status) }}
+          </span>
+          <code>{{ selectedRevision.targetPath }}</code>
+        </div>
+        <div v-if="selectedRevision.status === 'REJECTED'" class="detail-reason">
+          <strong>驳回原因</strong>
+          <p>{{ selectedRevision.reviewComment || '管理员未填写驳回原因' }}</p>
+        </div>
+        <MarkdownRenderer :content="selectedRevision.content || ''" embedded />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ElMessage } from 'element-plus'
 import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
-import { getMyRevisions } from '@/net/index.js'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import { getMyRevision, getMyRevisions } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
   name: 'ProfilePage',
-  components: { ArrowRight, Calendar, EditPen, Setting },
+  components: { ArrowRight, Calendar, EditPen, MarkdownRenderer, Setting },
   data() {
-    return { userStore: useUserStore(), revisions: [], loading: true }
+    return {
+      userStore: useUserStore(),
+      revisions: [],
+      loading: true,
+      detailVisible: false,
+      detailLoading: false,
+      selectedRevision: null,
+    }
   },
   computed: {
     email() { return this.userStore.userInfo?.userEmail || '' },
@@ -95,7 +129,30 @@ export default {
     )
   },
   methods: {
-    statusText(s) { return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回' }[s] || s },
+    statusText(s) {
+      return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回', REMOVED: '文章已删除' }[s] || s
+    },
+    openRevision(revision) {
+      if (revision.status === 'APPROVED') {
+        this.$router.push(`/docs/${revision.targetPath}`)
+        return
+      }
+      this.detailVisible = true
+      this.detailLoading = true
+      this.selectedRevision = { ...revision, content: '' }
+      getMyRevision(
+        revision.id,
+        (data) => {
+          this.selectedRevision = { ...data, status: revision.status }
+          this.detailLoading = false
+        },
+        (msg) => {
+          this.detailVisible = false
+          this.detailLoading = false
+          ElMessage.error(msg || '加载投稿详情失败')
+        }
+      )
+    },
     fmt(iso) {
       if (!iso) return ''
       const d = new Date(iso)
@@ -217,10 +274,12 @@ export default {
   min-height: 84px;
   padding: 15px 18px;
   background: var(--bg-surface);
+  cursor: pointer;
   transition: background-color .16s ease;
 }
 .rev-item + .rev-item { border-top: 1px solid var(--border); }
 .rev-item:hover { background: var(--bg-subtle); }
+.rev-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .rev-mark {
   display: grid;
   place-items: center;
@@ -262,6 +321,7 @@ a.rev-title:hover { text-decoration: underline; }
 .s-pending { background: #fff4e0; color: #b3691a; }
 .s-approved { background: #e6f4ec; color: #137a3f; }
 .s-rejected { background: #fbe9e9; color: #c0392b; }
+.s-removed { background: var(--bg-subtle); color: var(--text-muted); }
 html.dark .s-pending { background: rgba(179,105,26,.2); color: #f0b66a; }
 html.dark .s-approved { background: rgba(19,122,63,.2); color: #6ee7a8; }
 html.dark .s-rejected { background: rgba(192,57,43,.2); color: #f3a097; }
@@ -269,6 +329,18 @@ html.dark .s-rejected { background: rgba(192,57,43,.2); color: #f3a097; }
 .row-arrow { color: var(--text-muted); }
 .rev-reason { margin: 7px 0 0; color: #c0392b; font-size: 12px; }
 html.dark .rev-reason { color: #f3a097; }
+.revision-detail { min-height: 160px; }
+.detail-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; color: var(--text-muted); }
+.detail-reason {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(192,57,43,.25);
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #9f2f24;
+}
+.detail-reason p { margin: 6px 0 0; }
+html.dark .detail-reason { background: rgba(192,57,43,.1); color: #f3a097; }
 
 @media (max-width: 720px) {
   .profile-page { padding: 28px 16px 56px; }
