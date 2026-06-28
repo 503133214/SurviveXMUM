@@ -1,0 +1,74 @@
+server:
+  port: 8080
+  # 注意：不设置 context-path，nginx 通过 location /api/ → proxy_pass .../ 去掉前缀
+
+spring:
+  application:
+    name: xmum-wiki-backend
+
+  config:
+    import:
+      # IntelliJ 从仓库根目录启动；Maven 通常从 backend/ 启动。
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+
+  profiles:
+    default: dev
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql,classpath:db/migration-v2.sql
+      continue-on-error: false
+
+  mail:
+    host: ${SMTP_HOST:smtp.163.com}
+    port: ${SMTP_PORT:465}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: ${SMTP_SSL:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      table-underline: true
+
+wiki:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-please-override-with-a-long-random-string-32+}
+    expire-days: 7
+  allowed-email-domain: ${ALLOWED_EMAIL_DOMAIN:xmu.edu.my}
+  restrict-email-domain: ${RESTRICT_EMAIL_DOMAIN:true}
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+  admin:
+    email: ${WIKI_ADMIN_EMAIL:}
+    password: ${WIKI_ADMIN_PASSWORD:}
+  storage:
+    enabled: ${MINIO_ENABLED:false}
+    endpoint: ${MINIO_ENDPOINT:http://83.229.122.162:9000}
+    access-key: ${MINIO_ACCESS_KEY:}
+    secret-key: ${MINIO_SECRET_KEY:}
+    bucket: ${MINIO_BUCKET:wiki}
+    # 浏览器可访问的 bucket 根地址；生产环境在 application-prod.yml 中配置。
+    public-url: ${MINIO_PUBLIC_URL:http://83.229.122.162:9000/wiki}
+    max-image-size: 10485760
+
+logging:
+  level:
+    wiki.xmum: INFO

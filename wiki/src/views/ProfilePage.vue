@@ -1,379 +1,368 @@
 <template>
   <div class="profile-page">
-    <el-card class="profile-card">
-      <template #header>
-        <div class="card-header">
-          <span>个人中心</span>
-        </div>
-      </template>
-
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="个人资料" name="profile">
-          <el-form
-            ref="profileFormRef"
-            :model="profileForm"
-            :rules="profileRules"
-            label-width="100px"
-          >
-            <el-form-item label="头像">
-              <el-upload
-                class="avatar-uploader"
-                action="/api/upload/avatar"
-                :headers="uploadHeaders"
-                :show-file-list="false"
-                :on-success="handleAvatarSuccess"
-                :before-upload="beforeAvatarUpload"
-              >
-                <img v-if="profileForm.avatar" :src="profileForm.avatar" class="avatar" />
-                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-              </el-upload>
-            </el-form-item>
-
-            <el-form-item label="昵称" prop="nickname">
-              <el-input v-model="profileForm.nickname" placeholder="请输入昵称" />
-            </el-form-item>
-
-            <el-form-item label="邮箱">
-              <el-input v-model="profileForm.userEmail" disabled />
-            </el-form-item>
-
-            <el-form-item label="个人简介" prop="bio">
-              <el-input
-                v-model="profileForm.bio"
-                type="textarea"
-                :rows="4"
-                placeholder="介绍一下自己吧"
-              />
-            </el-form-item>
-
-            <el-form-item label="兴趣偏好" prop="interests">
-              <el-select
-                v-model="profileForm.interests"
-                multiple
-                placeholder="请选择感兴趣的标签"
-                style="width: 100%"
-              >
-                <el-option label="学习" value="study" />
-                <el-option label="生活" value="life" />
-                <el-option label="美食" value="food" />
-                <el-option label="旅行" value="travel" />
-                <el-option label="科技" value="tech" />
-                <el-option label="娱乐" value="entertainment" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" @click="saveProfile" :loading="isSaving">
-                保存修改
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <el-tab-pane label="我的数据" name="data">
-          <el-empty v-if="!userData.length" description="暂无数据" />
-          <div v-else class="data-list">
-            <el-timeline>
-              <el-timeline-item
-                v-for="(item, index) in userData"
-                :key="index"
-                :timestamp="item.time"
-                :type="item.type"
-              >
-                <el-card class="data-item">
-                  <h4>{{ item.title }}</h4>
-                  <p>{{ item.content }}</p>
-                  <el-link type="primary" @click="$router.push(item.path)">查看详情</el-link>
-                </el-card>
-              </el-timeline-item>
-            </el-timeline>
+    <header class="pf-head">
+      <div class="pf-identity">
+        <div class="pf-avatar" aria-hidden="true">{{ initial }}</div>
+        <div class="pf-copy">
+          <div class="pf-name-row">
+            <h1 class="pf-name">{{ nickname }}</h1>
+            <span v-if="isAdmin" class="role-badge">管理员</span>
           </div>
-        </el-tab-pane>
+          <p class="pf-email">{{ email }}</p>
+        </div>
+      </div>
+      <div class="pf-actions">
+        <router-link v-if="isAdmin" to="/admin" class="action-link secondary">
+          <el-icon><Setting /></el-icon>
+          <span>管理后台</span>
+        </router-link>
+        <router-link to="/edit" class="action-link primary">
+          <el-icon><EditPen /></el-icon>
+          <span>写文章</span>
+        </router-link>
+      </div>
+    </header>
 
-        <el-tab-pane label="修改密码" name="password">
-          <el-form
-            ref="passwordFormRef"
-            :model="passwordForm"
-            :rules="passwordRules"
-            label-width="100px"
-          >
-            <el-form-item label="当前密码" prop="oldPassword">
-              <el-input v-model="passwordForm.oldPassword" type="password" show-password />
-            </el-form-item>
+    <section class="pf-section">
+      <div class="sec-head">
+        <div>
+          <p class="sec-kicker">CONTRIBUTIONS</p>
+          <h2>我的投稿 <span class="count">{{ revisions.length }}</span></h2>
+        </div>
+      </div>
 
-            <el-form-item label="新密码" prop="newPassword">
-              <el-input v-model="passwordForm.newPassword" type="password" show-password />
-            </el-form-item>
+      <div v-if="loading" class="loading-state">加载投稿中…</div>
+      <el-empty v-else-if="!revisions.length" description="还没有投稿，去写一篇吧" />
 
-            <el-form-item label="确认密码" prop="confirmPassword">
-              <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
-            </el-form-item>
+      <ul v-else class="rev-list">
+        <li
+          v-for="r in revisions"
+          :key="r.id"
+          class="rev-item"
+          role="button"
+          tabindex="0"
+          @click="openRevision(r)"
+          @keydown.enter="openRevision(r)"
+          @keydown.space.prevent="openRevision(r)"
+        >
+          <div class="rev-mark" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
+            {{ r.type === 'CREATE' ? '新' : '改' }}
+          </div>
+          <div class="rev-main">
+            <span class="rev-title">{{ r.title }}</span>
+            <div class="rev-meta">
+              <span>{{ r.type === 'CREATE' ? '新建文章' : '修改文章' }}</span>
+              <span class="meta-separator" aria-hidden="true"></span>
+              <code class="rev-path">{{ r.targetPath }}</code>
+            </div>
+            <p v-if="r.status === 'REJECTED' && r.reviewComment" class="rev-reason">
+              {{ r.reviewComment }}
+            </p>
+          </div>
+          <div class="rev-side">
+            <span class="status" :class="`s-${r.status.toLowerCase()}`">{{ statusText(r.status) }}</span>
+            <span class="rev-date">
+              <el-icon><Calendar /></el-icon>
+              {{ fmt(r.createdAt) }}
+            </span>
+            <el-icon class="row-arrow"><ArrowRight /></el-icon>
+          </div>
+        </li>
+      </ul>
+    </section>
 
-            <el-form-item>
-              <el-button type="primary" @click="changePassword" :loading="isChangingPassword">
-                修改密码
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+    <el-dialog
+      v-model="detailVisible"
+      :title="selectedRevision?.title || '投稿详情'"
+      width="min(820px, 92vw)"
+      destroy-on-close
+    >
+      <div v-if="detailLoading" class="loading-state">加载投稿中…</div>
+      <div v-else-if="selectedRevision" class="revision-detail">
+        <div class="detail-meta">
+          <span class="status" :class="`s-${selectedRevision.status.toLowerCase()}`">
+            {{ statusText(selectedRevision.status) }}
+          </span>
+          <code>{{ selectedRevision.targetPath }}</code>
+        </div>
+        <div v-if="selectedRevision.status === 'REJECTED'" class="detail-reason">
+          <strong>驳回原因</strong>
+          <p>{{ selectedRevision.reviewComment || '管理员未填写驳回原因' }}</p>
+        </div>
+        <MarkdownRenderer :content="selectedRevision.content || ''" embedded />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { get, post, accessHeader } from '@/net/index.js'
+import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import { getMyRevision, getMyRevisions } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
   name: 'ProfilePage',
-  components: { Plus },
-  setup() {
-    const userStore = useUserStore()
-    const activeTab = ref('profile')
-    const isSaving = ref(false)
-    const isChangingPassword = ref(false)
-    const profileFormRef = ref(null)
-    const passwordFormRef = ref(null)
-
-    const profileForm = reactive({
-      avatar: '',
-      nickname: '',
-      userEmail: '',
-      bio: '',
-      interests: []
-    })
-
-    const profileRules = {
-      nickname: [
-        { max: 20, message: '昵称不能超过20个字符', trigger: 'blur' }
-      ],
-      bio: [
-        { max: 500, message: '个人简介不能超过500个字符', trigger: 'blur' }
-      ]
-    }
-
-    const passwordForm = reactive({
-      oldPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    })
-
-    const validateConfirmPassword = (rule, value, callback) => {
-      if (value !== passwordForm.newPassword) {
-        callback(new Error('两次输入的密码不一致'))
-      } else {
-        callback()
-      }
-    }
-
-    const passwordRules = {
-      oldPassword: [
-        { required: true, message: '请输入当前密码', trigger: 'blur' }
-      ],
-      newPassword: [
-        { required: true, message: '请输入新密码', trigger: 'blur' },
-        { min: 6, max: 20, message: '密码长度应为6-20位', trigger: 'blur' }
-      ],
-      confirmPassword: [
-        { required: true, message: '请确认新密码', trigger: 'blur' },
-        { validator: validateConfirmPassword, trigger: 'blur' }
-      ]
-    }
-
-    const userData = ref([])
-
-    const uploadHeaders = computed(() => accessHeader())
-
-    const loadUserInfo = () => {
-      get('/user/info',
-        (data) => {
-          Object.assign(profileForm, data)
-          userStore.setUserInfo(data)
-        },
-        (message) => {
-          ElMessage.error(message || '获取用户信息失败')
-        }
-      )
-    }
-
-    const loadUserData = () => {
-      get('/user/data',
-        (data) => {
-          userData.value = data || []
-        },
-        () => {
-          userData.value = []
-        }
-      )
-    }
-
-    const saveProfile = () => {
-      profileFormRef.value.validate((valid) => {
-        if (!valid) return
-        isSaving.value = true
-        post('/user/update',
-          {
-            nickname: profileForm.nickname,
-            bio: profileForm.bio,
-            interests: profileForm.interests,
-            avatar: profileForm.avatar
-          },
-          () => {
-            isSaving.value = false
-            ElMessage.success('个人资料保存成功')
-            userStore.setUserInfo({ ...userStore.userInfo, ...profileForm })
-          },
-          (message) => {
-            isSaving.value = false
-            ElMessage.error(message || '保存失败')
-          }
-        )
-      })
-    }
-
-    const changePassword = () => {
-      passwordFormRef.value.validate((valid) => {
-        if (!valid) return
-        isChangingPassword.value = true
-        post('/user/password',
-          {
-            oldPassword: passwordForm.oldPassword,
-            newPassword: passwordForm.newPassword
-          },
-          () => {
-            isChangingPassword.value = false
-            ElMessage.success('密码修改成功')
-            passwordForm.oldPassword = ''
-            passwordForm.newPassword = ''
-            passwordForm.confirmPassword = ''
-          },
-          (message) => {
-            isChangingPassword.value = false
-            ElMessage.error(message || '密码修改失败')
-          }
-        )
-      })
-    }
-
-    const handleAvatarSuccess = (response) => {
-      if (response.code === 0 && response.data) {
-        profileForm.avatar = response.data
-        ElMessage.success('头像上传成功')
-      } else {
-        ElMessage.error(response.message || '上传失败')
-      }
-    }
-
-    const beforeAvatarUpload = (file) => {
-      const isJPG = file.type === 'image/jpeg'
-      const isPNG = file.type === 'image/png'
-      const isLt2M = file.size / 1024 / 1024 < 2
-
-      if (!isJPG && !isPNG) {
-        ElMessage.error('头像图片只能是 JPG 或 PNG 格式!')
-        return false
-      }
-      if (!isLt2M) {
-        ElMessage.error('头像图片大小不能超过 2MB!')
-        return false
-      }
-      return true
-    }
-
-    onMounted(() => {
-      loadUserInfo()
-      loadUserData()
-    })
-
+  components: { ArrowRight, Calendar, EditPen, MarkdownRenderer, Setting },
+  data() {
     return {
-      activeTab,
-      profileFormRef,
-      profileForm,
-      profileRules,
-      passwordFormRef,
-      passwordForm,
-      passwordRules,
-      isSaving,
-      isChangingPassword,
-      userData,
-      uploadHeaders,
-      saveProfile,
-      changePassword,
-      handleAvatarSuccess,
-      beforeAvatarUpload
+      userStore: useUserStore(),
+      revisions: [],
+      loading: true,
+      detailVisible: false,
+      detailLoading: false,
+      selectedRevision: null,
     }
-  }
+  },
+  computed: {
+    email() { return this.userStore.userInfo?.userEmail || '' },
+    nickname() { return this.userStore.userInfo?.nickname || this.userStore.username || '用户' },
+    isAdmin() { return this.userStore.userInfo?.role === 'ADMIN' },
+    initial() { return (this.nickname || 'U').charAt(0).toUpperCase() },
+  },
+  mounted() {
+    if (!this.userStore.userInfo) this.userStore.fetchUserInfo()
+    getMyRevisions(
+      (data) => { this.revisions = data || []; this.loading = false },
+      (msg) => { this.loading = false; ElMessage.error(msg || '加载投稿失败') }
+    )
+  },
+  methods: {
+    statusText(s) {
+      return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回', REMOVED: '文章已删除' }[s] || s
+    },
+    openRevision(revision) {
+      if (revision.status === 'APPROVED') {
+        this.$router.push(`/docs/${revision.targetPath}`)
+        return
+      }
+      this.detailVisible = true
+      this.detailLoading = true
+      this.selectedRevision = { ...revision, content: '' }
+      getMyRevision(
+        revision.id,
+        (data) => {
+          this.selectedRevision = { ...data, status: revision.status }
+          this.detailLoading = false
+        },
+        (msg) => {
+          this.detailVisible = false
+          this.detailLoading = false
+          ElMessage.error(msg || '加载投稿详情失败')
+        }
+      )
+    },
+    fmt(iso) {
+      if (!iso) return ''
+      const d = new Date(iso)
+      return Number.isNaN(d.getTime()) ? '' :
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    },
+  },
 }
 </script>
 
 <style scoped>
-.profile-page {
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 0 20px;
-}
-
-.profile-card {
-  min-height: 500px;
-}
-
-.card-header {
-  font-size: 1.25rem;
-  font-weight: bold;
-}
-
-.avatar-uploader {
-  border: 1px dashed var(--el-border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: var(--el-transition-duration-fast);
-  width: 120px;
-  height: 120px;
-}
-
-.avatar-uploader:hover {
-  border-color: var(--el-color-primary);
-}
-
-.avatar-uploader-icon {
-  font-size: 28px;
-  color: #8c939d;
-  width: 120px;
-  height: 120px;
-  text-align: center;
+.profile-page { width: 100%; max-width: 1040px; margin: 0 auto; padding: 52px 28px 80px; }
+.pf-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 0 0 36px;
+  border-bottom: 1px solid var(--border);
 }
-
-.avatar {
-  width: 120px;
-  height: 120px;
-  display: block;
-  object-fit: cover;
+.pf-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
 }
-
-.data-list {
-  padding: 10px;
+.pf-avatar {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--bg-page);
+  font-size: 24px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
-
-.data-item {
-  margin-bottom: 10px;
-}
-
-.data-item h4 {
-  margin: 0 0 8px;
-}
-
-.data-item p {
+.pf-copy { min-width: 0; }
+.pf-name-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pf-name {
   margin: 0;
-  color: #666;
-  font-size: 0.9rem;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 1.45rem;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-email {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.role-badge {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pf-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 700;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.action-link:hover { text-decoration: none; }
+.action-link.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.action-link.primary:hover { opacity: .82; }
+.action-link.secondary { background: var(--bg-surface); color: var(--text-secondary); }
+.action-link.secondary:hover { border-color: var(--border-strong); background: var(--bg-hover); color: var(--text-primary); }
+
+.pf-section { padding-top: 34px; }
+.sec-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 16px; }
+.sec-kicker { margin: 0 0 5px; color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: 0; }
+.sec-head h2 { margin: 0; color: var(--text-primary); font-size: 1.15rem; font-weight: 750; }
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  border-radius: 5px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  vertical-align: 2px;
+}
+.loading-state { padding: 24px 0; color: var(--text-muted); font-size: 13px; }
+
+.rev-list {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  list-style: none;
+}
+.rev-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  padding: 15px 18px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: background-color .16s ease;
+}
+.rev-item + .rev-item { border-top: 1px solid var(--border); }
+.rev-item:hover { background: var(--bg-subtle); }
+.rev-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rev-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.t-create { background: #e6f4ec; color: #137a3f; }
+.t-update { background: #eef1fb; color: #3a52c4; }
+html.dark .t-create { background: rgba(19,122,63,.2); color: #6ee7a8; }
+html.dark .t-update { background: rgba(58,82,196,.22); color: #aab8ff; }
+.rev-main { min-width: 0; }
+.rev-title {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.rev-title:hover { text-decoration: underline; }
+.rev-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--text-muted); font-size: 12px; }
+.meta-separator { width: 3px; height: 3px; border-radius: 50%; background: var(--border-strong); }
+.rev-path {
+  overflow: hidden;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rev-side { display: grid; grid-template-columns: auto 104px 16px; align-items: center; gap: 14px; }
+.status { padding: 4px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
+.s-pending { background: #fff4e0; color: #b3691a; }
+.s-approved { background: #e6f4ec; color: #137a3f; }
+.s-rejected { background: #fbe9e9; color: #c0392b; }
+.s-removed { background: var(--bg-subtle); color: var(--text-muted); }
+html.dark .s-pending { background: rgba(179,105,26,.2); color: #f0b66a; }
+html.dark .s-approved { background: rgba(19,122,63,.2); color: #6ee7a8; }
+html.dark .s-rejected { background: rgba(192,57,43,.2); color: #f3a097; }
+.rev-date { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.row-arrow { color: var(--text-muted); }
+.rev-reason { margin: 7px 0 0; color: #c0392b; font-size: 12px; }
+html.dark .rev-reason { color: #f3a097; }
+.revision-detail { min-height: 160px; }
+.detail-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; color: var(--text-muted); }
+.detail-reason {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(192,57,43,.25);
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #9f2f24;
+}
+.detail-reason p { margin: 6px 0 0; }
+html.dark .detail-reason { background: rgba(192,57,43,.1); color: #f3a097; }
+
+@media (max-width: 720px) {
+  .profile-page { padding: 28px 16px 56px; }
+  .pf-head { align-items: stretch; flex-direction: column; gap: 22px; padding-bottom: 28px; }
+  .pf-actions { width: 100%; }
+  .action-link { flex: 1; }
+  .pf-section { padding-top: 28px; }
+  .rev-item { grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 15px 14px; }
+  .rev-side {
+    grid-column: 2;
+    grid-template-columns: auto 1fr;
+    justify-content: start;
+    gap: 10px;
+    margin-top: -2px;
+  }
+  .row-arrow { display: none; }
+}
+
+@media (max-width: 420px) {
+  .pf-avatar { width: 48px; height: 48px; font-size: 21px; }
+  .pf-name { font-size: 1.2rem; }
+  .role-badge { display: none; }
+  .rev-meta { max-width: 100%; }
 }
 </style>

@@ -53,19 +53,22 @@
           <header class="doc-header">
             <h1 class="doc-title">{{ title }}</h1>
             <div class="doc-meta">
-              <span v-if="lastUpdated" class="meta-item">🕒 更新于 {{ lastUpdated }}</span>
-              <a
-                v-if="!errorLoading"
+              <span v-if="lastUpdated" class="meta-item">更新于 {{ lastUpdated }}</span>
+              <router-link
+                v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item edit-link"
-                :href="editUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >✏️ 编辑此页</a>
+                :to="editUrl"
+              >编辑此页</router-link>
+              <router-link
+                v-else-if="!errorLoading"
+                class="meta-item edit-link"
+                to="/login"
+              >登录后可编辑</router-link>
             </div>
           </header>
 
           <MarkdownRenderer v-if="content" :content="content" :base-path="baseDir" />
-          <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容 🙌" />
+          <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容" />
 
           <!-- 上一篇 / 下一篇 -->
           <nav v-if="(prev || next) && !errorLoading" class="doc-pager">
@@ -96,11 +99,11 @@ import {
   getPage,
   getAdjacent,
   getBreadcrumbs,
+  fetchPageContent,
   HOME_PATH,
-  EDIT_BASE,
 } from "@/wiki";
+import { useUserStore } from "@/store/userStore.js";
 
-const DOCS_BASE_PATH = "/docs/";
 const MOBILE_BREAKPOINT = 767;
 
 export default {
@@ -112,8 +115,10 @@ export default {
   data() {
     return {
       tree,
+      userStore: useUserStore(),
       content: "",
       title: "",
+      pageLastUpdated: "",
       isLoading: false,
       errorLoading: false,
       drawerVisible: false,
@@ -144,7 +149,7 @@ export default {
       return getAdjacent(this.docPath).next;
     },
     lastUpdated() {
-      const iso = this.pageMeta?.lastUpdated;
+      const iso = this.pageLastUpdated || this.pageMeta?.lastUpdated;
       if (!iso) return "";
       const d = new Date(iso);
       return Number.isNaN(d.getTime())
@@ -152,7 +157,8 @@ export default {
         : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     },
     editUrl() {
-      return `${EDIT_BASE}/${this.docPath}.md`;
+      // 站内编辑（登录后投稿，需审核）
+      return `/edit/${this.docPath}`;
     },
   },
   watch: {
@@ -169,12 +175,12 @@ export default {
       this.errorLoading = false;
       this.content = "";
       this.title = "";
+      this.pageLastUpdated = "";
       try {
-        const response = await fetch(`${DOCS_BASE_PATH}${path}.md`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        let raw = await response.text();
+        const detail = await fetchPageContent(path);
+        let raw = detail.content || "";
 
-        // 去掉 YAML frontmatter（已被清单解析过）
+        // 去掉可能残留的 YAML frontmatter
         raw = raw.replace(/^﻿?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
 
         // 若正文首行是 H1，则用它作标题并从正文移除，避免与页头重复
@@ -185,12 +191,13 @@ export default {
           raw = raw.replace(h1[0], "").replace(/^\s*\n/, "");
         }
 
-        this.title = this.pageMeta?.title || h1Text || path.split("/").pop();
+        this.title = detail.title || h1Text || path.split("/").pop();
+        this.pageLastUpdated = detail.lastUpdated || "";
         this.content = raw.trim();
       } catch (e) {
         this.errorLoading = true;
         this.title = "页面未找到";
-        this.content = `> 无法加载文档 \`${path}.md\`。\n\n请确认文件存在，或返回[首页](/)继续浏览。`;
+        this.content = `> 无法加载文档 \`${path}\`。\n\n这篇文档可能尚未撰写，或返回[首页](/)继续浏览。`;
       } finally {
         this.isLoading = false;
         this.scrollToTopOrHash();

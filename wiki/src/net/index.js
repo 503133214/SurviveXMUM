@@ -1,6 +1,10 @@
 import axios from 'axios';
 import {ElMessage} from "element-plus";
+import {ref} from "vue";
 const authItemName="token";
+// 登录态版本号：写入/清除 token 时自增，供组件（如 Header）即时响应同一标签页内的登录/登出，
+// 无需等待轮询或 storage 事件（storage 事件只在其它标签页触发，同标签页不会触发）。
+export const authVersion = ref(0);
 const defaultFailure=(message,code,url)=>{
     console.warn(`请求地址：${url},状态码：${code},错误信息: ${message}`)
     ElMessage.warning(message)
@@ -22,6 +26,7 @@ function storeAccessToken(token) {
     const authObj = { token: token, expire: expire };
     const str = JSON.stringify(authObj);
     localStorage.setItem(authItemName, str);
+    authVersion.value++;
 }
 function takeAccessToken(){
     const token=localStorage.getItem(authItemName);
@@ -38,6 +43,7 @@ function takeAccessToken(){
 }
 function deleteAccessToken(){
     localStorage.removeItem(authItemName)
+    authVersion.value++;
 }
 function internalPost(url,data,headers,success,failure,error=defaultError){
     axios.post(url, data, { headers: headers }).then(({ data }) => {
@@ -57,6 +63,24 @@ function internalGet(url,headers,success,failure,error=defaultError){
         }
     }).catch(err => error(err))
 }
+function internalPut(url,data,headers,success,failure,error=defaultError){
+    axios.put(url, data, { headers: headers }).then(({ data }) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, url)
+        }
+    }).catch(err => error(err))
+}
+function internalDelete(url,headers,success,failure,error=defaultError){
+    axios.delete(url, { headers: headers }).then(({ data }) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, url)
+        }
+    }).catch(err => error(err))
+}
 function accessHeader(){
     const token = takeAccessToken()
     return token ?{
@@ -68,6 +92,41 @@ function get(url,success,failure=defaultFailure){
 }
 function post(url,data,success,failure=defaultFailure){
     internalPost(url,data,accessHeader(),success,failure)
+}
+function put(url,data,success,failure=defaultFailure){
+    internalPut(url,data,accessHeader(),success,failure)
+}
+function remove(url,success,failure=defaultFailure){
+    internalDelete(url,accessHeader(),success,failure)
+}
+function queryString(params){
+    const query = new URLSearchParams()
+    Object.entries(params || {}).forEach(([key,value]) => {
+        if (value !== '' && value !== null && value !== undefined) query.set(key,String(value))
+    })
+    return query.toString()
+}
+function uploadImage(file,onProgress,success,failure=defaultFailure){
+    const formData = new FormData()
+    formData.append('file', file)
+    axios.post('/wiki/image', formData, {
+        headers: accessHeader(),
+        timeout: 60000,
+        onUploadProgress: (event) => {
+            if (!event.total || !onProgress) return
+            onProgress(Math.round((event.loaded * 100) / event.total))
+        }
+    }).then(({data}) => {
+        if (data.code === 0) {
+            success(data.data)
+        } else {
+            failure(data.message, data.code, '/wiki/image')
+        }
+    }).catch((err) => {
+        const message = err.response?.data?.message
+            || (err.code === 'ECONNABORTED' ? '图片上传超时，请重试' : '图片上传失败，请稍后重试')
+        failure(message, err.response?.status || -1, '/wiki/image')
+    })
 }
 function unauthorized(){
     return !takeAccessToken()
@@ -135,4 +194,70 @@ function logout(success, failure = defaultFailure, error = defaultError) {
         error
     );
 }
-export {get,unauthorized,post,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode}
+// ---- Wiki 投稿 / 审核 ----
+function submitRevision(payload, success, failure = defaultFailure) {
+    post('/wiki/revision', payload, success, failure)
+}
+function getMyRevisions(success, failure = defaultFailure) {
+    get('/wiki/revision/mine', success, failure)
+}
+function getMyRevision(id, success, failure = defaultFailure) {
+    get(`/wiki/revision/${id}`, success, failure)
+}
+function adminListRevisions(status, success, failure = defaultFailure) {
+    get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
+}
+function adminGetRevision(id, success, failure = defaultFailure) {
+    get(`/admin/revision/${id}`, success, failure)
+}
+function adminApproveRevision(id, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/approve`, {}, success, failure)
+}
+function adminRejectRevision(id, comment, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/reject`, { comment }, success, failure)
+}
+function adminRevisionCounts(success, failure = defaultFailure) {
+    get('/admin/revisions/counts', success, failure)
+}
+function adminListUserRevisions(userId, success, failure = defaultFailure) {
+    get(`/admin/users/${userId}/revisions`, success, failure)
+}
+function adminListUsers(query, success, failure = defaultFailure) {
+    get(`/admin/users?${queryString(query)}`, success, failure)
+}
+function adminCreateUser(payload, success, failure = defaultFailure) {
+    post('/admin/users', payload, success, failure)
+}
+function adminUpdateUser(id, payload, success, failure = defaultFailure) {
+    put(`/admin/users/${id}`, payload, success, failure)
+}
+function adminDeleteUser(id, success, failure = defaultFailure) {
+    remove(`/admin/users/${id}`, success, failure)
+}
+function adminRestoreUser(id, success, failure = defaultFailure) {
+    post(`/admin/users/${id}/restore`, {}, success, failure)
+}
+function adminListPages(query, success, failure = defaultFailure) {
+    get(`/admin/pages?${queryString(query)}`, success, failure)
+}
+function adminGetPage(id, success, failure = defaultFailure) {
+    get(`/admin/page/${id}`, success, failure)
+}
+function adminCreatePage(payload, success, failure = defaultFailure) {
+    post('/admin/pages', payload, success, failure)
+}
+function adminUpdatePage(id, payload, success, failure = defaultFailure) {
+    put(`/admin/page/${id}`, payload, success, failure)
+}
+function adminDeletePage(id, success, failure = defaultFailure) {
+    remove(`/admin/page/${id}`, success, failure)
+}
+function adminRestorePage(id, success, failure = defaultFailure) {
+    post(`/admin/page/${id}/restore`, {}, success, failure)
+}
+
+export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
+    uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
+    adminRevisionCounts,adminListUserRevisions,getMyRevision,
+    adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
+    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}

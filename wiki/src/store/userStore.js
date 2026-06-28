@@ -18,6 +18,10 @@ export const useUserStore = defineStore('user', () => {
     return userInfo.value?.avatar || ''
   })
 
+  const role = computed(() => userInfo.value?.role || null)
+  const isSuperAdmin = computed(() => role.value === 'SUPER_ADMIN')
+  const isAdmin = computed(() => role.value === 'ADMIN' || role.value === 'SUPER_ADMIN')
+
   async function fetchUserInfo() {
     if (!takeAccessToken()) {
       userInfo.value = null
@@ -60,6 +64,9 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     username,
     avatar,
+    role,
+    isSuperAdmin,
+    isAdmin,
     fetchUserInfo,
     setUserInfo,
     clearUserInfo

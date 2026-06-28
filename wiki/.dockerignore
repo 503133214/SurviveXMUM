@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vite/
+.vscode/
+coverage/
+*.log
+src/wiki.data.js
