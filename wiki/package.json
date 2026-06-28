@@ -4,10 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run wiki:manifest && vite",
-    "build": "npm run wiki:manifest && vite build",
-    "preview": "vite preview",
-    "wiki:manifest": "node scripts/generate-manifest.mjs"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
