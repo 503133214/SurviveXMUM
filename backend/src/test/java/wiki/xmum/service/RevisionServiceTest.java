@@ -27,6 +27,7 @@ class RevisionServiceTest {
     @Mock private WikiPageMapper pageMapper;
     @Mock private WikiCategoryMapper categoryMapper;
     @Mock private UserMapper userMapper;
+    @Mock private NotificationService notificationService;
 
     @Test
     void mineReturnsRejectedAndMarksApprovedRevisionWhosePageWasRemoved() {
@@ -54,7 +55,7 @@ class RevisionServiceTest {
     }
 
     private RevisionService service() {
-        return new RevisionService(revisionMapper, pageMapper, categoryMapper, userMapper);
+        return new RevisionService(revisionMapper, pageMapper, categoryMapper, userMapper, notificationService);
     }
 
     private static AuthUser user(Long id) {

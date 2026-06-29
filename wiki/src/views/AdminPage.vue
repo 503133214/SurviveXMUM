@@ -17,6 +17,7 @@
     <section class="ac-main">
       <AdminPagesPanel v-if="activeSection === 'pages'" />
       <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
+      <AdminFeedbackPanel v-else-if="activeSection === 'feedback'" />
 
       <div v-else class="admin-page">
         <header class="ad-head">
@@ -27,6 +28,29 @@
         </button>
       </div>
     </header>
+
+    <div class="ad-filter">
+      <el-date-picker
+        v-model="filterDates"
+        type="daterange"
+        unlink-panels
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        @change="onFilterChange"
+      />
+      <el-input
+        v-model="filterKeyword"
+        placeholder="搜索标题 / 路径 / 作者邮箱"
+        clearable
+        class="ad-filter-kw"
+        @keyup.enter="onFilterChange"
+        @clear="onFilterChange"
+      />
+      <el-button @click="onFilterChange">查询</el-button>
+      <el-button v-if="hasFilter" text @click="resetFilter">重置</el-button>
+    </div>
 
     <div v-if="isMobileAdmin" class="mobile-admin-notice" role="status">
       <strong>手机端为只读模式</strong>
@@ -160,11 +184,12 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Tickets, User } from '@element-plus/icons-vue'
+import { Document, Tickets, User, ChatDotRound } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
+import AdminFeedbackPanel from '@/components/AdminFeedbackPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
@@ -177,6 +202,7 @@ export default {
     MarkdownDiff: markRaw(MarkdownDiff),
     AdminPagesPanel: markRaw(AdminPagesPanel),
     AdminUsersPanel: markRaw(AdminUsersPanel),
+    AdminFeedbackPanel: markRaw(AdminFeedbackPanel),
     Tickets,
   },
   data() {
@@ -189,6 +215,8 @@ export default {
         { key: 'REJECTED', label: '已驳回' },
       ],
       counts: {},
+      filterDates: [],
+      filterKeyword: '',
       list: [],
       current: null,
       loadingList: true,
@@ -205,10 +233,14 @@ export default {
       const s = [
         { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
         { key: 'pages', label: '页面管理', icon: markRaw(Document) },
+        { key: 'feedback', label: '反馈管理', icon: markRaw(ChatDotRound) },
       ]
       // 用户管理仅超级管理员可见
       if (this.isSuperAdmin) s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
       return s
+    },
+    hasFilter() {
+      return (Array.isArray(this.filterDates) && this.filterDates.length === 2) || !!this.filterKeyword
     },
     currentLabel() { return this.tabs.find((t) => t.key === this.status)?.label || '' },
     reviewViews() {
@@ -262,10 +294,20 @@ export default {
     loadCounts() {
       adminRevisionCounts((data) => { this.counts = data || {} }, () => {})
     },
+    onFilterChange() {
+      this.current = null
+      this.loadList()
+    },
+    resetFilter() {
+      this.filterDates = []
+      this.filterKeyword = ''
+      this.onFilterChange()
+    },
     loadList() {
       this.loadingList = true
+      const [from, to] = Array.isArray(this.filterDates) ? this.filterDates : []
       adminListRevisions(
-        this.status,
+        { status: this.status, from, to, keyword: this.filterKeyword },
         (data) => {
           this.list = data || []
           this.loadingList = false
@@ -387,6 +429,19 @@ export default {
 }
 .seg button.active .seg-count { background: var(--accent); color: var(--accent-contrast); }
 .dt-review { color: var(--text-secondary); font-size: 12.5px; }
+
+.ad-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.ad-filter .ad-filter-kw { width: 260px; max-width: 100%; }
+@media (max-width: 768px) {
+  .ad-filter { gap: 8px; }
+  .ad-filter .ad-filter-kw { width: 100%; }
+}
 
 .mobile-admin-notice {
   display: none;

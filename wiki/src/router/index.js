@@ -18,6 +18,18 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/favorites",
+    name: "Favorites",
+    component: () => import("@/views/FavoritesPage.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/feedback",
+    name: "Feedback",
+    component: () => import("@/views/FeedbackPage.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/edit/:pathMatch(.*)*",
     name: "Edit",
     component: () => import("@/views/EditPage.vue"),

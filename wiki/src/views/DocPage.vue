@@ -64,6 +64,16 @@
                 class="meta-item edit-link"
                 to="/login"
               >登录后可编辑</router-link>
+              <button
+                v-if="!errorLoading && userStore.isLoggedIn"
+                class="meta-item fav-btn"
+                :class="{ active: favorited }"
+                :disabled="favLoading"
+                @click="toggleFavorite"
+              >
+                <el-icon :size="15"><StarFilled v-if="favorited" /><Star v-else /></el-icon>
+                {{ favorited ? '已收藏' : '收藏' }}
+              </button>
             </div>
           </header>
 
@@ -93,7 +103,8 @@
 import { markRaw } from "vue";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
-import { Menu } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import { Menu, Star, StarFilled } from "@element-plus/icons-vue";
 import {
   tree,
   getPage,
@@ -102,13 +113,14 @@ import {
   fetchPageContent,
   HOME_PATH,
 } from "@/wiki";
+import { docFavoriteCheck, docFavoriteAdd, docFavoriteRemove, recordHistory } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
 
 const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "DocPage",
-  components: { MarkdownRenderer, Sidebar },
+  components: { MarkdownRenderer, Sidebar, Star, StarFilled },
   props: {
     pathMatch: { type: String, default: "" },
   },
@@ -126,6 +138,9 @@ export default {
       MenuIcon: markRaw(Menu),
       resizeTimeout: null,
       progress: 0,
+      favorited: false,
+      favoriteId: null,
+      favLoading: false,
     };
   },
   computed: {
@@ -176,6 +191,8 @@ export default {
       this.content = "";
       this.title = "";
       this.pageLastUpdated = "";
+      this.favorited = false;
+      this.favoriteId = null;
       try {
         const detail = await fetchPageContent(path);
         let raw = detail.content || "";
@@ -194,6 +211,7 @@ export default {
         this.title = detail.title || h1Text || path.split("/").pop();
         this.pageLastUpdated = detail.lastUpdated || "";
         this.content = raw.trim();
+        this.afterLoad(path);
       } catch (e) {
         this.errorLoading = true;
         this.title = "页面未找到";
@@ -214,6 +232,35 @@ export default {
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
       });
+    },
+    afterLoad(path) {
+      // 仅登录用户：记录浏览历史 + 查询收藏状态
+      if (!this.userStore.isLoggedIn) return;
+      recordHistory(path);
+      docFavoriteCheck(path, (d) => {
+        this.favorited = !!(d && d.favorited);
+        this.favoriteId = d && d.id ? d.id : null;
+      }, () => {});
+    },
+    toggleFavorite() {
+      if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
+      if (this.favLoading) return;
+      this.favLoading = true;
+      if (this.favorited && this.favoriteId) {
+        docFavoriteRemove(this.favoriteId, () => {
+          this.favorited = false;
+          this.favoriteId = null;
+          this.favLoading = false;
+          ElMessage.success("已取消收藏");
+        }, (m) => { this.favLoading = false; ElMessage.error(m || "操作失败"); });
+      } else {
+        docFavoriteAdd(this.docPath, (d) => {
+          this.favorited = true;
+          this.favoriteId = d && d.id ? d.id : null;
+          this.favLoading = false;
+          ElMessage.success("已收藏");
+        }, (m) => { this.favLoading = false; ElMessage.error(m || "操作失败"); });
+      }
     },
     onNavigate(newPage) {
       this.$router.push(`/docs/${newPage}`);
@@ -323,6 +370,22 @@ export default {
 }
 .edit-link { color: var(--text-muted); }
 .edit-link:hover { color: var(--brand); text-decoration: none; }
+
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.fav-btn:hover { color: var(--brand); }
+.fav-btn.active { color: #e6a23c; }
+.fav-btn:disabled { opacity: 0.6; cursor: default; }
 
 .loading-state {
   max-width: 900px;

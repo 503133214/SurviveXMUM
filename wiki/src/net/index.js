@@ -204,8 +204,11 @@ function getMyRevisions(success, failure = defaultFailure) {
 function getMyRevision(id, success, failure = defaultFailure) {
     get(`/wiki/revision/${id}`, success, failure)
 }
-function adminListRevisions(status, success, failure = defaultFailure) {
-    get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
+function adminListRevisions(params, success, failure = defaultFailure) {
+    // 兼容旧调用：可传字符串 status，或对象 {status, from, to, keyword}
+    const q = typeof params === 'string' ? { status: params } : { ...(params || {}) }
+    if (!q.status) q.status = 'PENDING'
+    get(`/admin/revisions?${queryString(q)}`, success, failure)
 }
 function adminGetRevision(id, success, failure = defaultFailure) {
     get(`/admin/revision/${id}`, success, failure)
@@ -256,8 +259,47 @@ function adminRestorePage(id, success, failure = defaultFailure) {
     post(`/admin/page/${id}/restore`, {}, success, failure)
 }
 
+// ---- 站内通知 ----
+function getNotifications(success, failure = defaultFailure) {
+    get('/notifications', success, failure)
+}
+function getUnreadCount(success, failure = defaultFailure) {
+    get('/notifications/unread-count', success, failure)
+}
+function readNotification(id, success, failure = defaultFailure) {
+    post(`/notifications/${id}/read`, {}, success, failure)
+}
+function readAllNotifications(success, failure = defaultFailure) {
+    post('/notifications/read-all', {}, success, failure)
+}
+
+// ---- 收藏 / 浏览历史（DocPage 用；FavoritesPage 沿用其自带的裸 get/post）----
+function docFavoriteCheck(path, success, failure = defaultFailure) {
+    get(`/user/favorites/check?path=${encodeURIComponent(path)}`, success, failure)
+}
+function docFavoriteAdd(path, success, failure = defaultFailure) {
+    post('/user/favorites', { path }, success, failure)
+}
+function docFavoriteRemove(id, success, failure = defaultFailure) {
+    post(`/user/favorites/${id}/remove`, {}, success, failure)
+}
+function recordHistory(path, success = () => {}, failure = () => {}) {
+    post('/user/history', { path }, success, failure)
+}
+
+// ---- 反馈管理（后台）----
+function adminListFeedback(query, success, failure = defaultFailure) {
+    get(`/admin/feedback?${queryString(query)}`, success, failure)
+}
+function adminReplyFeedback(id, payload, success, failure = defaultFailure) {
+    post(`/admin/feedback/${id}/reply`, payload, success, failure)
+}
+
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
-    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}
+    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
+    getNotifications,getUnreadCount,readNotification,readAllNotifications,
+    docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,recordHistory,
+    adminListFeedback,adminReplyFeedback}

@@ -24,8 +24,12 @@ public class AdminController {
     }
 
     @GetMapping("/revisions")
-    public ApiResponse<List<RevisionVO>> revisions(@RequestParam(required = false, defaultValue = "PENDING") String status) {
-        return ApiResponse.ok(revisionService.listByStatus(status));
+    public ApiResponse<List<RevisionVO>> revisions(
+            @RequestParam(required = false, defaultValue = "PENDING") String status,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(revisionService.listByStatus(status, from, to, keyword));
     }
 
     @GetMapping("/revisions/counts")

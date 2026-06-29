@@ -18,7 +18,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/schema.sql,classpath:db/migration-v2.sql
+      schema-locations: classpath:db/schema.sql,classpath:db/migration-v2.sql,classpath:db/migration-v3.sql
       continue-on-error: false
 
   mail:

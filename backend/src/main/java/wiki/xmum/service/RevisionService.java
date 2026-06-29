@@ -19,6 +19,7 @@ import wiki.xmum.security.AuthUser;
 import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -31,13 +32,16 @@ public class RevisionService {
     private final WikiPageMapper pageMapper;
     private final WikiCategoryMapper categoryMapper;
     private final UserMapper userMapper;
+    private final NotificationService notificationService;
 
     public RevisionService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper,
-                           WikiCategoryMapper categoryMapper, UserMapper userMapper) {
+                           WikiCategoryMapper categoryMapper, UserMapper userMapper,
+                           NotificationService notificationService) {
         this.revisionMapper = revisionMapper;
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
+        this.notificationService = notificationService;
     }
 
     // ---------- 用户投稿 ----------
@@ -131,9 +135,29 @@ public class RevisionService {
     // ---------- 管理审核 ----------
 
     public List<RevisionVO> listByStatus(String status) {
+        return listByStatus(status, null, null, null);
+    }
+
+    /**
+     * 审核队列查询，支持按提交日期区间 + 关键词筛选。
+     * 日期为闭区间含当天：from 00:00:00 ≤ createdAt < (to+1天) 00:00:00；
+     * from/to 非法或留空则忽略该侧；from 晚于 to 时自然返回空结果（不报错）。
+     * 关键词命中标题 / 目标路径 / 作者邮箱之一。
+     */
+    public List<RevisionVO> listByStatus(String status, String from, String to, String keyword) {
         var q = Wrappers.<WikiRevision>lambdaQuery();
         if (status != null && !status.isBlank()) {
             q.eq(WikiRevision::getStatus, status);
+        }
+        LocalDate fromDate = parseDate(from);
+        LocalDate toDate = parseDate(to);
+        if (fromDate != null) q.ge(WikiRevision::getCreatedAt, fromDate.atStartOfDay());
+        if (toDate != null) q.lt(WikiRevision::getCreatedAt, toDate.plusDays(1).atStartOfDay());
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            q.and(w -> w.like(WikiRevision::getTitle, kw)
+                    .or().like(WikiRevision::getTargetPath, kw)
+                    .or().like(WikiRevision::getAuthorEmail, kw));
         }
         // 待审核按提交时间正序（先到先审），其余倒序
         if ("PENDING".equals(status)) {
@@ -142,6 +166,15 @@ public class RevisionService {
             q.orderByDesc(WikiRevision::getCreatedAt);
         }
         return toVOsWithReviewer(revisionMapper.selectList(q));
+    }
+
+    private static LocalDate parseDate(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return LocalDate.parse(s.trim());
+        } catch (Exception e) {
+            return null; // 非法日期忽略，避免影响查询
+        }
     }
 
     /** 某用户的全部投稿历史（倒序）。 */
@@ -249,6 +282,11 @@ public class RevisionService {
         r.setReviewerId(reviewer.getId());
         r.setReviewedAt(LocalDateTime.now());
         revisionMapper.updateById(r);
+
+        notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
+                "投稿已通过",
+                "你的投稿《" + r.getTitle() + "》已通过审核并发布。",
+                "/docs/" + r.getTargetPath(), r.getId());
     }
 
     public void reject(Long id, String comment, AuthUser reviewer) {
@@ -260,6 +298,12 @@ public class RevisionService {
         r.setReviewerId(reviewer.getId());
         r.setReviewedAt(LocalDateTime.now());
         revisionMapper.updateById(r);
+
+        String reason = (comment != null && !comment.isBlank()) ? "：" + comment.trim() : "。";
+        notificationService.notify(r.getAuthorId(), "REVISION_REJECTED",
+                "投稿被驳回",
+                "你的投稿《" + r.getTitle() + "》未通过审核" + reason,
+                "/profile", r.getId());
     }
 
     /** 确保分类存在，返回 categoryId；无 slug 返回 null。 */
