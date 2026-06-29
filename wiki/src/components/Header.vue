@@ -337,10 +337,11 @@ export default {
     // 其它标签页登录/登出会触发 storage 事件，这里同步刷新本标签页的登录态。
     window.addEventListener("storage", this.bumpAuthVersion);
     this.loadUnread();
-    // 仅在标签页可见时轮询，隐藏时不打扰；回到前台用 visibilitychange/focus 立即刷新
+    // 近实时轮询：每 10s 拉一次未读数（仅在标签页可见时，隐藏不打扰）；
+    // 回到前台 / 切路由 / 聚焦时还会即时刷新（见 watch 与 visibilitychange/focus）。
     this.notifyTimer = setInterval(() => {
       if (document.visibilityState === "visible") this.loadUnread();
-    }, 30000);
+    }, 10000);
     document.addEventListener("visibilitychange", this.onVisibilityRefresh);
     window.addEventListener("focus", this.onVisibilityRefresh);
   },

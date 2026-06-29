@@ -1,71 +1,72 @@
 <template>
-  <div class="favorites-page">
-    <el-card class="favorites-card">
-      <template #header>
-        <div class="card-header">
-          <span>收藏与历史</span>
-        </div>
-      </template>
+  <div class="fav-page">
+    <header class="fav-header">
+      <h1>收藏与历史</h1>
+      <p class="fav-sub">你收藏的页面与最近的浏览记录</p>
+    </header>
 
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="我的收藏" name="favorites">
-          <el-empty v-if="!favorites.length" description="暂无收藏内容">
-            <el-button type="primary" @click="$router.push('/docs/README')">去浏览</el-button>
-          </el-empty>
-          <div v-else class="content-list">
-            <el-card
-              v-for="item in favorites"
-              :key="item.id"
-              class="content-item"
-              shadow="hover"
-            >
-              <div class="item-header">
-                <h4 @click="$router.push(item.path)" class="item-title">{{ item.title }}</h4>
-                <el-tag size="small" :type="itemTagType(item.type)">{{ itemTypeText(item.type) }}</el-tag>
-              </div>
-              <p class="item-desc">{{ item.description }}</p>
-              <div class="item-footer">
-                <span class="item-time">收藏于 {{ item.createTime }}</span>
-                <el-button
-                  type="danger"
-                  link
-                  size="small"
-                  @click="removeFavorite(item.id)"
-                >
-                  取消收藏
-                </el-button>
-              </div>
-            </el-card>
-          </div>
-        </el-tab-pane>
+    <el-tabs v-model="activeTab" class="fav-tabs">
+      <!-- 我的收藏 -->
+      <el-tab-pane name="favorites">
+        <template #label>
+          我的收藏<span v-if="favorites.length" class="tab-count">{{ favorites.length }}</span>
+        </template>
 
-        <el-tab-pane label="浏览历史" name="history">
-          <el-empty v-if="!history.length" description="暂无浏览记录">
-            <el-button type="primary" @click="$router.push('/docs/README')">去浏览</el-button>
-          </el-empty>
-          <div v-else class="content-list">
-            <el-timeline>
-              <el-timeline-item
-                v-for="item in history"
-                :key="item.id"
-                :timestamp="item.visitTime"
-              >
-                <el-card class="history-item" shadow="hover" @click="$router.push(item.path)">
-                  <div class="history-header">
-                    <h4>{{ item.title }}</h4>
-                    <el-tag size="small">{{ itemTypeText(item.type) }}</el-tag>
-                  </div>
-                  <p class="history-desc">{{ item.description }}</p>
-                </el-card>
-              </el-timeline-item>
-            </el-timeline>
-            <div class="history-actions">
-              <el-button type="danger" link @click="clearHistory">清空历史记录</el-button>
+        <el-empty v-if="!favorites.length" description="还没有收藏任何内容">
+          <el-button type="primary" @click="$router.push('/docs/README')">去浏览文档</el-button>
+        </el-empty>
+
+        <div v-else class="card-grid">
+          <article
+            v-for="item in favorites"
+            :key="item.id"
+            class="grid-card"
+            @click="$router.push(item.path)"
+          >
+            <h3 class="gc-title">{{ item.title }}</h3>
+            <p class="gc-desc">{{ item.description || '暂无简介' }}</p>
+            <div class="gc-foot">
+              <span class="gc-time">收藏于 {{ item.createTime }}</span>
+              <el-button type="danger" link size="small" @click.stop="removeFavorite(item.id)">
+                取消收藏
+              </el-button>
             </div>
+          </article>
+        </div>
+      </el-tab-pane>
+
+      <!-- 浏览历史 -->
+      <el-tab-pane name="history">
+        <template #label>
+          浏览历史<span v-if="history.length" class="tab-count">{{ history.length }}</span>
+        </template>
+
+        <el-empty v-if="!history.length" description="暂无浏览记录">
+          <el-button type="primary" @click="$router.push('/docs/README')">去浏览文档</el-button>
+        </el-empty>
+
+        <template v-else>
+          <div class="hist-bar">
+            <span class="hist-hint">仅保留最近 50 条</span>
+            <el-button type="danger" link @click="clearHistory">清空历史记录</el-button>
           </div>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+          <div class="card-grid">
+            <article
+              v-for="item in history"
+              :key="item.id"
+              class="grid-card"
+              @click="$router.push(item.path)"
+            >
+              <h3 class="gc-title">{{ item.title }}</h3>
+              <p class="gc-desc">{{ item.description || '暂无简介' }}</p>
+              <div class="gc-foot">
+                <span class="gc-time">浏览于 {{ item.visitTime }}</span>
+              </div>
+            </article>
+          </div>
+        </template>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -81,35 +82,17 @@ export default {
     const favorites = ref([])
     const history = ref([])
 
-    const itemTypeText = (type) => {
-      const map = { article: '文章', post: '帖子', page: '页面', author: '作者主页' }
-      return map[type] || type
-    }
-
-    const itemTagType = (type) => {
-      const map = { article: 'success', post: 'warning', page: 'info', author: '' }
-      return map[type] || ''
-    }
-
     const loadFavorites = () => {
       get('/user/favorites',
-        (data) => {
-          favorites.value = data || []
-        },
-        () => {
-          favorites.value = []
-        }
+        (data) => { favorites.value = data || [] },
+        () => { favorites.value = [] }
       )
     }
 
     const loadHistory = () => {
       get('/user/history',
-        (data) => {
-          history.value = data || []
-        },
-        () => {
-          history.value = []
-        }
+        (data) => { history.value = data || [] },
+        () => { history.value = [] }
       )
     }
 
@@ -124,9 +107,7 @@ export default {
             ElMessage.success('已取消收藏')
             favorites.value = favorites.value.filter(item => item.id !== id)
           },
-          (message) => {
-            ElMessage.error(message || '操作失败')
-          }
+          (message) => { ElMessage.error(message || '操作失败') }
         )
       }).catch(() => {})
     }
@@ -142,9 +123,7 @@ export default {
             ElMessage.success('浏览历史已清空')
             history.value = []
           },
-          (message) => {
-            ElMessage.error(message || '操作失败')
-          }
+          (message) => { ElMessage.error(message || '操作失败') }
         )
       }).catch(() => {})
     }
@@ -154,111 +133,115 @@ export default {
       loadHistory()
     })
 
-    return {
-      activeTab,
-      favorites,
-      history,
-      itemTypeText,
-      itemTagType,
-      removeFavorite,
-      clearHistory
-    }
+    return { activeTab, favorites, history, removeFavorite, clearHistory }
   }
 }
 </script>
 
 <style scoped>
-.favorites-page {
-  max-width: 900px;
-  margin: 20px auto;
-  padding: 0 20px;
+.fav-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
 }
 
-.favorites-card {
-  min-height: 500px;
+.fav-header {
+  margin-bottom: 20px;
 }
-
-.card-header {
-  font-size: 1.25rem;
-  font-weight: bold;
-}
-
-.content-list {
-  padding: 10px;
-}
-
-.content-item {
-  margin-bottom: 16px;
-  cursor: default;
-}
-
-.item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.item-title {
+.fav-header h1 {
   margin: 0;
-  color: #0c64c1;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.fav-sub {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.fav-tabs :deep(.el-tabs__item) {
+  font-size: 15px;
+  font-weight: 600;
+}
+.tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hist-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.hist-hint { color: var(--text-muted); font-size: 13px; }
+
+/* 响应式网格：宽屏多列铺满，窄屏自动单列 */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.grid-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 132px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
-
-.item-title:hover {
-  color: #42b983;
+.grid-card:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
-
-.item-desc {
-  margin: 0 0 12px;
-  color: #666;
-  font-size: 0.9rem;
-  line-height: 1.5;
+.gc-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.item-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.item-time {
-  font-size: 0.85rem;
-  color: #999;
-}
-
-.history-item {
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.history-item:hover {
-  border-color: #0c64c1;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.history-header h4 {
+.gc-desc {
   margin: 0;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-
-.history-desc {
-  margin: 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.history-actions {
+.gc-foot {
   display: flex;
-  justify-content: center;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+.gc-time { color: var(--text-muted); font-size: 12px; }
+
+@media (max-width: 767px) {
+  .fav-page { padding: 20px 14px 48px; }
+  .fav-header h1 { font-size: 1.5rem; }
+  .card-grid { grid-template-columns: 1fr; gap: 12px; }
 }
 </style>
