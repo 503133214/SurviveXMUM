@@ -231,6 +231,10 @@ export default {
       if (v) this.loadUnread();
       else { this.unreadCount = 0; this.notifications = []; }
     },
+    // 每次路由切换刷新未读数，让通知无需手动刷新页面即可更新
+    $route() {
+      this.loadUnread();
+    },
   },
   computed: {
     hasToken() {
@@ -283,7 +287,11 @@ export default {
       getNotifications((d) => { this.notifications = d || []; }, () => {});
     },
     onBellVisible(visible) {
-      if (visible) this.loadNotifications();
+      if (visible) { this.loadUnread(); this.loadNotifications(); }
+    },
+    onVisibilityRefresh() {
+      // 标签页重新可见 / 获得焦点时立即刷新未读数（回到页面即见最新通知）
+      if (document.visibilityState === "visible") this.loadUnread();
     },
     openNotification(n) {
       if (!n.read) {
@@ -329,12 +337,19 @@ export default {
     // 其它标签页登录/登出会触发 storage 事件，这里同步刷新本标签页的登录态。
     window.addEventListener("storage", this.bumpAuthVersion);
     this.loadUnread();
-    this.notifyTimer = setInterval(() => this.loadUnread(), 60000);
+    // 仅在标签页可见时轮询，隐藏时不打扰；回到前台用 visibilitychange/focus 立即刷新
+    this.notifyTimer = setInterval(() => {
+      if (document.visibilityState === "visible") this.loadUnread();
+    }, 30000);
+    document.addEventListener("visibilitychange", this.onVisibilityRefresh);
+    window.addEventListener("focus", this.onVisibilityRefresh);
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.handleResize);
     window.removeEventListener("scroll", this.handleScroll);
     window.removeEventListener("storage", this.bumpAuthVersion);
+    document.removeEventListener("visibilitychange", this.onVisibilityRefresh);
+    window.removeEventListener("focus", this.onVisibilityRefresh);
     clearTimeout(this.resizeTimeout);
     clearInterval(this.notifyTimer);
   },

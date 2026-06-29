@@ -37,3 +37,6 @@ router.isReady().then(() => {
 });
 
 app.mount("#app");
+
+// 应用成功启动：清除「资源加载失败强制刷新」标记，使日后新部署仍能再次自愈（见 index.html）。
+try { sessionStorage.removeItem("asset-reload"); } catch (e) { /* ignore */ }

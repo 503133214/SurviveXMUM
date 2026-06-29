@@ -6,6 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SurviveXMUM - 更适合厦大马校学子的生存指南">
     <meta name="keywords" content="XMUM, 厦门大学马来西亚分校, 生存指南, 新生指南">
+
+    <!-- 部署自愈：若缓存的旧 index.html 引用了已被替换/清理的旧 chunk，入口脚本会 404 → 整页空白，
+         此时 JS 应用尚未启动（router.onError 无法触发）。这里在捕获阶段监听资源加载错误，
+         检测到 /assets/ 脚本或样式加载失败时一次性强制刷新，拉取最新 index.html 与资源。
+         用 sessionStorage 防止反复刷新；成功启动后由 main.js 清除该标记。 -->
+    <script>
+      window.addEventListener('error', function (e) {
+        var t = e && e.target;
+        if (!t || (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK')) return;
+        var url = t.src || t.href || '';
+        if (url.indexOf('/assets/') === -1) return;
+        if (!sessionStorage.getItem('asset-reload')) {
+          sessionStorage.setItem('asset-reload', '1');
+          location.reload();
+        }
+      }, true);
+    </script>
     <title>SurviveXMUM - 厦大马校生存指南</title>
 
     <!-- 编辑体无衬线字体（拉丁文用 Inter，中文回落到系统字体） -->
