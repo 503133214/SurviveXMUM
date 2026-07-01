@@ -197,7 +197,7 @@ export default {
       this.favoriteId = null;
       this.viewCount = 0;
       try {
-        const detail = await fetchPageContent(path);
+        const detail = await fetchPageContent(path, true);
         let raw = detail.content || "";
 
         // 去掉可能残留的 YAML frontmatter

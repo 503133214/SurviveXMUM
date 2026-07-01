@@ -25,7 +25,9 @@ public class WikiController {
 
     /** 单页详情（含 markdown content）。 */
     @GetMapping("/wiki/page")
-    public ApiResponse<PageDetailVO> page(@RequestParam(required = false) String path) {
-        return ApiResponse.ok(contentService.getPage(path));
+    public ApiResponse<PageDetailVO> page(
+            @RequestParam(required = false) String path,
+            @RequestParam(required = false, defaultValue = "false") boolean track) {
+        return ApiResponse.ok(contentService.getPage(path, track));
     }
 }

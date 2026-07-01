@@ -55,10 +55,12 @@ export async function loadManifest(force = false) {
   }
 }
 
-/** Fetch a single page's full content (markdown) from the backend. */
-export async function fetchPageContent(pathStr) {
+/** Fetch a single page's full content (markdown) from the backend.
+ *  track=true 才计入浏览量（仅 DocPage 阅读时传；编辑页加载正文不计）。 */
+export async function fetchPageContent(pathStr, track = false) {
   const path = pathStr || HOME_PATH
-  const { data } = await axios.get('/wiki/page', { params: { path } })
+  const params = track ? { path, track: 1 } : { path }
+  const { data } = await axios.get('/wiki/page', { params })
   if (data && data.code === 0) return data.data
   throw new Error(data?.message || '页面加载失败')
 }

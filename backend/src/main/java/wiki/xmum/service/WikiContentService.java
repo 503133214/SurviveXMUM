@@ -120,7 +120,7 @@ public class WikiContentService {
         return vo;
     }
 
-    public PageDetailVO getPage(String path) {
+    public PageDetailVO getPage(String path, boolean track) {
         if (path == null || path.isBlank()) path = HOME_PATH;
         WikiPage p = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
                 .eq(WikiPage::getPath, path)
@@ -128,14 +128,17 @@ public class WikiContentService {
         if (p == null) {
             throw new BizException(404, "页面不存在：" + path);
         }
-        // 每次访问原子自增浏览量（匿名 + 登录都计一次；用 setSql 避免读改写竞态）
+        // 仅在真正“阅读”文档时计数（track=true，由 DocPage 传入；编辑页加载正文不计）。
+        // 原子自增（setSql 避免读改写竞态），匿名 + 登录都计一次。
         int current = p.getViewCount() == null ? 0 : p.getViewCount();
-        try {
-            pageMapper.update(null, Wrappers.<WikiPage>lambdaUpdate()
-                    .setSql("view_count = view_count + 1")
-                    .eq(WikiPage::getId, p.getId()));
-        } catch (Exception ignore) {
-            // 计数非关键，失败不影响正文返回
+        if (track) {
+            try {
+                pageMapper.update(null, Wrappers.<WikiPage>lambdaUpdate()
+                        .setSql("view_count = view_count + 1")
+                        .eq(WikiPage::getId, p.getId()));
+            } catch (Exception ignore) {
+                // 计数非关键，失败不影响正文返回
+            }
         }
         PageDetailVO vo = new PageDetailVO();
         vo.setId(p.getId());
@@ -150,7 +153,7 @@ public class WikiContentService {
         vo.setContent(p.getContent());
         vo.setVersion(p.getVersion() == null ? 0 : p.getVersion());
         vo.setLastUpdated(iso(p.getUpdatedAt()));
-        vo.setViewCount(current + 1);
+        vo.setViewCount(track ? current + 1 : current);
         return vo;
     }
 }
