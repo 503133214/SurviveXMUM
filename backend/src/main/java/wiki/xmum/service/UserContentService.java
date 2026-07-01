@@ -174,13 +174,7 @@ public class UserContentService {
                 // 并发：已存在记录，忽略
             }
         }
-        // 浏览量累加（暂无 UI，仅积累数据，为将来「热门」铺路）
-        try {
-            page.setViewCount((page.getViewCount() == null ? 0 : page.getViewCount()) + 1);
-            pageMapper.updateById(page);
-        } catch (Exception ignore) {
-            // 非关键路径
-        }
+        // 浏览量自增已统一在 WikiContentService.getPage()（匿名+登录都计一次），此处不再重复累加。
     }
 
     public void clearHistory(Long userId) {

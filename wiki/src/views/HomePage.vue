@@ -45,6 +45,29 @@
       </div>
     </section>
 
+    <!-- ===== 热门文档 ===== -->
+    <section v-if="popular.length" class="block">
+      <div class="block-head">
+        <h2 v-reveal>🔥 热门文档</h2>
+        <span class="block-sub" v-reveal>大家都在看</span>
+      </div>
+      <div class="pop-list">
+        <a
+          v-for="(p, i) in popular"
+          :key="p.path"
+          class="pop-row"
+          v-reveal="{ delay: i * 40 }"
+          @click="go(`/docs/${p.path}`)"
+        >
+          <span class="pop-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
+          <span class="pop-title">{{ p.title }}</span>
+          <span class="pop-cat">{{ p.category }}</span>
+          <span class="pop-views">{{ p.viewCount }} 次浏览</span>
+          <span class="news-go">→</span>
+        </a>
+      </div>
+    </section>
+
     <!-- ===== 最近更新（编辑式列表） ===== -->
     <section v-if="recent.length" class="block">
       <div class="block-head">
@@ -76,6 +99,7 @@
       <p>这份指南由社区共建。你只需要写一个 Markdown 文件。</p>
       <div class="hero-actions">
         <router-link class="btn btn-solid" to="/docs/贡献指南">查看贡献指南</router-link>
+        <router-link class="btn btn-outline" to="/contributors">🏆 贡献榜</router-link>
         <a class="btn btn-outline" :href="REPO" target="_blank" rel="noopener noreferrer">
           前往 GitHub →
         </a>
@@ -118,6 +142,12 @@ export default {
         .filter((p) => p.lastUpdated && p.path !== HOME_PATH)
         .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
         .slice(0, 5);
+    },
+    popular() {
+      return [...this.pages]
+        .filter((p) => p.path !== HOME_PATH && (p.viewCount || 0) > 0)
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, 6);
     },
   },
   methods: {
@@ -275,6 +305,50 @@ html.dark .hero-logo { filter: brightness(0) invert(1); }
 .block-head p { color: var(--text-secondary); font-size: 1rem; }
 .block-link { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 .block-link:hover { text-decoration: none; opacity: 0.6; }
+.block-sub { color: var(--text-muted); font-size: 0.95rem; white-space: nowrap; }
+
+/* ===== 热门文档列表 ===== */
+.pop-list { display: flex; flex-direction: column; }
+.pop-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 6px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease, padding-left 0.2s ease;
+}
+.pop-row:hover { background: var(--bg-subtle); padding-left: 12px; text-decoration: none; }
+.pop-rank {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.pop-rank.top { background: var(--accent); color: var(--accent-contrast); }
+.pop-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pop-cat { flex-shrink: 0; color: var(--text-muted); font-size: 0.85rem; }
+.pop-views { flex-shrink: 0; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
+.pop-row .news-go { flex-shrink: 0; color: var(--text-muted); opacity: 0; transition: opacity 0.2s ease; }
+.pop-row:hover .news-go { opacity: 1; }
+@media (max-width: 640px) {
+  .pop-cat { display: none; }
+}
 
 /* ===== Card grid (OpenAI-style: image tile + text below) ===== */
 .grid {

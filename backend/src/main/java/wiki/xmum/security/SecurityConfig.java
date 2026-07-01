@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers("/login", "/register", "/send/code", "/password/reset").permitAll()
                 // 公开：wiki 内容只读
                 .requestMatchers(HttpMethod.GET, "/wiki/manifest", "/wiki/page").permitAll()
+                // 公开：贡献榜 / 贡献者主页 / 致谢墙（只读）
+                .requestMatchers(HttpMethod.GET, "/contributors", "/contributors/**", "/wall").permitAll()
                 // 健康检查
                 .requestMatchers("/health", "/actuator/health").permitAll()
                 // 用户管理整段仅超级管理员（须在 /admin/** 规则之前，更具体优先）

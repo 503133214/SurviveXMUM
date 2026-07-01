@@ -21,4 +21,5 @@ public class PageDetailVO {
     private String content;
     private Integer version;
     private String lastUpdated;
+    private Integer viewCount;
 }

@@ -54,6 +54,7 @@
             <h1 class="doc-title">{{ title }}</h1>
             <div class="doc-meta">
               <span v-if="lastUpdated" class="meta-item">更新于 {{ lastUpdated }}</span>
+              <span v-if="!errorLoading && viewCount > 0" class="meta-item">👁 {{ viewCount }} 次浏览</span>
               <router-link
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item edit-link"
@@ -141,6 +142,7 @@ export default {
       favorited: false,
       favoriteId: null,
       favLoading: false,
+      viewCount: 0,
     };
   },
   computed: {
@@ -193,6 +195,7 @@ export default {
       this.pageLastUpdated = "";
       this.favorited = false;
       this.favoriteId = null;
+      this.viewCount = 0;
       try {
         const detail = await fetchPageContent(path);
         let raw = detail.content || "";
@@ -210,6 +213,7 @@ export default {
 
         this.title = detail.title || h1Text || path.split("/").pop();
         this.pageLastUpdated = detail.lastUpdated || "";
+        this.viewCount = detail.viewCount || 0;
         this.content = raw.trim();
         this.afterLoad(path);
       } catch (e) {

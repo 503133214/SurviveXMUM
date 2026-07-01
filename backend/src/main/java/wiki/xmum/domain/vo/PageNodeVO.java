@@ -20,4 +20,5 @@ public class PageNodeVO {
     private List<String> headings;
     private Boolean draft = false;
     private String lastUpdated;
+    private Integer viewCount;
 }

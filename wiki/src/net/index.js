@@ -295,6 +295,31 @@ function adminReplyFeedback(id, payload, success, failure = defaultFailure) {
     post(`/admin/feedback/${id}/reply`, payload, success, failure)
 }
 
+// ---- 贡献榜 / 贡献者主页（公开）----
+function getContributors(success, failure = defaultFailure) {
+    get('/contributors', success, failure)
+}
+function getContributorProfile(id, success, failure = defaultFailure) {
+    get(`/contributors/${id}`, success, failure)
+}
+
+// ---- 致谢墙（公开读；管理仅超管）----
+function getWall(success, failure = defaultFailure) {
+    get('/wall', success, failure)
+}
+function adminListWall(success, failure = defaultFailure) {
+    get('/admin/wall', success, failure)
+}
+function adminCreateWall(payload, success, failure = defaultFailure) {
+    post('/admin/wall', payload, success, failure)
+}
+function adminUpdateWall(id, payload, success, failure = defaultFailure) {
+    put(`/admin/wall/${id}`, payload, success, failure)
+}
+function adminDeleteWall(id, success, failure = defaultFailure) {
+    remove(`/admin/wall/${id}`, success, failure)
+}
+
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
@@ -302,4 +327,6 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
     getNotifications,getUnreadCount,readNotification,readAllNotifications,
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,recordHistory,
-    adminListFeedback,adminReplyFeedback}
+    adminListFeedback,adminReplyFeedback,
+    getContributors,getContributorProfile,
+    getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall}

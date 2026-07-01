@@ -49,6 +49,7 @@ public class WikiContentService {
         n.setHeadings(JsonUtil.toStringList(p.getHeadings()));
         n.setDraft(false);
         n.setLastUpdated(iso(p.getUpdatedAt()));
+        n.setViewCount(p.getViewCount() == null ? 0 : p.getViewCount());
         return n;
     }
 
@@ -127,6 +128,15 @@ public class WikiContentService {
         if (p == null) {
             throw new BizException(404, "页面不存在：" + path);
         }
+        // 每次访问原子自增浏览量（匿名 + 登录都计一次；用 setSql 避免读改写竞态）
+        int current = p.getViewCount() == null ? 0 : p.getViewCount();
+        try {
+            pageMapper.update(null, Wrappers.<WikiPage>lambdaUpdate()
+                    .setSql("view_count = view_count + 1")
+                    .eq(WikiPage::getId, p.getId()));
+        } catch (Exception ignore) {
+            // 计数非关键，失败不影响正文返回
+        }
         PageDetailVO vo = new PageDetailVO();
         vo.setId(p.getId());
         vo.setPath(p.getPath());
@@ -140,6 +150,7 @@ public class WikiContentService {
         vo.setContent(p.getContent());
         vo.setVersion(p.getVersion() == null ? 0 : p.getVersion());
         vo.setLastUpdated(iso(p.getUpdatedAt()));
+        vo.setViewCount(current + 1);
         return vo;
     }
 }

@@ -95,6 +95,9 @@
                 <el-dropdown-item command="/feedback">
                   <el-icon><ChatDotRound /></el-icon>反馈
                 </el-dropdown-item>
+                <el-dropdown-item command="/contributors">
+                  <el-icon><Trophy /></el-icon>贡献榜
+                </el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" command="/admin">
                   <el-icon><Setting /></el-icon>管理后台
                 </el-dropdown-item>
@@ -169,6 +172,9 @@
                 <el-dropdown-item command="/feedback">
                   <el-icon><ChatDotRound /></el-icon>反馈
                 </el-dropdown-item>
+                <el-dropdown-item command="/contributors">
+                  <el-icon><Trophy /></el-icon>贡献榜
+                </el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" command="/admin">
                   <el-icon><Setting /></el-icon>管理后台
                 </el-dropdown-item>
@@ -194,7 +200,7 @@
 
 <script>
 import { markRaw } from "vue";
-import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound } from "@element-plus/icons-vue";
+import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy } from "@element-plus/icons-vue";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
@@ -207,7 +213,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound },
+  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };

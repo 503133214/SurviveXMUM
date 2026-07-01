@@ -30,6 +30,17 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/contributors",
+    name: "Contributors",
+    component: () => import("@/views/ContributorsPage.vue"),
+  },
+  {
+    path: "/contributors/:id",
+    name: "ContributorProfile",
+    component: () => import("@/views/ContributorProfilePage.vue"),
+    props: true,
+  },
+  {
     path: "/edit/:pathMatch(.*)*",
     name: "Edit",
     component: () => import("@/views/EditPage.vue"),

@@ -18,6 +18,7 @@
       <AdminPagesPanel v-if="activeSection === 'pages'" />
       <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
       <AdminFeedbackPanel v-else-if="activeSection === 'feedback'" />
+      <AdminWallPanel v-else-if="activeSection === 'wall' && isSuperAdmin" />
 
       <div v-else class="admin-page">
         <header class="ad-head">
@@ -184,12 +185,13 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Tickets, User, ChatDotRound } from '@element-plus/icons-vue'
+import { Document, Tickets, User, ChatDotRound, Trophy } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
 import AdminFeedbackPanel from '@/components/AdminFeedbackPanel.vue'
+import AdminWallPanel from '@/components/AdminWallPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
@@ -203,6 +205,7 @@ export default {
     AdminPagesPanel: markRaw(AdminPagesPanel),
     AdminUsersPanel: markRaw(AdminUsersPanel),
     AdminFeedbackPanel: markRaw(AdminFeedbackPanel),
+    AdminWallPanel: markRaw(AdminWallPanel),
     Tickets,
   },
   data() {
@@ -235,8 +238,11 @@ export default {
         { key: 'pages', label: '页面管理', icon: markRaw(Document) },
         { key: 'feedback', label: '反馈管理', icon: markRaw(ChatDotRound) },
       ]
-      // 用户管理仅超级管理员可见
-      if (this.isSuperAdmin) s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+      // 用户管理、致谢墙仅超级管理员可见
+      if (this.isSuperAdmin) {
+        s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+        s.push({ key: 'wall', label: '致谢墙', icon: markRaw(Trophy) })
+      }
       return s
     },
     hasFilter() {
