@@ -38,5 +38,9 @@ router.isReady().then(() => {
 
 app.mount("#app");
 
-// 应用成功启动：清除「资源加载失败强制刷新」标记，使日后新部署仍能再次自愈（见 index.html）。
-try { sessionStorage.removeItem("asset-reload"); } catch (e) { /* ignore */ }
+// 应用成功启动：清除自愈标记，使日后新部署仍能再次自愈
+// （asset-reload 见 index.html 内联脚本；stale-heal 见 nginx.conf @stale_asset 存根）。
+try {
+  sessionStorage.removeItem("asset-reload");
+  sessionStorage.removeItem("stale-heal");
+} catch (e) { /* ignore */ }

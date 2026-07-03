@@ -19,7 +19,10 @@
         if (url.indexOf('/assets/') === -1) return;
         if (!sessionStorage.getItem('asset-reload')) {
           sessionStorage.setItem('asset-reload', '1');
-          location.reload();
+          // 先绕过 HTTP 缓存强制重取 index.html，再刷新——确保刷新拿到的是新版入口
+          fetch('/index.html', { cache: 'reload' }).catch(function () {}).then(function () {
+            location.reload();
+          });
         }
       }, true);
     </script>

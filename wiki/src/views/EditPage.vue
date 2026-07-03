@@ -616,6 +616,10 @@ export default {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
+  /* 表情较多时在面板内滚动；否则面板高度超出视口且页面无法带着它下滑 */
+  max-height: min(264px, 42vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .icon-cell {
   padding: 5px 0;
