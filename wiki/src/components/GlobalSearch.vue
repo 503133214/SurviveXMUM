@@ -91,7 +91,12 @@ export default {
       if (!q) return this.escape(text);
       const terms = q.split(/\s+/).filter(Boolean).map(this.escapeRe);
       const re = new RegExp(`(${terms.join("|")})`, "gi");
-      return this.escape(text).replace(re, "<mark>$1</mark>");
+      // 先在原文上分段匹配、再逐段转义：若先转义再匹配，搜索 "amp" 之类
+      // 会命中 &amp; 等实体内部，插出残缺的 HTML。
+      return String(text)
+        .split(re)
+        .map((part, i) => (i % 2 === 1 ? `<mark>${this.escape(part)}</mark>` : this.escape(part)))
+        .join("");
     },
     escape(s) {
       return String(s).replace(/[&<>"]/g, (c) =>

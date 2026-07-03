@@ -32,23 +32,74 @@
       </div>
 
       <div class="field">
-        <label>标题</label>
-        <input v-model="form.title" class="inp" placeholder="例如：图书馆使用指南" :disabled="isUpdate" />
+        <label>标题与图标</label>
+        <div class="title-row">
+          <div class="icon-picker" ref="iconPicker">
+            <button
+              type="button"
+              class="icon-btn"
+              :class="{ 'has-icon': form.icon }"
+              :title="form.icon ? '更换或清除图标' : '选择图标（可选）'"
+              @click="iconPanelOpen = !iconPanelOpen"
+            >{{ form.icon || '＋' }}</button>
+            <div v-if="iconPanelOpen" class="icon-panel">
+              <div class="icon-grid">
+                <button
+                  v-for="e in iconPresets"
+                  :key="e"
+                  type="button"
+                  class="icon-cell"
+                  :class="{ selected: form.icon === e }"
+                  @click="pickIcon(e)"
+                >{{ e }}</button>
+              </div>
+              <div class="icon-panel-foot">
+                <input
+                  v-model="customIcon"
+                  class="inp icon-custom"
+                  placeholder="或粘贴任意 emoji 后回车"
+                  @keydown.enter.prevent="pickIcon(customIcon)"
+                />
+                <button v-if="form.icon" type="button" class="icon-clear" @click="pickIcon('')">清除</button>
+              </div>
+            </div>
+          </div>
+          <input v-model="form.title" class="inp" placeholder="例如：图书馆使用指南" :disabled="isUpdate" />
+        </div>
       </div>
 
-      <div class="field">
-        <label>图标（可选）</label>
-        <input v-model="form.icon" class="inp" placeholder="单个 emoji，如 📖" maxlength="4" />
-      </div>
-
-      <div class="field">
-        <label>标签（逗号分隔，可选）</label>
-        <input v-model="tagsText" class="inp" placeholder="校园, 设施" />
+      <div class="field span2">
+        <label>标签（可选，最多 10 个）</label>
+        <div class="tags-box" @click="focusTagInput">
+          <span v-for="(t, i) in tags" :key="t" class="tag-chip">
+            {{ t }}
+            <button type="button" class="tag-x" aria-label="移除标签" @click.stop="tags.splice(i, 1)">×</button>
+          </span>
+          <input
+            ref="tagInput"
+            v-model="tagInput"
+            class="tag-input"
+            :placeholder="tags.length ? '' : '输入后回车添加，如：校园'"
+            @keydown.enter.prevent="commitTagInput"
+            @keydown="onTagKeydown"
+            @blur="commitTagInput"
+          />
+        </div>
+        <div v-if="tagSuggestions.length" class="tag-suggest">
+          <span class="suggest-label">常用：</span>
+          <button
+            v-for="t in tagSuggestions"
+            :key="t"
+            type="button"
+            class="tag-suggest-item"
+            @click="addTag(t)"
+          >{{ t }}</button>
+        </div>
       </div>
 
       <div class="field span2">
         <label>简介（可选，留空将自动从正文提取）</label>
-        <input v-model="form.description" class="inp" placeholder="一句话描述这篇文档" />
+        <input v-model="form.description" class="inp" maxlength="200" :placeholder="descPlaceholder" />
       </div>
       </div>
     </div>
@@ -124,11 +175,23 @@ import { markRaw, nextTick } from 'vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import { categories, fetchPageContent, loadManifest, state as wikiState } from '@/wiki'
+import { categories, fetchPageContent, loadManifest, pages, state as wikiState } from '@/wiki'
 import { submitRevision, uploadImage } from '@/net/index.js'
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
+const MAX_TAGS = 10
+// 标题拼进页面路径，这些字符会破坏路由（与后端 TitleUtil 一致）
+const ILLEGAL_TITLE = /[/\\#?%]|\.\./
+// 图标选择器的常用 emoji（也可手动输入任意 emoji）
+const ICON_PRESETS = [
+  '📚', '📖', '📝', '🎓', '🏫', '🧭', '🗺️', '🌏',
+  '🏠', '🛏️', '🍜', '🍱', '☕', '🛒', '🧺', '🔧',
+  '🚌', '🚕', '✈️', '🚄', '🛂', '🪪', '💳', '🏦',
+  '🏥', '💊', '🩺', '⚽', '🏀', '🎮', '🎬', '🎵',
+  '📱', '💻', '🌐', '🔌', '📋', '📅', '⏰', '🎯',
+  '💡', '⚠️', '❓', '✅', '⭐', '🌟', '🎉', '❤️',
+]
 
 export default {
   name: 'EditPage',
@@ -142,7 +205,10 @@ export default {
       isDragging: false,
       form: { categorySlug: '', title: '', icon: '', description: '', content: '' },
       baseVersion: null,
-      tagsText: '',
+      tags: [],
+      tagInput: '',
+      iconPanelOpen: false,
+      customIcon: '',
     }
   },
   computed: {
@@ -151,6 +217,53 @@ export default {
     },
     cats() {
       return categories()
+    },
+    iconPresets() {
+      return ICON_PRESETS
+    },
+    // 已发布文档里出现频率最高的标签，点击即添加
+    tagSuggestions() {
+      const freq = new Map()
+      for (const p of pages) {
+        for (const t of p.tags || []) freq.set(t, (freq.get(t) || 0) + 1)
+      }
+      return [...freq.entries()]
+        .filter(([t]) => !this.tags.includes(t))
+        .sort((a, b) => b[1] - a[1])
+        .map(([t]) => t)
+        .slice(0, 12)
+    },
+    // 与后端 MarkdownUtil.extractSummary 同一规则：正文首个普通段落
+    autoSummary() {
+      const lines = (this.form.content || '').split(/\r?\n/)
+      let inFence = false
+      const para = []
+      for (const line of lines) {
+        if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; continue }
+        if (inFence) continue
+        let t = line.trim()
+        if (t.startsWith('>')) t = t.slice(1).trim()
+        if (!t) { if (para.length) break; continue }
+        if (/^(#|!\[|<|\|)/.test(t) || /^[-*_]{3,}$/.test(t)) {
+          if (para.length) break
+          continue
+        }
+        para.push(t.replace(/^([-*+]|\d+\.)\s+/, ''))
+      }
+      if (!para.length) return ''
+      const s = para.join(' ')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/<[^>]+>/g, '')
+        .replace(/[*_`~]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return s.length > 120 ? s.slice(0, 120) + '…' : s
+    },
+    descPlaceholder() {
+      return this.autoSummary
+        ? `留空自动使用：${this.autoSummary}`
+        : '一句话描述这篇文档'
     },
     baseDir() {
       const p = this.targetPath || (this.form.categorySlug ? `${this.form.categorySlug}/x` : '')
@@ -171,13 +284,50 @@ export default {
         this.form.description = d.description || ''
         this.form.content = d.content || ''
         this.baseVersion = d.version ?? 0
-        this.tagsText = (d.tags || []).join(', ')
+        this.tags = d.tags || []
       } catch (e) {
         ElMessage.error('无法加载原文内容')
       }
     }
+    document.addEventListener('click', this.onDocClick)
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.onDocClick)
   },
   methods: {
+    onDocClick(e) {
+      if (this.iconPanelOpen && this.$refs.iconPicker && !this.$refs.iconPicker.contains(e.target)) {
+        this.iconPanelOpen = false
+      }
+    },
+    pickIcon(e) {
+      this.form.icon = (e || '').trim()
+      this.iconPanelOpen = false
+      this.customIcon = ''
+    },
+    focusTagInput() {
+      this.$refs.tagInput?.focus()
+    },
+    addTag(raw) {
+      const t = (raw || '').replace(/[,，]/g, '').trim()
+      if (!t) return
+      if (t.length > 30) return ElMessage.warning('单个标签最多 30 字')
+      if (this.tags.includes(t)) return
+      if (this.tags.length >= MAX_TAGS) return ElMessage.warning(`标签最多 ${MAX_TAGS} 个`)
+      this.tags.push(t)
+    },
+    commitTagInput() {
+      this.tagInput.split(/[,，]/).forEach((p) => this.addTag(p))
+      this.tagInput = ''
+    },
+    onTagKeydown(e) {
+      if (e.key === ',' || e.key === '，') {
+        e.preventDefault()
+        this.commitTagInput()
+      } else if (e.key === 'Backspace' && !this.tagInput && this.tags.length) {
+        this.tags.pop()
+      }
+    },
     handleFileSelect(event) {
       const file = event.target.files?.[0]
       event.target.value = ''
@@ -288,32 +438,48 @@ export default {
       )
     },
     onImageResize({ index, width }) {
-      // 预览里第 index 张图片被拖动 → 把对应的 Markdown 图片宽度改写为 =<width>x
+      // 预览里第 index 张图片被拖动 → 把对应的 Markdown 图片宽度改写为 =<width>x。
+      // 逐行处理并跳过代码围栏：围栏里的 ![](…) 不会渲染成图片，计数时必须排除，
+      // 否则序号与预览错位、改错图。
+      let inFence = false
       let i = -1
-      this.form.content = this.form.content.replace(/!\[[^\]]*\]\([^)]*\)/g, (match) => {
-        i += 1
-        if (i !== index) return match
-        const parsed = match.match(/^!\[([^\]]*)\]\((.*)\)$/)
-        if (!parsed) return match
-        const alt = parsed[1]
-        const url = parsed[2].replace(/\s+=\d+x\d*\s*$/, '').trim()
-        return `![${alt}](${url} =${width}x)`
-      })
+      this.form.content = this.form.content
+        .split('\n')
+        .map((line) => {
+          if (/^\s*(```|~~~)/.test(line)) {
+            inFence = !inFence
+            return line
+          }
+          if (inFence) return line
+          return line.replace(/!\[[^\]]*\]\([^)]*\)/g, (match) => {
+            i += 1
+            if (i !== index) return match
+            const parsed = match.match(/^!\[([^\]]*)\]\((.*)\)$/)
+            if (!parsed) return match
+            const alt = parsed[1]
+            const url = parsed[2].replace(/\s+=\d+x\d*\s*$/, '').trim()
+            return `![${alt}](${url} =${width}x)`
+          })
+        })
+        .join('\n')
     },
     submit() {
       if (this.uploadingImage) return ElMessage.warning('请等待图片上传完成')
-      if (!this.form.title.trim()) return ElMessage.error('请填写标题')
+      const title = this.form.title.trim()
+      if (!title) return ElMessage.error('请填写标题')
+      if (ILLEGAL_TITLE.test(title)) return ElMessage.error('标题不能包含 / \\ # ? % 或 .. 等字符')
       if (!this.form.content.trim()) return ElMessage.error('正文不能为空')
+      this.commitTagInput() // 输入框里未回车的标签一并带上
       this.submitting = true
-      const tags = this.tagsText.split(/[,，]/).map((t) => t.trim()).filter(Boolean)
       const payload = {
         type: this.isUpdate ? 'UPDATE' : 'CREATE',
         path: this.isUpdate ? this.targetPath : undefined,
         categorySlug: this.form.categorySlug || null,
-        title: this.form.title.trim(),
-        icon: this.form.icon || null,
-        description: this.form.description || null,
-        tags,
+        title,
+        // 始终发字符串：空串在更新时表示“清空图标”（后端非 null 即覆盖）
+        icon: this.form.icon.trim(),
+        description: this.form.description.trim() || null,
+        tags: this.tags,
         content: this.form.content,
         baseVersion: this.isUpdate ? this.baseVersion : undefined,
       }
@@ -413,6 +579,138 @@ export default {
 }
 .inp:focus { outline: none; border-color: var(--accent); }
 .inp:disabled { background: var(--bg-subtle); color: var(--text-muted); }
+
+/* ---- 标题 + 图标选择器 ---- */
+.title-row { display: flex; gap: 8px; align-items: stretch; }
+.title-row .inp { flex: 1; min-width: 0; }
+.icon-picker { position: relative; flex-shrink: 0; }
+.icon-btn {
+  width: 42px;
+  height: 100%;
+  min-height: 40px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.icon-btn.has-icon { border-style: solid; font-size: 20px; }
+.icon-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+.icon-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: 320px;
+  max-width: 78vw;
+  padding: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+.icon-cell {
+  padding: 5px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.icon-cell:hover { background: var(--bg-hover); }
+.icon-cell.selected { background: var(--bg-hover); outline: 2px solid var(--accent); }
+.icon-panel-foot { display: flex; gap: 8px; margin-top: 10px; }
+.icon-custom { flex: 1; padding: 6px 10px; font-size: 13px; }
+.icon-clear {
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.icon-clear:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+/* ---- 标签 chips ---- */
+.tags-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  min-height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: text;
+}
+.tags-box:focus-within { border-color: var(--accent); }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-body);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.tag-x {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.tag-x:hover { color: var(--text-primary); }
+.tag-input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  padding: 4px 2px;
+}
+.tag-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.suggest-label { font-size: 12px; color: var(--text-muted); }
+.tag-suggest-item {
+  padding: 2px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.tag-suggest-item:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
 
 .editor-grid {
   display: grid;

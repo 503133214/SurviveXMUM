@@ -18,6 +18,7 @@ import wiki.xmum.mapper.UserMapper;
 import wiki.xmum.security.AuthUser;
 import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
+import wiki.xmum.util.TitleUtil;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +52,24 @@ public class RevisionService {
         if (!"CREATE".equals(type) && !"UPDATE".equals(type)) {
             throw new BizException("非法的投稿类型");
         }
+        String title = TitleUtil.cleanTitle(dto.getTitle());
+
+        String icon = dto.getIcon() == null ? null : dto.getIcon().trim();
+        if (icon != null && icon.length() > 40) throw new BizException("图标过长，请使用单个 emoji");
+
+        // 简介留空时自动从正文提取首段（编辑页对用户的承诺在这里兑现）
+        String description = dto.getDescription() == null ? null : dto.getDescription().trim();
+        if (description != null && description.length() > 500) throw new BizException("简介过长（最多 500 字）");
+        if (description == null || description.isEmpty()) {
+            description = MarkdownUtil.extractSummary(dto.getContent(), 120);
+        }
+
+        // 标签：去重去空，限制数量与长度
+        List<String> tags = dto.getTags() == null ? List.of() : dto.getTags().stream()
+                .filter(java.util.Objects::nonNull).map(String::trim).filter(s -> !s.isEmpty())
+                .distinct().toList();
+        if (tags.size() > 10) throw new BizException("标签最多 10 个");
+        if (tags.stream().anyMatch(t -> t.length() > 30)) throw new BizException("单个标签最多 30 字");
 
         String targetPath;
         Long pageId = null;
@@ -72,8 +91,8 @@ public class RevisionService {
         } else {
             // CREATE：路径 = 分类/标题（无分类则用标题）
             String cat = dto.getCategorySlug();
-            String title = dto.getTitle().trim();
             targetPath = (cat == null || cat.isBlank()) ? title : cat + "/" + title;
+            if (targetPath.length() > 380) throw new BizException("标题过长，路径超出限制");
             WikiPage existing = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, targetPath));
             if (existing != null) {
                 throw new BizException("已存在同路径页面，请改用「编辑」或更换标题");
@@ -84,10 +103,10 @@ public class RevisionService {
         rev.setPageId(pageId);
         rev.setTargetPath(targetPath);
         rev.setCategorySlug(dto.getCategorySlug());
-        rev.setTitle(dto.getTitle().trim());
-        rev.setIcon(dto.getIcon());
-        rev.setDescription(dto.getDescription());
-        rev.setTags(dto.getTags() == null ? "[]" : JsonUtil.toJson(dto.getTags()));
+        rev.setTitle(title);
+        rev.setIcon(icon);
+        rev.setDescription(description);
+        rev.setTags(JsonUtil.toJson(tags));
         rev.setContent(dto.getContent());
         rev.setBaseVersion(baseVersion);
         rev.setType(type);
@@ -252,8 +271,8 @@ public class RevisionService {
             p.setPath(path);
             p.setSlug(path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path);
             p.setTitle(r.getTitle());
-            p.setIcon(r.getIcon());
-            p.setDescription(r.getDescription());
+            p.setIcon(blankToNull(r.getIcon()));
+            p.setDescription(blankToNull(r.getDescription()));
             p.setTags(r.getTags());
             p.setHeadings(JsonUtil.toJson(headings));
             p.setContent(r.getContent());
@@ -268,8 +287,9 @@ public class RevisionService {
             page.setCategorySlug(r.getCategorySlug() != null ? r.getCategorySlug() : page.getCategorySlug());
             page.setCategoryId(categoryId != null ? categoryId : page.getCategoryId());
             page.setTitle(r.getTitle());
-            if (r.getIcon() != null) page.setIcon(r.getIcon());
-            if (r.getDescription() != null) page.setDescription(r.getDescription());
+            // 非 null 即覆盖：空串表示“清空图标”（编辑页始终回填原值，提交的就是期望终态）
+            if (r.getIcon() != null) page.setIcon(blankToNull(r.getIcon()));
+            if (r.getDescription() != null) page.setDescription(blankToNull(r.getDescription()));
             page.setTags(r.getTags());
             page.setHeadings(JsonUtil.toJson(headings));
             page.setContent(r.getContent());
@@ -304,6 +324,10 @@ public class RevisionService {
                 "投稿被驳回",
                 "你的投稿《" + r.getTitle() + "》未通过审核" + reason,
                 "/profile", r.getId());
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
     }
 
     /** 确保分类存在，返回 categoryId；无 slug 返回 null。 */

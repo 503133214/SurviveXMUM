@@ -118,7 +118,8 @@ export default {
   computed: {
     email() { return this.userStore.userInfo?.userEmail || '' },
     nickname() { return this.userStore.userInfo?.nickname || this.userStore.username || '用户' },
-    isAdmin() { return this.userStore.userInfo?.role === 'ADMIN' },
+    // 用 store 的 isAdmin（含 SUPER_ADMIN），否则超管看不到“管理后台”入口
+    isAdmin() { return this.userStore.isAdmin },
     initial() { return (this.nickname || 'U').charAt(0).toUpperCase() },
   },
   mounted() {

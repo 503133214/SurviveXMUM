@@ -199,7 +199,9 @@ export default {
       if (!this.resizable) return;
       const root = this.$refs.bodyEl;
       if (!root) return;
-      root.querySelectorAll("img").forEach((img) => {
+      // 只处理 markdown 图片（带序号标记）；正文里原生 <img> 没有对应的
+      // Markdown `![]()`，若也挂上手柄会把宽度写到错误的图片上。
+      root.querySelectorAll("img[data-img-index]").forEach((img) => {
         if (img.parentElement && img.parentElement.classList.contains("img-resize-wrap")) return;
         const wrap = document.createElement("span");
         wrap.className = "img-resize-wrap";

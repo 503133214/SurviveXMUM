@@ -69,9 +69,10 @@ public class PageAdminService {
     }
 
     public Long create(PageUpsertDTO dto, AuthUser actor) {
-        String title = require(dto.getTitle(), "标题不能为空");
+        String title = wiki.xmum.util.TitleUtil.cleanTitle(dto.getTitle());
         String cat = blankToNull(dto.getCategorySlug());
         String path = cat == null ? title : cat + "/" + title;
+        if (path.length() > 380) throw new BizException("标题过长，路径超出限制");
         if (pageMapper.selectCount(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, path)) > 0) {
             throw new BizException("已存在同路径页面：" + path);
         }
@@ -153,11 +154,6 @@ public class PageAdminService {
     private static int clampSize(long size) {
         if (size < 1) return 20;
         return (int) Math.min(size, 100);
-    }
-
-    private static String require(String value, String message) {
-        if (value == null || value.isBlank()) throw new BizException(message);
-        return value.trim();
     }
 
     private static String blankToNull(String value) {
