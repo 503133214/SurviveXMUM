@@ -21,7 +21,7 @@
       <AdminWallPanel v-else-if="activeSection === 'wall' && isSuperAdmin" />
 
       <div v-else class="admin-page">
-        <header class="ad-head">
+        <header class="rv-head">
           <h1>投稿审核</h1>
       <div class="seg">
         <button v-for="s in tabs" :key="s.key" :class="{ active: status === s.key }" @click="switchStatus(s.key)">
@@ -30,7 +30,7 @@
       </div>
     </header>
 
-    <div class="ad-filter">
+    <div class="rv-filter">
       <el-date-picker
         v-model="filterDates"
         type="daterange"
@@ -45,7 +45,7 @@
         v-model="filterKeyword"
         placeholder="搜索标题 / 路径 / 作者邮箱"
         clearable
-        class="ad-filter-kw"
+        class="rv-filter-kw"
         @keyup.enter="onFilterChange"
         @clear="onFilterChange"
       />
@@ -58,9 +58,9 @@
       <span>你可以查看投稿内容，但通过和驳回操作需要在电脑端完成。</span>
     </div>
 
-    <div class="ad-body" :class="{ 'list-collapsed': listCollapsed }">
+    <div class="rv-body" :class="{ 'list-collapsed': listCollapsed }">
       <!-- 列表 -->
-      <aside v-show="(!isMobileAdmin || !current) && !listCollapsed" class="ad-list">
+      <aside v-show="(!isMobileAdmin || !current) && !listCollapsed" class="rv-list">
         <div v-if="loadingList" class="muted pad">加载中…</div>
         <el-empty v-else-if="!list.length" :description="`暂无${currentLabel}投稿`" />
         <ul v-else>
@@ -85,7 +85,7 @@
       </aside>
 
       <!-- 详情 -->
-      <main v-show="!isMobileAdmin || current" class="ad-detail">
+      <main v-show="!isMobileAdmin || current" class="rv-detail">
         <div v-if="!current" class="placeholder">
           <el-icon :size="40"><Tickets /></el-icon>
           <p>从左侧选择一条投稿开始审核</p>
@@ -418,8 +418,8 @@ export default {
 .ac-item.active .el-icon { color: var(--text-primary); }
 .ac-main { min-width: 0; }
 .admin-page { width: 100%; }
-.ad-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-.ad-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
+.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.rv-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
 .seg { display: flex; background: var(--bg-subtle); border-radius: 999px; padding: 4px; }
 .seg button {
   border: none; background: transparent; padding: 8px 18px;
@@ -436,17 +436,17 @@ export default {
 .seg button.active .seg-count { background: var(--accent); color: var(--accent-contrast); }
 .dt-review { color: var(--text-secondary); font-size: 12.5px; }
 
-.ad-filter {
+.rv-filter {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 18px;
   flex-wrap: wrap;
 }
-.ad-filter .ad-filter-kw { width: 260px; max-width: 100%; }
+.rv-filter .rv-filter-kw { width: 260px; max-width: 100%; }
 @media (max-width: 768px) {
-  .ad-filter { gap: 8px; }
-  .ad-filter .ad-filter-kw { width: 100%; }
+  .rv-filter { gap: 8px; }
+  .rv-filter .rv-filter-kw { width: 100%; }
 }
 
 .mobile-admin-notice {
@@ -461,26 +461,26 @@ export default {
 .mobile-admin-notice strong { color: var(--text-primary); font-size: 14px; }
 .mobile-admin-notice span { color: var(--text-secondary); font-size: 13px; }
 
-.ad-body { display: grid; grid-template-columns: clamp(280px, 22vw, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
-.ad-body.list-collapsed { grid-template-columns: minmax(0, 1fr); }
-.ad-list {
+.rv-body { display: grid; grid-template-columns: clamp(280px, 22vw, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.rv-body.list-collapsed { grid-template-columns: minmax(0, 1fr); }
+.rv-list {
   border: 1px solid var(--border); border-radius: var(--radius);
   overflow: hidden auto; background: var(--bg-surface);
   max-height: calc(100vh - 180px);
   position: sticky; top: calc(var(--header-height) + 20px);
 }
-.ad-list ul { list-style: none; margin: 0; padding: 0; }
-.ad-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
-.ad-list li:last-child { border-bottom: none; }
-.ad-list li:hover { background: var(--bg-hover); }
-.ad-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
+.rv-list ul { list-style: none; margin: 0; padding: 0; }
+.rv-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
+.rv-list li:last-child { border-bottom: none; }
+.rv-list li:hover { background: var(--bg-hover); }
+.rv-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
 .li-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .li-title { font-weight: 600; color: var(--text-primary); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
 .li-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li-meta span:last-child { flex-shrink: 0; }
 
-.ad-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
+.rv-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
 .placeholder {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   min-height: 64vh; color: var(--text-muted);
@@ -586,7 +586,7 @@ html.dark .rejection-note {
 .pad { padding: 16px; }
 
 @media (max-width: 900px) {
-  .ad-body { grid-template-columns: 1fr; }
+  .rv-body { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 860px) {
@@ -599,14 +599,14 @@ html.dark .rejection-note {
 
 @media (max-width: 768px) {
   .admin-console { padding: 20px 16px 48px; }
-  .ad-head { align-items: flex-start; margin-bottom: 16px; }
-  .ad-head h1 { width: 100%; font-size: 1.25rem; }
+  .rv-head { align-items: flex-start; margin-bottom: 16px; }
+  .rv-head h1 { width: 100%; font-size: 1.25rem; }
   .seg { width: 100%; }
   .seg button { flex: 1; padding-inline: 8px; }
   .mobile-admin-notice { display: flex; flex-direction: column; gap: 3px; }
-  .ad-list { position: static; max-height: none; }
-  .ad-list li { padding: 16px; }
-  .ad-detail { min-height: 0; }
+  .rv-list { position: static; max-height: none; }
+  .rv-list li { padding: 16px; }
+  .rv-detail { min-height: 0; }
   .placeholder { min-height: 240px; }
   .dt-head { padding: 18px 16px; }
   .mobile-detail-back { display: inline-flex; }
