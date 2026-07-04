@@ -295,6 +295,24 @@ function adminReplyFeedback(id, payload, success, failure = defaultFailure) {
     post(`/admin/feedback/${id}/reply`, payload, success, failure)
 }
 
+// ---- 写文章草稿 ----
+// 支持自定义 error（网络层错误）处理：自动保存需完全静默，不能弹全局错误提示
+function saveDraft(payload, success, failure = defaultFailure, error = defaultError) {
+    internalPost('/wiki/drafts', payload, accessHeader(), success, failure, error)
+}
+function listDrafts(success, failure = defaultFailure) {
+    get('/wiki/drafts', success, failure)
+}
+function getDraft(id, success, failure = defaultFailure) {
+    get(`/wiki/drafts/${id}`, success, failure)
+}
+function getDraftByPath(path, success, failure = defaultFailure) {
+    get(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, success, failure)
+}
+function deleteDraft(id, success, failure = defaultFailure) {
+    remove(`/wiki/drafts/${id}`, success, failure)
+}
+
 // ---- 贡献榜 / 贡献者主页（公开）----
 function getContributors(success, failure = defaultFailure) {
     get('/contributors', success, failure)
@@ -329,4 +347,5 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,recordHistory,
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,
-    getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall}
+    getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,
+    saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft}

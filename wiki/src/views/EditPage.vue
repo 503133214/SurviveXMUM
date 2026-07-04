@@ -9,12 +9,36 @@
         </p>
       </div>
       <div class="edit-actions">
+        <span v-if="draftSavedAt" class="draft-saved-hint">已保存 {{ draftSavedAt.slice(11) || draftSavedAt }}</span>
+        <button class="btn-ghost" @click="openDrafts">草稿箱{{ drafts.length ? ` (${drafts.length})` : '' }}</button>
+        <button class="btn-ghost" :disabled="draftSaving" @click="manualSaveDraft">
+          {{ draftSaving ? '保存中…' : '保存草稿' }}
+        </button>
         <button class="btn-ghost" @click="$router.back()">取消</button>
         <button class="btn-solid" :disabled="submitting || uploadingImage" @click="submit">
           {{ uploadingImage ? '等待图片上传…' : submitting ? '提交中…' : '提交审核' }}
         </button>
       </div>
     </div>
+
+    <el-dialog v-model="draftsOpen" title="草稿箱" width="560px">
+      <div v-if="draftsLoading" class="drafts-loading">加载中…</div>
+      <el-empty v-else-if="!drafts.length" description="暂无草稿" />
+      <ul v-else class="draft-list">
+        <li v-for="d in drafts" :key="d.id">
+          <span class="draft-type" :class="d.type === 'UPDATE' ? 't-upd' : 't-new'">
+            {{ d.type === 'UPDATE' ? '编辑' : '新建' }}
+          </span>
+          <div class="draft-main" @click="loadDraftItem(d)">
+            <div class="draft-title">{{ d.icon ? d.icon + ' ' : '' }}{{ d.title || '（未命名草稿）' }}</div>
+            <div class="draft-meta">
+              <template v-if="d.type === 'UPDATE'">{{ d.targetPath }} · </template>{{ d.updatedAt }}
+            </div>
+          </div>
+          <el-button link type="danger" size="small" @click="removeDraftItem(d)">删除</el-button>
+        </li>
+      </ul>
+    </el-dialog>
 
     <div class="meta-card">
       <div class="meta-card-head">文档信息</div>
@@ -175,8 +199,10 @@ import { markRaw, nextTick } from 'vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 import { categories, fetchPageContent, loadManifest, pages, state as wikiState } from '@/wiki'
-import { submitRevision, uploadImage } from '@/net/index.js'
+import { submitRevision, uploadImage,
+  saveDraft, listDrafts, getDraft, getDraftByPath, deleteDraft } from '@/net/index.js'
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
@@ -209,7 +235,24 @@ export default {
       tagInput: '',
       iconPanelOpen: false,
       customIcon: '',
+      // 草稿
+      draftId: null,
+      draftSavedAt: '',
+      draftSaving: false,
+      draftsOpen: false,
+      draftsLoading: false,
+      drafts: [],
+      autoSaveTimer: null,
+      lastSavedSnapshot: '',
     }
+  },
+  watch: {
+    form: { deep: true, handler() { this.scheduleAutoSave() } },
+    tags: { deep: true, handler() { this.scheduleAutoSave() } },
+    // /edit/A → /edit/B（或 草稿箱 切换新建草稿）是同一路由记录，组件被复用、
+    // mounted 不会重跑，这里手动重新初始化。
+    targetPath() { if (this.$route.name === 'Edit') this.initFromRoute() },
+    '$route.query.draft'() { if (this.$route.name === 'Edit') this.initFromRoute() },
   },
   computed: {
     isUpdate() {
@@ -275,24 +318,17 @@ export default {
   },
   async mounted() {
     if (!wikiState.loaded) await loadManifest()
-    if (this.isUpdate) {
-      try {
-        const d = await fetchPageContent(this.targetPath)
-        this.form.categorySlug = d.categorySlug || ''
-        this.form.title = d.title || ''
-        this.form.icon = d.icon || ''
-        this.form.description = d.description || ''
-        this.form.content = d.content || ''
-        this.baseVersion = d.version ?? 0
-        this.tags = d.tags || []
-      } catch (e) {
-        ElMessage.error('无法加载原文内容')
-      }
-    }
+    await this.initFromRoute()
+    this.refreshDrafts()
     document.addEventListener('click', this.onDocClick)
   },
   beforeUnmount() {
     document.removeEventListener('click', this.onDocClick)
+    clearTimeout(this.autoSaveTimer)
+    // 离开页面前尽力保存未落盘的改动（不阻塞导航，失败静默）
+    if (this.hasDraftWorthSaving() && this.snapshot() !== this.lastSavedSnapshot) {
+      this.doSaveDraft(true)
+    }
   },
   methods: {
     onDocClick(e) {
@@ -463,6 +499,177 @@ export default {
         })
         .join('\n')
     },
+    // ---------- 初始化 / 路由复用 ----------
+    resetFormState() {
+      clearTimeout(this.autoSaveTimer)
+      this.form = { categorySlug: '', title: '', icon: '', description: '', content: '' }
+      this.tags = []
+      this.tagInput = ''
+      this.baseVersion = null
+      this.draftId = null
+      this.draftSavedAt = ''
+      this.lastSavedSnapshot = ''
+    },
+    async initFromRoute() {
+      this.resetFormState()
+      if (this.isUpdate) {
+        try {
+          const d = await fetchPageContent(this.targetPath)
+          this.form.categorySlug = d.categorySlug || ''
+          this.form.title = d.title || ''
+          this.form.icon = d.icon || ''
+          this.form.description = d.description || ''
+          this.form.content = d.content || ''
+          this.baseVersion = d.version ?? 0
+          this.tags = d.tags || []
+        } catch (e) {
+          ElMessage.error('无法加载原文内容')
+        }
+        // 灌入原文不算改动：先对齐快照，避免刚打开就自动存了一份与线上相同的草稿
+        this.lastSavedSnapshot = this.snapshot()
+        // 原文灌入后再检查是否有这页的编辑草稿，避免草稿被覆盖
+        this.$nextTick(() => this.checkDraftForPath())
+      } else {
+        this.lastSavedSnapshot = this.snapshot()
+        if (this.$route.query.draft) {
+          // 从草稿箱进入：直接载入指定草稿
+          getDraft(this.$route.query.draft, (d) => this.applyDraft(d), () => {})
+        }
+      }
+    },
+
+    // ---------- 草稿 ----------
+    draftPayload() {
+      return {
+        id: this.draftId || undefined,
+        type: this.isUpdate ? 'UPDATE' : 'CREATE',
+        path: this.isUpdate ? this.targetPath : undefined,
+        categorySlug: this.form.categorySlug || null,
+        title: this.form.title,
+        icon: this.form.icon,
+        description: this.form.description,
+        tags: this.tags,
+        content: this.form.content,
+        baseVersion: this.isUpdate ? this.baseVersion : undefined,
+      }
+    },
+    snapshot() {
+      const p = this.draftPayload()
+      delete p.id
+      return JSON.stringify(p)
+    },
+    hasDraftWorthSaving() {
+      return !!(this.form.title.trim() || this.form.content.trim()
+        || this.form.description.trim() || this.tags.length)
+    },
+    scheduleAutoSave() {
+      clearTimeout(this.autoSaveTimer)
+      if (this.submitting) return
+      this.autoSaveTimer = setTimeout(() => {
+        if (this.submitting) return
+        if (!this.hasDraftWorthSaving()) return
+        if (this.snapshot() === this.lastSavedSnapshot) return
+        this.doSaveDraft(true)
+      }, 3000)
+    },
+    doSaveDraft(silent) {
+      if (!silent) {
+        this.commitTagInput()
+        if (!this.hasDraftWorthSaving()) return ElMessage.warning('内容为空，无需保存草稿')
+        this.draftSaving = true
+      }
+      const snap = this.snapshot()
+      saveDraft(this.draftPayload(),
+        (d) => {
+          this.draftId = d.id
+          this.draftSavedAt = d.savedAt || ''
+          this.lastSavedSnapshot = snap
+          this.draftSaving = false
+          if (!silent) {
+            ElMessage.success('草稿已保存')
+            this.refreshDrafts()
+          }
+        },
+        (msg) => {
+          this.draftSaving = false
+          if (!silent) ElMessage.error(msg || '草稿保存失败')
+        },
+        // 网络层错误：自动保存完全静默（离线打字不弹全局警告），手动保存才提示
+        silent ? () => {} : undefined)
+    },
+    manualSaveDraft() {
+      this.doSaveDraft(false)
+    },
+    refreshDrafts() {
+      listDrafts((d) => { this.drafts = d || [] }, () => {})
+    },
+    openDrafts() {
+      this.draftsOpen = true
+      this.draftsLoading = true
+      listDrafts(
+        (d) => { this.drafts = d || []; this.draftsLoading = false },
+        () => { this.draftsLoading = false })
+    },
+    applyDraft(d) {
+      if (!d) return
+      if (!this.isUpdate) this.form.categorySlug = d.categorySlug || ''
+      this.form.title = d.title || this.form.title
+      this.form.icon = d.icon || ''
+      this.form.description = d.description || ''
+      this.form.content = d.content || ''
+      this.tags = d.tags || []
+      this.draftId = d.id
+      this.draftSavedAt = d.updatedAt || ''
+      // 灌入草稿本身不算“新改动”，避免马上又自动保存一遍
+      this.$nextTick(() => { this.lastSavedSnapshot = this.snapshot() })
+    },
+    checkDraftForPath() {
+      getDraftByPath(this.targetPath, (d) => {
+        if (!d) return
+        ElMessageBox.confirm(
+          `检测到你在 ${d.updatedAt} 保存过这篇文档的草稿，是否恢复？`,
+          '发现草稿',
+          {
+            confirmButtonText: '恢复草稿',
+            cancelButtonText: '丢弃草稿',
+            distinguishCancelAndClose: true,
+            type: 'info',
+          }
+        ).then(() => {
+          this.applyDraft(d)
+        }).catch((action) => {
+          // 明确点「丢弃」才删除；按 ESC / 点 X 保留草稿不动
+          if (action === 'cancel') {
+            deleteDraft(d.id, () => { this.refreshDrafts() }, () => {})
+          }
+        })
+      }, () => {})
+    },
+    loadDraftItem(d) {
+      this.draftsOpen = false
+      if (d.type === 'UPDATE') {
+        if (this.isUpdate && this.targetPath === d.targetPath) {
+          getDraft(d.id, (full) => this.applyDraft(full), (m) => ElMessage.error(m || '草稿加载失败'))
+        } else {
+          this.$router.push(`/edit/${d.targetPath}`) // 进入编辑页后走「发现草稿」恢复流程
+        }
+      } else if (this.isUpdate) {
+        this.$router.push({ path: '/edit', query: { draft: String(d.id) } })
+      } else {
+        getDraft(d.id, (full) => this.applyDraft(full), (m) => ElMessage.error(m || '草稿加载失败'))
+      }
+    },
+    async removeDraftItem(d) {
+      try {
+        await ElMessageBox.confirm(`确定删除草稿「${d.title || '未命名草稿'}」？`, '提示', { type: 'warning' })
+      } catch { return }
+      deleteDraft(d.id, () => {
+        ElMessage.success('已删除')
+        if (this.draftId === d.id) { this.draftId = null; this.draftSavedAt = '' }
+        this.refreshDrafts()
+      }, (m) => ElMessage.error(m || '删除失败'))
+    },
+
     submit() {
       if (this.uploadingImage) return ElMessage.warning('请等待图片上传完成')
       const title = this.form.title.trim()
@@ -487,6 +694,10 @@ export default {
         payload,
         () => {
           this.submitting = false
+          // 投稿成功：清掉对应草稿，并对齐快照防止离开页面时又补存一份
+          clearTimeout(this.autoSaveTimer)
+          if (this.draftId) deleteDraft(this.draftId, () => {}, () => {})
+          this.lastSavedSnapshot = this.snapshot()
           ElMessage.success('已提交，等待管理员审核')
           this.$router.push('/profile')
         },
@@ -524,7 +735,43 @@ export default {
   margin: 0;
 }
 .edit-sub { color: var(--text-secondary); font-size: 14px; margin: 6px 0 0; }
-.edit-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.edit-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
+.draft-saved-hint { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+
+/* 草稿箱 */
+.drafts-loading { padding: 20px; color: var(--text-muted); font-size: 14px; }
+.draft-list { list-style: none; margin: 0; padding: 0; }
+.draft-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.draft-list li:last-child { border-bottom: none; }
+.draft-type {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.draft-type.t-new { background: #e6f4ec; color: #137a3f; }
+.draft-type.t-upd { background: #eef1fb; color: #3a52c4; }
+html.dark .draft-type.t-new { background: rgba(19,122,63,.2); color: #6ee7a8; }
+html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
+.draft-main { flex: 1; min-width: 0; cursor: pointer; }
+.draft-main:hover .draft-title { color: var(--brand, var(--accent)); }
+.draft-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color .15s ease;
+}
+.draft-meta { margin-top: 2px; color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .btn-solid, .btn-ghost {
   padding: 10px 20px;
