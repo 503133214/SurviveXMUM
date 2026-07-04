@@ -95,4 +95,11 @@ export default {
 .pg-path { flex: 1; min-width: 0; color: var(--text-muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pg-go { flex-shrink: 0; color: var(--text-muted); opacity: 0; transition: opacity 0.2s ease; }
 .pg-list li:hover .pg-go { opacity: 1; }
+
+@media (max-width: 640px) {
+  .cprofile { padding: 20px 14px 48px; }
+  .cprofile-head { gap: 14px; }
+  .cprofile-meta h1 { font-size: 1.3rem; }
+  .pg-path { display: none; } /* 窄屏隐藏长路径，避免挤压标题 */
+}
 </style>

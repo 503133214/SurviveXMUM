@@ -279,4 +279,16 @@ export default {
   font-size: 0.85rem;
   color: #999;
 }
+
+/* 移动端：标签置顶、输入框占满整行（左侧 100px 标签太挤） */
+@media (max-width: 640px) {
+  .feedback-page :deep(.el-form-item) { display: block; }
+  .feedback-page :deep(.el-form-item__label) {
+    display: block;
+    width: auto !important;
+    text-align: left;
+    margin-bottom: 4px;
+  }
+  .feedback-page :deep(.el-form-item__content) { margin-left: 0 !important; }
+}
 </style>

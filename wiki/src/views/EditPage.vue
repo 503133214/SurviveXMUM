@@ -1072,5 +1072,11 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   .pane-tools { gap: 6px; }
   .upload-progress, .pane-hint { display: none; }
   .image-upload-btn { padding: 4px 7px; }
+  /* 头部改纵向堆叠：否则标题被按钮挤成一列竖排、提交按钮溢出屏幕 */
+  .edit-head { flex-direction: column; align-items: stretch; }
+  .edit-actions { width: 100%; }
+  .edit-actions .btn-solid,
+  .edit-actions .btn-ghost { flex: 1 1 auto; padding: 10px 8px; white-space: nowrap; }
+  .draft-saved-hint { width: 100%; order: -1; }
 }
 </style>

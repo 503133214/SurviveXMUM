@@ -273,3 +273,10 @@ a:hover {
     font-size: 14px;
   }
 }
+
+/* ===== 移动端：弹层不超过视口 =====
+   多个对话框写了固定宽度（520/560px）、抽屉 460px、确认框默认 420px，
+   在手机上会溢出屏幕；统一用 max-width 兜底（不影响桌面）。 */
+.el-dialog { max-width: calc(100vw - 24px); }
+.el-message-box { max-width: calc(100vw - 24px); }
+.el-drawer.ltr, .el-drawer.rtl { max-width: 92vw; }
