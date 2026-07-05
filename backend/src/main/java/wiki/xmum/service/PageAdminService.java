@@ -28,11 +28,14 @@ public class PageAdminService {
     private final WikiPageMapper pageMapper;
     private final WikiCategoryMapper categoryMapper;
     private final UserMapper userMapper;
+    private final AuditService auditService;
 
-    public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper, UserMapper userMapper) {
+    public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper,
+                            UserMapper userMapper, AuditService auditService) {
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
+        this.auditService = auditService;
     }
 
     public PageResult<PageAdminVO> list(String keyword, String category, boolean includeDeleted,
@@ -94,6 +97,7 @@ public class PageAdminService {
         p.setAuthorId(actor.getId());
         p.setViewCount(0);
         pageMapper.insert(p);
+        auditService.log("PAGE_CREATE", "PAGE", p.getId(), "创建页面 " + path);
         return p.getId();
     }
 
@@ -121,6 +125,7 @@ public class PageAdminService {
         }
         p.setVersion(current + 1);
         pageMapper.updateById(p);
+        auditService.log("PAGE_UPDATE", "PAGE", p.getId(), "编辑页面 " + p.getPath() + " → v" + (current + 1));
     }
 
     public void softDelete(Long id) {
@@ -128,6 +133,7 @@ public class PageAdminService {
         if (p == null) throw new BizException(404, "页面不存在");
         p.setDeleted(1);
         pageMapper.updateById(p);
+        auditService.log("PAGE_DELETE", "PAGE", p.getId(), "删除页面 " + p.getPath());
     }
 
     public void restore(Long id) {
@@ -135,6 +141,7 @@ public class PageAdminService {
         if (p == null) throw new BizException(404, "页面不存在");
         p.setDeleted(0);
         pageMapper.updateById(p);
+        auditService.log("PAGE_RESTORE", "PAGE", p.getId(), "恢复页面 " + p.getPath());
     }
 
     private Long ensureCategory(String slug) {

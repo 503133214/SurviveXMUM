@@ -23,13 +23,15 @@ public class UserAdminService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Value("${wiki.admin.email:}")
     private String seedAdminEmail;
 
-    public UserAdminService(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public UserAdminService(UserMapper userMapper, PasswordEncoder passwordEncoder, AuditService auditService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.auditService = auditService;
     }
 
     public PageResult<UserAdminVO> list(String keyword, String role, String status,
@@ -65,6 +67,8 @@ public class UserAdminService {
         u.setStatus(normalizeStatus(dto.getStatus()));
         u.setDeleted(0);
         userMapper.insert(u);
+        auditService.log("USER_CREATE", "USER", u.getId(),
+                "创建用户 " + email + "（角色 " + u.getRole() + "）");
         return u.getId();
     }
 
@@ -86,14 +90,23 @@ public class UserAdminService {
             throw new BizException("至少需保留一名在岗管理员");
         }
 
+        // 变更明细（角色/状态/改密）先于赋值收集，供审计
+        StringBuilder changes = new StringBuilder();
+        if (!newRole.equals(u.getRole())) changes.append("角色 ").append(u.getRole()).append("→").append(newRole).append("；");
+        if (!newStatus.equals(u.getStatus())) changes.append("状态 ").append(u.getStatus()).append("→").append(newStatus).append("；");
+        boolean pwChanged = dto.getPassword() != null && !dto.getPassword().isBlank();
+        if (pwChanged) changes.append("重置密码；");
+
         if (dto.getNickname() != null) u.setNickname(blankToNull(dto.getNickname()));
         u.setRole(newRole);
         u.setStatus(newStatus);
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+        if (pwChanged) {
             if (dto.getPassword().length() < 6) throw new BizException("密码至少 6 位");
             u.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
         userMapper.updateById(u);
+        auditService.log("USER_UPDATE", "USER", u.getId(),
+                "更新用户 " + u.getEmail() + (changes.length() > 0 ? "：" + changes : ""));
     }
 
     public void softDelete(Long id, AuthUser actor) {
@@ -108,12 +121,14 @@ public class UserAdminService {
         }
         u.setDeleted(1);
         userMapper.updateById(u);
+        auditService.log("USER_DELETE", "USER", u.getId(), "删除用户 " + u.getEmail());
     }
 
     public void restore(Long id) {
         User u = mustGet(id);
         u.setDeleted(0);
         userMapper.updateById(u);
+        auditService.log("USER_RESTORE", "USER", u.getId(), "恢复用户 " + u.getEmail());
     }
 
     private long countActiveAdminsExcept(Long excludeId) {

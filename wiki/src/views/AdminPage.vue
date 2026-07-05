@@ -19,6 +19,9 @@
       <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
       <AdminFeedbackPanel v-else-if="activeSection === 'feedback'" />
       <AdminWallPanel v-else-if="activeSection === 'wall' && isSuperAdmin" />
+      <AdminCategoriesPanel v-else-if="activeSection === 'categories' && isSuperAdmin" />
+      <AdminBroadcastPanel v-else-if="activeSection === 'broadcast' && isSuperAdmin" />
+      <AdminAuditPanel v-else-if="activeSection === 'audit' && isSuperAdmin" />
 
       <div v-else class="admin-page">
         <header class="rv-head">
@@ -185,13 +188,16 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Tickets, User, ChatDotRound, Trophy } from '@element-plus/icons-vue'
+import { Document, Tickets, User, ChatDotRound, Trophy, FolderOpened, Bell, List } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
 import AdminFeedbackPanel from '@/components/AdminFeedbackPanel.vue'
 import AdminWallPanel from '@/components/AdminWallPanel.vue'
+import AdminCategoriesPanel from '@/components/AdminCategoriesPanel.vue'
+import AdminBroadcastPanel from '@/components/AdminBroadcastPanel.vue'
+import AdminAuditPanel from '@/components/AdminAuditPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
@@ -206,6 +212,9 @@ export default {
     AdminUsersPanel: markRaw(AdminUsersPanel),
     AdminFeedbackPanel: markRaw(AdminFeedbackPanel),
     AdminWallPanel: markRaw(AdminWallPanel),
+    AdminCategoriesPanel: markRaw(AdminCategoriesPanel),
+    AdminBroadcastPanel: markRaw(AdminBroadcastPanel),
+    AdminAuditPanel: markRaw(AdminAuditPanel),
     Tickets,
   },
   data() {
@@ -238,10 +247,13 @@ export default {
         { key: 'pages', label: '页面管理', icon: markRaw(Document) },
         { key: 'feedback', label: '反馈管理', icon: markRaw(ChatDotRound) },
       ]
-      // 用户管理、致谢墙仅超级管理员可见
+      // 以下仅超级管理员可见
       if (this.isSuperAdmin) {
         s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+        s.push({ key: 'categories', label: '分类管理', icon: markRaw(FolderOpened) })
         s.push({ key: 'wall', label: '致谢墙', icon: markRaw(Trophy) })
+        s.push({ key: 'broadcast', label: '发布公告', icon: markRaw(Bell) })
+        s.push({ key: 'audit', label: '审计日志', icon: markRaw(List) })
       }
       return s
     },

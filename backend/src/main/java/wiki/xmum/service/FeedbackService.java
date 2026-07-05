@@ -27,11 +27,14 @@ public class FeedbackService {
     private final FeedbackMapper mapper;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
+    private final AuditService auditService;
 
-    public FeedbackService(FeedbackMapper mapper, UserMapper userMapper, NotificationService notificationService) {
+    public FeedbackService(FeedbackMapper mapper, UserMapper userMapper,
+                           NotificationService notificationService, AuditService auditService) {
         this.mapper = mapper;
         this.userMapper = userMapper;
         this.notificationService = notificationService;
+        this.auditService = auditService;
     }
 
     public Long submit(FeedbackSubmitDTO dto, AuthUser user) {
@@ -99,5 +102,7 @@ public class FeedbackService {
                 "反馈已回复",
                 "你的反馈《" + f.getTitle() + "》已收到官方回复。",
                 "/feedback", f.getId());
+        auditService.log("FEEDBACK_REPLY", "FEEDBACK", f.getId(),
+                "回复反馈《" + f.getTitle() + "》→ " + st);
     }
 }

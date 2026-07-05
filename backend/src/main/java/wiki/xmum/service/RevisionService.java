@@ -34,15 +34,17 @@ public class RevisionService {
     private final WikiCategoryMapper categoryMapper;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
+    private final AuditService auditService;
 
     public RevisionService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper,
                            WikiCategoryMapper categoryMapper, UserMapper userMapper,
-                           NotificationService notificationService) {
+                           NotificationService notificationService, AuditService auditService) {
         this.revisionMapper = revisionMapper;
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
         this.notificationService = notificationService;
+        this.auditService = auditService;
     }
 
     // ---------- 用户投稿 ----------
@@ -307,6 +309,8 @@ public class RevisionService {
                 "投稿已通过",
                 "你的投稿《" + r.getTitle() + "》已通过审核并发布。",
                 "/docs/" + r.getTargetPath(), r.getId());
+        auditService.log("REVISION_APPROVE", "REVISION", r.getId(),
+                "通过投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ")");
     }
 
     public void reject(Long id, String comment, AuthUser reviewer) {
@@ -324,6 +328,8 @@ public class RevisionService {
                 "投稿被驳回",
                 "你的投稿《" + r.getTitle() + "》未通过审核" + reason,
                 "/profile", r.getId());
+        auditService.log("REVISION_REJECT", "REVISION", r.getId(),
+                "驳回投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ")" + reason);
     }
 
     private static String blankToNull(String s) {

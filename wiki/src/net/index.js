@@ -295,6 +295,26 @@ function adminReplyFeedback(id, payload, success, failure = defaultFailure) {
     post(`/admin/feedback/${id}/reply`, payload, success, failure)
 }
 
+// ---- 分类管理 / 公告广播 / 审计日志（仅超管）----
+function adminListCategories(success, failure = defaultFailure) {
+    get('/admin/categories', success, failure)
+}
+function adminCreateCategory(payload, success, failure = defaultFailure) {
+    post('/admin/categories', payload, success, failure)
+}
+function adminUpdateCategory(id, payload, success, failure = defaultFailure) {
+    put(`/admin/categories/${id}`, payload, success, failure)
+}
+function adminDeleteCategory(id, success, failure = defaultFailure) {
+    remove(`/admin/categories/${id}`, success, failure)
+}
+function adminBroadcast(payload, success, failure = defaultFailure) {
+    post('/admin/broadcast', payload, success, failure)
+}
+function adminAuditQuery(query, success, failure = defaultFailure) {
+    get(`/admin/audit?${queryString(query)}`, success, failure)
+}
+
 // ---- 写文章草稿 ----
 // 支持自定义 error（网络层错误）处理：自动保存需完全静默，不能弹全局错误提示
 function saveDraft(payload, success, failure = defaultFailure, error = defaultError) {
@@ -348,4 +368,6 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,
-    saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft}
+    saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
+    adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
+    adminBroadcast,adminAuditQuery}
