@@ -31,17 +31,20 @@ public class PageAdminService {
     private final AuditService auditService;
     private final wiki.xmum.mapper.UserFavoriteMapper favoriteMapper;
     private final wiki.xmum.mapper.UserViewHistoryMapper historyMapper;
+    private final wiki.xmum.mapper.WikiDraftMapper draftMapper;
 
     public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper,
                             UserMapper userMapper, AuditService auditService,
                             wiki.xmum.mapper.UserFavoriteMapper favoriteMapper,
-                            wiki.xmum.mapper.UserViewHistoryMapper historyMapper) {
+                            wiki.xmum.mapper.UserViewHistoryMapper historyMapper,
+                            wiki.xmum.mapper.WikiDraftMapper draftMapper) {
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
         this.auditService = auditService;
         this.favoriteMapper = favoriteMapper;
         this.historyMapper = historyMapper;
+        this.draftMapper = draftMapper;
     }
 
     public PageResult<PageAdminVO> list(String keyword, String category, boolean includeDeleted,
@@ -165,9 +168,12 @@ public class PageAdminService {
                 .eq(wiki.xmum.domain.po.UserFavorite::getPageId, id));
         int hists = historyMapper.delete(Wrappers.<wiki.xmum.domain.po.UserViewHistory>lambdaQuery()
                 .eq(wiki.xmum.domain.po.UserViewHistory::getPageId, id));
+        // 指向该页的编辑草稿一并清掉：页面已永久删除，这些草稿永远无法提交
+        int drafts = draftMapper.delete(Wrappers.<wiki.xmum.domain.po.WikiDraft>lambdaQuery()
+                .eq(wiki.xmum.domain.po.WikiDraft::getTargetPath, p.getPath()));
         pageMapper.deleteById(id);
         auditService.log("PAGE_PURGE", "PAGE", id,
-                "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists + "）");
+                "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists + "、草稿 " + drafts + "）");
     }
 
     private Long ensureCategory(String slug) {
