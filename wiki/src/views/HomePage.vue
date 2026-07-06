@@ -108,7 +108,7 @@
 
     <footer class="foot">
       <span>SurviveXMUM</span>
-      <span>Released under the MIT License · © 2023–2025 XMUM Wiki Team</span>
+      <span>Released under the GPL-3.0 License · © 2023–{{ new Date().getFullYear() }} XMUM Wiki Team</span>
     </footer>
   </div>
 </template>
