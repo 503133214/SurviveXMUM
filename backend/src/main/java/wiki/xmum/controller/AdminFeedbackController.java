@@ -36,4 +36,14 @@ public class AdminFeedbackController {
         service.reply(id, reply, status, CurrentUser.get());
         return ApiResponse.ok(null);
     }
+
+    /** 彻底删除一条反馈（不可恢复），仅超级管理员。 */
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        if (!"SUPER_ADMIN".equals(CurrentUser.get().getRole())) {
+            throw new wiki.xmum.common.BizException(403, "仅超级管理员可操作");
+        }
+        service.delete(id);
+        return ApiResponse.ok(null);
+    }
 }

@@ -28,6 +28,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleOther(Exception e) {
-        return ApiResponse.error(500, "服务器内部错误：" + e.getMessage());
+        // 不把内部异常信息（SQL/路径等线索）回传给前端，只落服务端日志
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class)
+                .error("未处理异常: {}", e.getMessage(), e);
+        return ApiResponse.error(500, "服务器内部错误，请稍后重试");
     }
 }

@@ -71,6 +71,14 @@ public class UserAdminController {
         return ApiResponse.ok(null);
     }
 
+    /** 彻底删除（不可恢复；仅限已软删用户，级联清其个人数据，保留投稿与审计）。 */
+    @DeleteMapping("/{id}/purge")
+    public ApiResponse<Void> purge(@PathVariable Long id) {
+        requireSuper();
+        service.purge(id);
+        return ApiResponse.ok(null);
+    }
+
     /** 某用户的投稿历史（仅超管，由 SecurityConfig 限定 /admin/users/**）。 */
     @GetMapping("/{id}/revisions")
     public ApiResponse<List<RevisionVO>> userRevisions(@PathVariable Long id) {

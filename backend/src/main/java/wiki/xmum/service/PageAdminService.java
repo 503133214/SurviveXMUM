@@ -29,13 +29,19 @@ public class PageAdminService {
     private final WikiCategoryMapper categoryMapper;
     private final UserMapper userMapper;
     private final AuditService auditService;
+    private final wiki.xmum.mapper.UserFavoriteMapper favoriteMapper;
+    private final wiki.xmum.mapper.UserViewHistoryMapper historyMapper;
 
     public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper,
-                            UserMapper userMapper, AuditService auditService) {
+                            UserMapper userMapper, AuditService auditService,
+                            wiki.xmum.mapper.UserFavoriteMapper favoriteMapper,
+                            wiki.xmum.mapper.UserViewHistoryMapper historyMapper) {
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
         this.auditService = auditService;
+        this.favoriteMapper = favoriteMapper;
+        this.historyMapper = historyMapper;
     }
 
     public PageResult<PageAdminVO> list(String keyword, String category, boolean includeDeleted,
@@ -142,6 +148,26 @@ public class PageAdminService {
         p.setDeleted(0);
         pageMapper.updateById(p);
         auditService.log("PAGE_RESTORE", "PAGE", p.getId(), "恢复页面 " + p.getPath());
+    }
+
+    /**
+     * 彻底删除（仅超管，控制器把关）：只允许对回收站中的页面执行，物理删除并级联清掉
+     * 收藏/浏览历史里的引用（防止脏引用点开 404）。投稿历史(wiki_revision)保留作追溯。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void purge(Long id) {
+        WikiPage p = pageMapper.selectById(id);
+        if (p == null) throw new BizException(404, "页面不存在");
+        if (p.getDeleted() == null || p.getDeleted() != 1) {
+            throw new BizException("请先删除页面（移入回收站）后再彻底删除");
+        }
+        int favs = favoriteMapper.delete(Wrappers.<wiki.xmum.domain.po.UserFavorite>lambdaQuery()
+                .eq(wiki.xmum.domain.po.UserFavorite::getPageId, id));
+        int hists = historyMapper.delete(Wrappers.<wiki.xmum.domain.po.UserViewHistory>lambdaQuery()
+                .eq(wiki.xmum.domain.po.UserViewHistory::getPageId, id));
+        pageMapper.deleteById(id);
+        auditService.log("PAGE_PURGE", "PAGE", id,
+                "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists + "）");
     }
 
     private Long ensureCategory(String slug) {

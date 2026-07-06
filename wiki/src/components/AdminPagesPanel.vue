@@ -44,7 +44,10 @@
       </el-table-column>
       <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.deleted" link type="primary" @click="restore(row)">恢复</el-button>
+          <template v-if="row.deleted">
+            <el-button link type="primary" @click="restore(row)">恢复</el-button>
+            <el-button v-if="isSuperAdmin" link type="danger" @click="purge(row)">彻底删除</el-button>
+          </template>
           <template v-else>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <a class="link-btn" :href="`/docs/${row.path}`" target="_blank" rel="noopener">查看</a>
@@ -156,8 +159,10 @@ import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { categories, loadManifest, state as wikiState } from '@/wiki'
+import { useUserStore } from '@/store/userStore.js'
 import {
   adminListPages, adminGetPage, adminCreatePage, adminUpdatePage, adminDeletePage, adminRestorePage,
+  adminPurgePage,
 } from '@/net/index.js'
 
 const emptyPage = () => ({
@@ -189,6 +194,9 @@ export default {
     }
   },
   computed: {
+    isSuperAdmin() {
+      return useUserStore().isSuperAdmin
+    },
     cats() {
       return categories()
     },
@@ -324,6 +332,20 @@ export default {
           this.load()
         },
         (message) => ElMessage.error(message || '恢复失败')
+      )
+    },
+    async purge(page) {
+      try {
+        await ElMessageBox.confirm(
+          `将永久删除页面「${page.title}」（${page.path}），并清除用户收藏与浏览历史中的引用。此操作不可恢复！`,
+          '彻底删除',
+          { type: 'error', confirmButtonText: '永久删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' }
+        )
+      } catch { return }
+      adminPurgePage(
+        page.id,
+        () => { ElMessage.success('已彻底删除'); this.load() },
+        (message) => ElMessage.error(message || '操作失败')
       )
     },
   },

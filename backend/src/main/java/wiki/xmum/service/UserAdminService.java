@@ -24,14 +24,26 @@ public class UserAdminService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final wiki.xmum.mapper.UserFavoriteMapper favoriteMapper;
+    private final wiki.xmum.mapper.UserViewHistoryMapper historyMapper;
+    private final wiki.xmum.mapper.NotificationMapper notificationMapper;
+    private final wiki.xmum.mapper.WikiDraftMapper draftMapper;
 
     @Value("${wiki.admin.email:}")
     private String seedAdminEmail;
 
-    public UserAdminService(UserMapper userMapper, PasswordEncoder passwordEncoder, AuditService auditService) {
+    public UserAdminService(UserMapper userMapper, PasswordEncoder passwordEncoder, AuditService auditService,
+                            wiki.xmum.mapper.UserFavoriteMapper favoriteMapper,
+                            wiki.xmum.mapper.UserViewHistoryMapper historyMapper,
+                            wiki.xmum.mapper.NotificationMapper notificationMapper,
+                            wiki.xmum.mapper.WikiDraftMapper draftMapper) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
+        this.favoriteMapper = favoriteMapper;
+        this.historyMapper = historyMapper;
+        this.notificationMapper = notificationMapper;
+        this.draftMapper = draftMapper;
     }
 
     public PageResult<UserAdminVO> list(String keyword, String role, String status,
@@ -129,6 +141,34 @@ public class UserAdminService {
         u.setDeleted(0);
         userMapper.updateById(u);
         auditService.log("USER_RESTORE", "USER", u.getId(), "恢复用户 " + u.getEmail());
+    }
+
+    /**
+     * 彻底删除（不可恢复）：仅允许对已软删用户执行；级联清其个人数据
+     * （收藏/浏览历史/通知/草稿），保留其投稿(wiki_revision 有 author_email 快照)
+     * 与审计记录（actor_email 快照）作历史追溯。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void purge(Long id) {
+        User u = mustGet(id);
+        if (u.getDeleted() == null || u.getDeleted() != 1) {
+            throw new BizException("请先删除用户（软删除）后再彻底删除");
+        }
+        if (seedAdminEmail != null && seedAdminEmail.equalsIgnoreCase(u.getEmail())) {
+            throw new BizException("初始超级管理员不可彻底删除");
+        }
+        int favs = favoriteMapper.delete(Wrappers.<wiki.xmum.domain.po.UserFavorite>lambdaQuery()
+                .eq(wiki.xmum.domain.po.UserFavorite::getUserId, id));
+        int hists = historyMapper.delete(Wrappers.<wiki.xmum.domain.po.UserViewHistory>lambdaQuery()
+                .eq(wiki.xmum.domain.po.UserViewHistory::getUserId, id));
+        int notifs = notificationMapper.delete(Wrappers.<wiki.xmum.domain.po.Notification>lambdaQuery()
+                .eq(wiki.xmum.domain.po.Notification::getUserId, id));
+        int drafts = draftMapper.delete(Wrappers.<wiki.xmum.domain.po.WikiDraft>lambdaQuery()
+                .eq(wiki.xmum.domain.po.WikiDraft::getUserId, id));
+        userMapper.deleteById(id);
+        auditService.log("USER_PURGE", "USER", id,
+                "彻底删除用户 " + u.getEmail() + "（清理收藏 " + favs + "、历史 " + hists
+                        + "、通知 " + notifs + "、草稿 " + drafts + "；投稿记录保留）");
     }
 
     private long countActiveAdminsExcept(Long excludeId) {

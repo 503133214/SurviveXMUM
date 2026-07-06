@@ -314,6 +314,16 @@ function adminBroadcast(payload, success, failure = defaultFailure) {
 function adminAuditQuery(query, success, failure = defaultFailure) {
     get(`/admin/audit?${queryString(query)}`, success, failure)
 }
+// ---- 彻底删除（仅超管，不可恢复）----
+function adminPurgePage(id, success, failure = defaultFailure) {
+    remove(`/admin/page/${id}/purge`, success, failure)
+}
+function adminPurgeUser(id, success, failure = defaultFailure) {
+    remove(`/admin/users/${id}/purge`, success, failure)
+}
+function adminDeleteFeedback(id, success, failure = defaultFailure) {
+    remove(`/admin/feedback/${id}`, success, failure)
+}
 
 // ---- 写文章草稿 ----
 // 支持自定义 error（网络层错误）处理：自动保存需完全静默，不能弹全局错误提示
@@ -370,4 +380,5 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,
     saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
     adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
-    adminBroadcast,adminAuditQuery}
+    adminBroadcast,adminAuditQuery,
+    adminPurgePage,adminPurgeUser,adminDeleteFeedback}

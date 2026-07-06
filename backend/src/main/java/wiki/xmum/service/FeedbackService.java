@@ -105,4 +105,12 @@ public class FeedbackService {
         auditService.log("FEEDBACK_REPLY", "FEEDBACK", f.getId(),
                 "回复反馈《" + f.getTitle() + "》→ " + st);
     }
+
+    /** 彻底删除一条反馈（仅超管，控制器把关；不可恢复）。 */
+    public void delete(Long id) {
+        Feedback f = mapper.selectById(id);
+        if (f == null) throw new BizException(404, "反馈不存在");
+        mapper.deleteById(id);
+        auditService.log("FEEDBACK_DELETE", "FEEDBACK", id, "删除反馈《" + f.getTitle() + "》");
+    }
 }

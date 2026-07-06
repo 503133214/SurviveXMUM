@@ -57,4 +57,14 @@ public class PageAdminController {
         service.restore(id);
         return ApiResponse.ok(null);
     }
+
+    /** 彻底删除（不可恢复），仅超级管理员。 */
+    @DeleteMapping("/page/{id}/purge")
+    public ApiResponse<Void> purge(@PathVariable Long id) {
+        if (!"SUPER_ADMIN".equals(CurrentUser.get().getRole())) {
+            throw new wiki.xmum.common.BizException(403, "仅超级管理员可操作");
+        }
+        service.purge(id);
+        return ApiResponse.ok(null);
+    }
 }

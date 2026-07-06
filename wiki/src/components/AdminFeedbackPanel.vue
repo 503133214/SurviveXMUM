@@ -43,9 +43,10 @@
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="提交时间" width="150" />
-      <el-table-column label="操作" width="110" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openReply(row)">查看 / 回复</el-button>
+          <el-button v-if="isSuperAdmin" link type="danger" @click="removeItem(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -98,8 +99,9 @@
 </template>
 
 <script>
-import { ElMessage } from 'element-plus'
-import { adminListFeedback, adminReplyFeedback } from '@/net/index.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/userStore.js'
+import { adminListFeedback, adminReplyFeedback, adminDeleteFeedback } from '@/net/index.js'
 
 export default {
   name: 'AdminFeedbackPanel',
@@ -116,10 +118,25 @@ export default {
       saving: false,
     }
   },
+  computed: {
+    isSuperAdmin() { return useUserStore().isSuperAdmin },
+  },
   mounted() {
     this.load()
   },
   methods: {
+    async removeItem(row) {
+      try {
+        await ElMessageBox.confirm(
+          `将永久删除反馈「${row.title}」，此操作不可恢复！`,
+          '彻底删除',
+          { type: 'error', confirmButtonText: '永久删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' }
+        )
+      } catch { return }
+      adminDeleteFeedback(row.id,
+        () => { ElMessage.success('已删除'); this.load() },
+        (m) => ElMessage.error(m || '删除失败'))
+    },
     typeText(t) { return { bug: '问题', feature: '建议', ui: '界面', other: '其他' }[t] || t },
     typeTag(t) { return { bug: 'danger', feature: 'success', ui: 'warning', other: 'info' }[t] || 'info' },
     statusText(s) { return { pending: '待处理', processing: '处理中', resolved: '已解决', rejected: '已驳回' }[s] || s },
