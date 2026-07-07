@@ -222,6 +222,19 @@ function adminRejectRevision(id, comment, success, failure = defaultFailure) {
 function adminRevisionCounts(success, failure = defaultFailure) {
     get('/admin/revisions/counts', success, failure)
 }
+// ---- 超管改判（已通过/已驳回的管理）----
+function adminReapproveRevision(id, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/reapprove`, {}, success, failure)
+}
+function adminRevokeRevision(id, comment, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/revoke`, { comment }, success, failure)
+}
+function adminUpdateRevisionComment(id, comment, success, failure = defaultFailure) {
+    put(`/admin/revision/${id}/comment`, { comment }, success, failure)
+}
+function adminPurgeRevision(id, success, failure = defaultFailure) {
+    remove(`/admin/revision/${id}`, success, failure)
+}
 function adminListUserRevisions(userId, success, failure = defaultFailure) {
     get(`/admin/users/${userId}/revisions`, success, failure)
 }
@@ -371,6 +384,7 @@ function adminDeleteWall(id, success, failure = defaultFailure) {
 export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
+    adminReapproveRevision,adminRevokeRevision,adminUpdateRevisionComment,adminPurgeRevision,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
     getNotifications,getUnreadCount,readNotification,readAllNotifications,

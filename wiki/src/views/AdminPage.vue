@@ -126,6 +126,17 @@
             </div>
             <div v-else class="dt-status">
               <span class="status" :class="`s-${current.status.toLowerCase()}`">{{ statusText(current.status) }}</span>
+              <!-- 超管对已通过/已驳回的改判操作（移动端只读） -->
+              <template v-if="isSuperAdmin && !isMobileAdmin">
+                <template v-if="current.status === 'REJECTED'">
+                  <button class="btn-approve" :disabled="acting" @click="reapprove">改判通过并发布</button>
+                  <button class="btn-ghost-sm" :disabled="acting" @click="editComment">修改驳回原因</button>
+                </template>
+                <template v-else-if="current.status === 'APPROVED'">
+                  <button class="btn-reject" :disabled="acting" @click="revokeApproved">撤销通过</button>
+                </template>
+                <button class="btn-ghost-sm danger" :disabled="acting" @click="purgeRevisionRecord">删除记录</button>
+              </template>
             </div>
           </div>
 
@@ -201,6 +212,7 @@ import AdminAuditPanel from '@/components/AdminAuditPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
+  adminReapproveRevision, adminRevokeRevision, adminUpdateRevisionComment, adminPurgeRevision,
 } from '@/net/index.js'
 
 export default {
@@ -375,6 +387,71 @@ export default {
       this.loadList()
       this.loadCounts()
     },
+
+    // ---------- 超管改判 ----------
+    async reapprove() {
+      try {
+        await ElMessageBox.confirm(
+          '将把这篇被驳回的投稿发布上线；若目标页面在驳回后被编辑过，其当前内容会被本投稿覆盖（可先在「当前线上」视图核对）。确认改判通过？',
+          '改判通过', { type: 'warning', confirmButtonText: '通过并发布', cancelButtonText: '取消' })
+      } catch { return }
+      this.acting = true
+      adminReapproveRevision(this.current.id,
+        () => { this.acting = false; ElMessage.success('已改判通过并发布'); this.afterAction() },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async revokeApproved() {
+      let comment = ''
+      try {
+        const { value } = await ElMessageBox.prompt(
+          '将撤销这次通过：能回滚则回滚到上一通过版本，首篇内容则移入回收站。请输入撤销原因（投稿人可见）',
+          '撤销通过', { confirmButtonText: '确认撤销', cancelButtonText: '取消', inputType: 'textarea' })
+        comment = value || ''
+      } catch { return }
+      this.acting = true
+      adminRevokeRevision(this.current.id, comment,
+        (d) => {
+          this.acting = false
+          const msgMap = {
+            ROLLED_BACK: '已撤销：页面已回滚到上一通过版本',
+            PAGE_DELETED: '已撤销：页面已移入回收站（页面管理可恢复）',
+            CONTENT_KEPT: '已撤销：无可回滚快照，页面内容保留，请到页面管理手工调整',
+          }
+          ElMessage.success(msgMap[d && d.pageAction] || '已撤销')
+          this.afterAction()
+        },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async editComment() {
+      let comment = ''
+      try {
+        const { value } = await ElMessageBox.prompt('修改驳回原因（投稿人可见并会收到通知）', '修改驳回原因', {
+          confirmButtonText: '保存', cancelButtonText: '取消', inputType: 'textarea',
+          inputValue: this.current.reviewComment || '',
+        })
+        comment = value || ''
+      } catch { return }
+      this.acting = true
+      const id = this.current.id
+      adminUpdateRevisionComment(id, comment,
+        () => { this.acting = false; ElMessage.success('已更新'); this.openDetail(id); this.loadList() },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async purgeRevisionRecord() {
+      const isApproved = this.current.status === 'APPROVED'
+      try {
+        await ElMessageBox.confirm(
+          isApproved
+            ? '将永久删除这条投稿记录，不可恢复！这会减少作者的贡献榜计数，并丢失该页面的一版回滚快照（线上页面内容不受影响）。'
+            : '将永久删除这条投稿记录，不可恢复！',
+          '彻底删除记录',
+          { type: 'error', confirmButtonText: '永久删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+      } catch { return }
+      this.acting = true
+      adminPurgeRevision(this.current.id,
+        () => { this.acting = false; ElMessage.success('记录已删除'); this.afterAction() },
+        (m) => { this.acting = false; ElMessage.error(m || '删除失败') })
+    },
   },
 }
 </script>
@@ -521,6 +598,24 @@ export default {
 .btn-reject { background: transparent; color: #c0392b; border: 1px solid #e3b4ae; }
 .btn-reject:hover:not(:disabled) { background: #fbe9e9; }
 .btn-approve:disabled, .btn-reject:disabled { opacity: .6; cursor: not-allowed; }
+.dt-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dt-status .btn-approve, .dt-status .btn-reject { padding: 7px 14px; font-size: 13px; }
+.btn-ghost-sm {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.btn-ghost-sm:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.btn-ghost-sm.danger { color: #c0392b; border-color: #e3b4ae; }
+.btn-ghost-sm.danger:hover:not(:disabled) { background: #fbe9e9; }
+html.dark .btn-ghost-sm.danger:hover:not(:disabled) { background: rgba(192,57,43,.16); }
+.btn-ghost-sm:disabled { opacity: .6; cursor: not-allowed; }
 
 .rev-type { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
 .t-create { background: #e6f4ec; color: #137a3f; }

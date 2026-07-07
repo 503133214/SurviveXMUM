@@ -260,6 +260,23 @@ public class RevisionService {
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"PENDING".equals(r.getStatus())) throw new BizException("该投稿已被处理");
 
+        applyToPage(r);
+
+        r.setStatus("APPROVED");
+        r.setReviewerId(reviewer.getId());
+        r.setReviewedAt(LocalDateTime.now());
+        revisionMapper.updateById(r);
+
+        notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
+                "投稿已通过",
+                "你的投稿《" + r.getTitle() + "》已通过审核并发布。",
+                "/docs/" + r.getTargetPath(), r.getId());
+        auditService.log("REVISION_APPROVE", "REVISION", r.getId(),
+                "通过投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ")");
+    }
+
+    /** 把投稿内容落到 wiki_page：无页则新建，有页则覆盖并 version++（approve / reapprove 共用）。 */
+    private void applyToPage(WikiRevision r) {
         WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, r.getTargetPath()));
         Long categoryId = ensureCategory(r.getCategorySlug());
         List<String> headings = MarkdownUtil.collectHeadings(r.getContent());
@@ -299,18 +316,120 @@ public class RevisionService {
             page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
             pageMapper.updateById(page);
         }
+    }
+
+    // ---------- 超管改判（已通过/已驳回的管理） ----------
+
+    /** 改判通过：把此前被驳回的投稿发布上线（仅 REJECTED）。 */
+    @Transactional
+    public void reapprove(Long id, AuthUser reviewer) {
+        WikiRevision r = revisionMapper.selectById(id);
+        if (r == null) throw new BizException(404, "投稿不存在");
+        if (!"REJECTED".equals(r.getStatus())) throw new BizException("仅可对已驳回的投稿改判通过");
+
+        applyToPage(r);
 
         r.setStatus("APPROVED");
+        r.setReviewComment(null);   // 不再处于驳回状态，清空原因
         r.setReviewerId(reviewer.getId());
         r.setReviewedAt(LocalDateTime.now());
         revisionMapper.updateById(r);
 
         notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
                 "投稿已通过",
-                "你的投稿《" + r.getTitle() + "》已通过审核并发布。",
+                "你的投稿《" + r.getTitle() + "》经复核已通过并发布。",
                 "/docs/" + r.getTargetPath(), r.getId());
-        auditService.log("REVISION_APPROVE", "REVISION", r.getId(),
-                "通过投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ")");
+        auditService.log("REVISION_REAPPROVE", "REVISION", r.getId(),
+                "改判通过投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ")");
+    }
+
+    /**
+     * 撤销通过（仅 APPROVED，且必须是该路径最新一次通过的投稿，防止回滚冲掉更新的内容）。
+     * 页面按可行性三档处理，返回 pageAction：
+     * ROLLED_BACK=已回滚到上一 APPROVED 快照；PAGE_DELETED=无更早快照的 CREATE，页面软删（可恢复）；
+     * CONTENT_KEPT=无更早快照的 UPDATE（页面来自初始导入），内容保留需手工处理。
+     */
+    @Transactional
+    public String revoke(Long id, String comment, AuthUser reviewer) {
+        WikiRevision r = revisionMapper.selectById(id);
+        if (r == null) throw new BizException(404, "投稿不存在");
+        if (!"APPROVED".equals(r.getStatus())) throw new BizException("仅可撤销已通过的投稿");
+
+        // 守卫：只允许撤销该路径最新一次通过的投稿
+        WikiRevision latest = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
+                        .eq(WikiRevision::getTargetPath, r.getTargetPath())
+                        .eq(WikiRevision::getStatus, "APPROVED")
+                        .orderByDesc(WikiRevision::getReviewedAt)
+                        .last("LIMIT 1"))
+                .stream().findFirst().orElse(null);
+        if (latest == null || !latest.getId().equals(r.getId())) {
+            throw new BizException("仅可撤销该页面最新一次通过的投稿");
+        }
+
+        // 上一份 APPROVED 快照（回滚源）
+        WikiRevision prev = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
+                        .eq(WikiRevision::getTargetPath, r.getTargetPath())
+                        .eq(WikiRevision::getStatus, "APPROVED")
+                        .ne(WikiRevision::getId, r.getId())
+                        .orderByDesc(WikiRevision::getReviewedAt)
+                        .last("LIMIT 1"))
+                .stream().findFirst().orElse(null);
+
+        String pageAction;
+        if (prev != null) {
+            applyToPage(prev);
+            pageAction = "ROLLED_BACK";
+        } else {
+            WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                    .eq(WikiPage::getPath, r.getTargetPath()));
+            if ("CREATE".equals(r.getType()) && page != null) {
+                page.setDeleted(1);   // 内容完全来自该投稿：软删页面（页面管理可恢复）
+                pageMapper.updateById(page);
+                pageAction = "PAGE_DELETED";
+            } else {
+                pageAction = "CONTENT_KEPT"; // 页面来自初始导入，无快照可回滚，保留现内容
+            }
+        }
+
+        r.setStatus("REJECTED");
+        r.setReviewComment(comment == null || comment.isBlank() ? "（撤销发布）" : comment.trim());
+        r.setReviewerId(reviewer.getId());
+        r.setReviewedAt(LocalDateTime.now());
+        revisionMapper.updateById(r);
+
+        String reason = (comment != null && !comment.isBlank()) ? "：" + comment.trim() : "。";
+        notificationService.notify(r.getAuthorId(), "REVISION_REJECTED",
+                "投稿被撤销发布",
+                "你的投稿《" + r.getTitle() + "》经复核被撤销发布" + reason,
+                "/profile", r.getId());
+        auditService.log("REVISION_REVOKE", "REVISION", r.getId(),
+                "撤销通过投稿《" + r.getTitle() + "》(" + r.getTargetPath() + ") → " + pageAction + reason);
+        return pageAction;
+    }
+
+    /** 修改驳回原因（仅 REJECTED）。 */
+    public void updateComment(Long id, String comment, AuthUser reviewer) {
+        WikiRevision r = revisionMapper.selectById(id);
+        if (r == null) throw new BizException(404, "投稿不存在");
+        if (!"REJECTED".equals(r.getStatus())) throw new BizException("仅可修改已驳回投稿的原因");
+        r.setReviewComment(comment == null ? null : comment.trim());
+        revisionMapper.updateById(r);
+        notificationService.notify(r.getAuthorId(), "REVISION_REJECTED",
+                "驳回原因已更新",
+                "你的投稿《" + r.getTitle() + "》的驳回原因已更新，可到个人中心查看。",
+                "/profile", r.getId());
+        auditService.log("REVISION_COMMENT_EDIT", "REVISION", r.getId(),
+                "修改投稿《" + r.getTitle() + "》的驳回原因");
+    }
+
+    /** 彻底删除投稿记录（仅非 PENDING；删除 APPROVED 会减少贡献榜计数并丢失一版回滚快照）。 */
+    public void purge(Long id) {
+        WikiRevision r = revisionMapper.selectById(id);
+        if (r == null) throw new BizException(404, "投稿不存在");
+        if ("PENDING".equals(r.getStatus())) throw new BizException("待审核投稿请先通过或驳回后再删除");
+        revisionMapper.deleteById(id);
+        auditService.log("REVISION_PURGE", "REVISION", id,
+                "彻底删除投稿记录《" + r.getTitle() + "》(" + r.getTargetPath() + "，原状态 " + r.getStatus() + ")");
     }
 
     public void reject(Long id, String comment, AuthUser reviewer) {
