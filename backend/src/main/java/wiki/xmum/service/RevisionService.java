@@ -329,11 +329,13 @@ public class RevisionService {
 
         applyToPage(r);
 
-        r.setStatus("APPROVED");
-        r.setReviewComment(null);   // 不再处于驳回状态，清空原因
-        r.setReviewerId(reviewer.getId());
-        r.setReviewedAt(LocalDateTime.now());
-        revisionMapper.updateById(r);
+        // 用显式 UpdateWrapper：updateById 会跳过 null 字段，无法把 review_comment 清空
+        revisionMapper.update(null, Wrappers.<WikiRevision>lambdaUpdate()
+                .set(WikiRevision::getStatus, "APPROVED")
+                .set(WikiRevision::getReviewComment, null)   // 不再处于驳回状态，清空原因
+                .set(WikiRevision::getReviewerId, reviewer.getId())
+                .set(WikiRevision::getReviewedAt, LocalDateTime.now())
+                .eq(WikiRevision::getId, id));
 
         notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
                 "投稿已通过",
@@ -355,11 +357,13 @@ public class RevisionService {
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"APPROVED".equals(r.getStatus())) throw new BizException("仅可撤销已通过的投稿");
 
-        // 守卫：只允许撤销该路径最新一次通过的投稿
+        // 守卫：只允许撤销该路径最新一次通过的投稿。
+        // 按 reviewedAt 倒序，再以雪花 id 倒序作确定性 tiebreak（同秒多次审核时 reviewedAt 可能相等）。
         WikiRevision latest = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
                         .eq(WikiRevision::getTargetPath, r.getTargetPath())
                         .eq(WikiRevision::getStatus, "APPROVED")
                         .orderByDesc(WikiRevision::getReviewedAt)
+                        .orderByDesc(WikiRevision::getId)
                         .last("LIMIT 1"))
                 .stream().findFirst().orElse(null);
         if (latest == null || !latest.getId().equals(r.getId())) {
@@ -372,6 +376,7 @@ public class RevisionService {
                         .eq(WikiRevision::getStatus, "APPROVED")
                         .ne(WikiRevision::getId, r.getId())
                         .orderByDesc(WikiRevision::getReviewedAt)
+                        .orderByDesc(WikiRevision::getId)
                         .last("LIMIT 1"))
                 .stream().findFirst().orElse(null);
 
@@ -412,8 +417,10 @@ public class RevisionService {
         WikiRevision r = revisionMapper.selectById(id);
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"REJECTED".equals(r.getStatus())) throw new BizException("仅可修改已驳回投稿的原因");
-        r.setReviewComment(comment == null ? null : comment.trim());
-        revisionMapper.updateById(r);
+        // 显式 set：允许清空为 null（updateById 会跳过 null 字段）
+        revisionMapper.update(null, Wrappers.<WikiRevision>lambdaUpdate()
+                .set(WikiRevision::getReviewComment, comment == null || comment.isBlank() ? null : comment.trim())
+                .eq(WikiRevision::getId, id));
         notificationService.notify(r.getAuthorId(), "REVISION_REJECTED",
                 "驳回原因已更新",
                 "你的投稿《" + r.getTitle() + "》的驳回原因已更新，可到个人中心查看。",
