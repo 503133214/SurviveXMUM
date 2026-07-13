@@ -13,6 +13,9 @@ services:
     # 首次部署前执行：cp /etc/wiki-backend.env backend/.env.prod
     env_file:
       - ./backend/.env.prod
+    # application.yml 默认使用 dev；生产容器必须显式激活 prod，避免 DEBUG 日志和开发连接池配置。
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
     restart: unless-stopped
 
   frontend:
