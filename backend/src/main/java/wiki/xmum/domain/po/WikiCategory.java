@@ -15,6 +15,8 @@ public class WikiCategory {
     private String slug;
     private String label;
     private String icon;
+    // 允许清空简介（updateById 默认跳过 null 字段，否则清空静默失效）
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS)
     private String description;
     private Integer sortOrder;
     private LocalDateTime createdAt;

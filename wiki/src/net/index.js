@@ -277,7 +277,9 @@ function getNotifications(success, failure = defaultFailure) {
     get('/notifications', success, failure)
 }
 function getUnreadCount(success, failure = defaultFailure) {
-    get('/notifications/unread-count', success, failure)
+    // 纯后台轮询（Header 每 10s 一次）：网络层错误必须静默，
+    // 否则部署重启后端的十几秒里所有打开的标签页会连环弹错误提示
+    internalGet('/notifications/unread-count', accessHeader(), success, failure, () => {})
 }
 function readNotification(id, success, failure = defaultFailure) {
     post(`/notifications/${id}/read`, {}, success, failure)
@@ -288,7 +290,8 @@ function readAllNotifications(success, failure = defaultFailure) {
 
 // ---- 收藏 / 浏览历史（DocPage 用；FavoritesPage 沿用其自带的裸 get/post）----
 function docFavoriteCheck(path, success, failure = defaultFailure) {
-    get(`/user/favorites/check?path=${encodeURIComponent(path)}`, success, failure)
+    // 打开文档时的后台查询：网络层错误静默（星标状态查不到就保持未收藏即可）
+    internalGet(`/user/favorites/check?path=${encodeURIComponent(path)}`, accessHeader(), success, failure, () => {})
 }
 function docFavoriteAdd(path, success, failure = defaultFailure) {
     post('/user/favorites', { path }, success, failure)
@@ -297,7 +300,8 @@ function docFavoriteRemove(id, success, failure = defaultFailure) {
     post(`/user/favorites/${id}/remove`, {}, success, failure)
 }
 function recordHistory(path, success = () => {}, failure = () => {}) {
-    post('/user/history', { path }, success, failure)
+    // 纯后台埋点：网络层错误也静默
+    internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
 }
 
 // ---- 反馈管理（后台）----

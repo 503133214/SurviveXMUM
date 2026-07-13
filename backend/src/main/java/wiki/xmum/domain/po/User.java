@@ -14,6 +14,8 @@ public class User {
     private Long id;
     private String email;
     private String password;
+    // 允许清空昵称（updateById 默认跳过 null 字段，否则清空静默失效）
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS)
     private String nickname;
     private String avatar;
     private String role;      // USER / ADMIN

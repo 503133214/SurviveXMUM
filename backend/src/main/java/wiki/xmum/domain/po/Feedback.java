@@ -19,6 +19,8 @@ public class Feedback {
     private Integer rating;
     private String contact;
     private String status;      // pending / processing / resolved / rejected（小写）
+    // 允许把回复清空（updateById 默认跳过 null）
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS)
     private String reply;
     private Long reviewerId;
     private LocalDateTime repliedAt;

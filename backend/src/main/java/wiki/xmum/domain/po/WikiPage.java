@@ -1,6 +1,8 @@
 package wiki.xmum.domain.po;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -17,7 +19,12 @@ public class WikiPage {
     private String slug;
     private String path;
     private String title;
+    // updateStrategy=ALWAYS：这两个字段允许被"清空"（置 null）。
+    // updateById 默认跳过 null 字段，会让清空图标/简介静默失效；
+    // 所有更新路径都是先 selectById 再整体更新，ALWAYS 不会误清其它值。
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String icon;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String description;
     private String tags;       // JSON 数组字符串
     private String headings;   // JSON 数组字符串

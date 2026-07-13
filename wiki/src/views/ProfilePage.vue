@@ -23,6 +23,39 @@
       </div>
     </header>
 
+    <!-- 未完成草稿：有才显示；个人中心是续写最自然的入口 -->
+    <section v-if="drafts.length" class="pf-section">
+      <div class="sec-head">
+        <div>
+          <p class="sec-kicker">DRAFTS</p>
+          <h2>我的草稿 <span class="count">{{ drafts.length }}</span></h2>
+        </div>
+      </div>
+      <ul class="rev-list">
+        <li v-for="d in drafts" :key="d.id" class="rev-item" role="button" tabindex="0"
+            @click="resumeDraft(d)" @keydown.enter="resumeDraft(d)">
+          <div class="rev-mark" :class="d.type === 'CREATE' ? 't-create' : 't-update'">
+            {{ d.type === 'CREATE' ? '新' : '改' }}
+          </div>
+          <div class="rev-main">
+            <span class="rev-title">{{ d.icon ? d.icon + ' ' : '' }}{{ d.title || '（未命名草稿）' }}</span>
+            <div class="rev-meta">
+              <span>{{ d.type === 'CREATE' ? '新文章草稿' : '编辑草稿' }}</span>
+              <template v-if="d.targetPath">
+                <span class="meta-separator" aria-hidden="true"></span>
+                <code class="rev-path">{{ d.targetPath }}</code>
+              </template>
+            </div>
+          </div>
+          <div class="rev-side draft-side">
+            <span class="rev-date">{{ d.updatedAt }}</span>
+            <el-button link type="primary" size="small" @click.stop="resumeDraft(d)">继续写作</el-button>
+            <el-button link type="danger" size="small" @click.stop="removeDraft(d)">删除</el-button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
     <section class="pf-section">
       <div class="sec-head">
         <div>
@@ -96,10 +129,10 @@
 </template>
 
 <script>
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import { getMyRevision, getMyRevisions } from '@/net/index.js'
+import { getMyRevision, getMyRevisions, listDrafts, deleteDraft } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
@@ -109,6 +142,7 @@ export default {
     return {
       userStore: useUserStore(),
       revisions: [],
+      drafts: [],
       loading: true,
       detailVisible: false,
       detailLoading: false,
@@ -128,6 +162,7 @@ export default {
       (data) => { this.revisions = data || []; this.loading = false },
       (msg) => { this.loading = false; ElMessage.error(msg || '加载投稿失败') }
     )
+    listDrafts((data) => { this.drafts = data || [] }, () => {})
   },
   methods: {
     statusText(s) {
@@ -159,6 +194,22 @@ export default {
       const d = new Date(iso)
       return Number.isNaN(d.getTime()) ? '' :
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    },
+    resumeDraft(d) {
+      if (d.type === 'UPDATE' && d.targetPath) {
+        this.$router.push(`/edit/${d.targetPath}`) // 进入编辑页后走「发现草稿」恢复流程
+      } else {
+        this.$router.push({ path: '/edit', query: { draft: String(d.id) } })
+      }
+    },
+    async removeDraft(d) {
+      try {
+        await ElMessageBox.confirm(`确定删除草稿「${d.title || '未命名草稿'}」？`, '提示', { type: 'warning' })
+      } catch { return }
+      deleteDraft(d.id, () => {
+        ElMessage.success('已删除')
+        this.drafts = this.drafts.filter((x) => x.id !== d.id)
+      }, (m) => ElMessage.error(m || '删除失败'))
     },
   },
 }
@@ -318,6 +369,7 @@ a.rev-title:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .rev-side { display: grid; grid-template-columns: auto 104px 16px; align-items: center; gap: 14px; }
+.rev-side.draft-side { grid-template-columns: auto auto auto; gap: 10px; }
 .status { padding: 4px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
 .s-pending { background: #fff4e0; color: #b3691a; }
 .s-approved { background: #e6f4ec; color: #137a3f; }
