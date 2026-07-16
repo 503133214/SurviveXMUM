@@ -293,15 +293,39 @@ function docFavoriteCheck(path, success, failure = defaultFailure) {
     // 打开文档时的后台查询：网络层错误静默（星标状态查不到就保持未收藏即可）
     internalGet(`/user/favorites/check?path=${encodeURIComponent(path)}`, accessHeader(), success, failure, () => {})
 }
-function docFavoriteAdd(path, success, failure = defaultFailure) {
-    post('/user/favorites', { path }, success, failure)
+function docFavoriteAdd(path, notifyUpdates, success, failure = defaultFailure) {
+    const url = '/user/favorites'
+    internalPost(url, { path, notifyUpdates: !!notifyUpdates }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '收藏操作失败，请检查网络后重试', err.response?.status || -1, url))
 }
 function docFavoriteRemove(id, success, failure = defaultFailure) {
-    post(`/user/favorites/${id}/remove`, {}, success, failure)
+    const url = `/user/favorites/${id}/remove`
+    internalPost(url, {}, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '收藏操作失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function docFavoriteUpdateNotification(id, notifyUpdates, success, failure = defaultFailure) {
+    const url = `/user/favorites/${id}/notification`
+    internalPut(url, { notifyUpdates }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '关注设置失败，请检查网络后重试', err.response?.status || -1, url))
 }
 function recordHistory(path, success = () => {}, failure = () => {}) {
     // 纯后台埋点：网络层错误也静默
     internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
+}
+
+// ---- 页面公开版本历史 ----
+function getPageRevisionHistory(path, success, failure = defaultFailure) {
+    const url = `/wiki/page/revisions?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '版本历史加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function getPageRevisionHistoryDetail(id, success, failure = defaultFailure) {
+    const url = `/wiki/page/revisions/${id}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '版本详情加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function adminPurgePageVersion(id, success, failure = defaultFailure) {
+    remove(`/admin/page-version/${id}`, success, failure)
 }
 
 // ---- 反馈管理（后台）----
@@ -392,7 +416,8 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
     getNotifications,getUnreadCount,readNotification,readAllNotifications,
-    docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,recordHistory,
+    docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
+    getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,

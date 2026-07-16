@@ -17,5 +17,6 @@ public class UserFavorite {
     private String path;          // wiki_page.path 快照
     private String title;
     private String description;
+    private Integer notifyUpdates; // 0=仅收藏，1=同时关注页面更新
     private LocalDateTime createdAt;
 }

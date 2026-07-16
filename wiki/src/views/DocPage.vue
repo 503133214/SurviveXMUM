@@ -69,11 +69,36 @@
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item fav-btn"
                 :class="{ active: favorited }"
-                :disabled="favLoading"
+                :disabled="favLoading || notifyLoading"
                 @click="toggleFavorite"
               >
                 <el-icon :size="15"><StarFilled v-if="favorited" /><Star v-else /></el-icon>
                 {{ favorited ? '已收藏' : '收藏' }}
+              </button>
+              <span
+                v-if="!errorLoading && userStore.isLoggedIn"
+                class="meta-item follow-toggle"
+                title="关注后会同时收藏此页；有新版本发布时会收到站内通知"
+              >
+                <el-icon :size="15"><Bell /></el-icon>
+                <span>关注更新</span>
+                <el-switch
+                  :model-value="notifyUpdates"
+                  :loading="notifyLoading"
+                  :disabled="favLoading || notifyLoading"
+                  size="small"
+                  aria-label="关注页面更新"
+                  @change="toggleUpdateNotification"
+                />
+              </span>
+              <button
+                v-if="!errorLoading"
+                class="meta-item meta-action"
+                type="button"
+                @click="openRevisionHistory"
+              >
+                <el-icon :size="15"><Clock /></el-icon>
+                版本历史
               </button>
             </div>
           </header>
@@ -97,15 +122,22 @@
         </template>
       </div>
     </el-main>
+
+    <PageRevisionHistory
+      ref="revisionHistory"
+      :doc-path="docPath"
+      :page-title="title"
+    />
   </el-container>
 </template>
 
 <script>
 import { markRaw } from "vue";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
+import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { ElMessage } from "element-plus";
-import { Menu, Star, StarFilled } from "@element-plus/icons-vue";
+import { Bell, Clock, Menu, Star, StarFilled } from "@element-plus/icons-vue";
 import {
   tree,
   getPage,
@@ -114,14 +146,28 @@ import {
   fetchPageContent,
   HOME_PATH,
 } from "@/wiki";
-import { docFavoriteCheck, docFavoriteAdd, docFavoriteRemove, recordHistory } from "@/net/index.js";
+import {
+  docFavoriteCheck,
+  docFavoriteAdd,
+  docFavoriteRemove,
+  docFavoriteUpdateNotification,
+  recordHistory,
+} from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
 
 const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "DocPage",
-  components: { MarkdownRenderer, Sidebar, Star, StarFilled },
+  components: {
+    MarkdownRenderer,
+    PageRevisionHistory,
+    Sidebar,
+    Bell,
+    Clock,
+    Star,
+    StarFilled,
+  },
   props: {
     pathMatch: { type: String, default: "" },
   },
@@ -142,6 +188,9 @@ export default {
       favorited: false,
       favoriteId: null,
       favLoading: false,
+      notifyUpdates: false,
+      notifyLoading: false,
+      favoriteStateToken: 0,
       viewCount: 0,
     };
   },
@@ -188,6 +237,8 @@ export default {
   },
   methods: {
     async fetchMarkdown(path) {
+      // 使上一页面尚未返回的收藏/关注请求失效，避免切页后覆盖新页面状态。
+      this.favoriteStateToken++;
       this.isLoading = true;
       this.errorLoading = false;
       this.content = "";
@@ -195,6 +246,9 @@ export default {
       this.pageLastUpdated = "";
       this.favorited = false;
       this.favoriteId = null;
+      this.favLoading = false;
+      this.notifyUpdates = false;
+      this.notifyLoading = false;
       this.viewCount = 0;
       try {
         const detail = await fetchPageContent(path, true);
@@ -241,30 +295,90 @@ export default {
       // 仅登录用户：记录浏览历史 + 查询收藏状态
       if (!this.userStore.isLoggedIn) return;
       recordHistory(path);
+      const requestToken = ++this.favoriteStateToken;
       docFavoriteCheck(path, (d) => {
+        if (this.docPath !== path || requestToken !== this.favoriteStateToken) return;
         this.favorited = !!(d && d.favorited);
         this.favoriteId = d && d.id ? d.id : null;
+        this.notifyUpdates = !!(d && d.notifyUpdates);
       }, () => {});
     },
     toggleFavorite() {
       if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
-      if (this.favLoading) return;
+      if (this.favLoading || this.notifyLoading) return;
+      const targetPath = this.docPath;
+      const requestToken = ++this.favoriteStateToken;
       this.favLoading = true;
       if (this.favorited && this.favoriteId) {
         docFavoriteRemove(this.favoriteId, () => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
           this.favorited = false;
           this.favoriteId = null;
+          this.notifyUpdates = false;
           this.favLoading = false;
           ElMessage.success("已取消收藏");
-        }, (m) => { this.favLoading = false; ElMessage.error(m || "操作失败"); });
+        }, (m) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favLoading = false;
+          ElMessage.error(m || "操作失败");
+        });
       } else {
-        docFavoriteAdd(this.docPath, (d) => {
+        docFavoriteAdd(targetPath, false, (d) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
           this.favorited = true;
           this.favoriteId = d && d.id ? d.id : null;
+          this.notifyUpdates = !!(d && d.notifyUpdates);
           this.favLoading = false;
           ElMessage.success("已收藏");
-        }, (m) => { this.favLoading = false; ElMessage.error(m || "操作失败"); });
+        }, (m) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favLoading = false;
+          ElMessage.error(m || "操作失败");
+        });
       }
+    },
+    toggleUpdateNotification(enabled) {
+      if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
+      if (this.notifyLoading || this.favLoading) return;
+      const nextValue = !!enabled;
+      const previousValue = this.notifyUpdates;
+      const targetPath = this.docPath;
+      const requestToken = ++this.favoriteStateToken;
+      this.notifyUpdates = nextValue;
+      this.notifyLoading = true;
+
+      const success = (d) => {
+        if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+        this.notifyUpdates = d && typeof d.notifyUpdates === "boolean"
+          ? d.notifyUpdates
+          : nextValue;
+        if (d && d.id) this.favoriteId = d.id;
+        if (nextValue) this.favorited = true;
+        this.notifyLoading = false;
+        ElMessage.success(nextValue
+          ? "已关注，页面更新后会通知你"
+          : "已取消更新通知");
+      };
+      const failure = (message) => {
+        if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+        this.notifyUpdates = previousValue;
+        this.notifyLoading = false;
+        ElMessage.error(message || "操作失败");
+      };
+
+      if (!this.favorited || !this.favoriteId) {
+        if (!nextValue) {
+          this.notifyUpdates = false;
+          this.notifyLoading = false;
+          return;
+        }
+        docFavoriteAdd(targetPath, true, success, failure);
+        return;
+      }
+      docFavoriteUpdateNotification(this.favoriteId, nextValue, success, failure);
+    },
+    openRevisionHistory() {
+      this.$refs.revisionHistory?.open();
     },
     onNavigate(newPage) {
       this.$router.push(`/docs/${newPage}`);
@@ -390,6 +504,25 @@ export default {
 .fav-btn:hover { color: var(--brand); }
 .fav-btn.active { color: #e6a23c; }
 .fav-btn:disabled { opacity: 0.6; cursor: default; }
+
+.follow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.meta-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.meta-action:hover { color: var(--brand); }
 
 .loading-state {
   max-width: 900px;

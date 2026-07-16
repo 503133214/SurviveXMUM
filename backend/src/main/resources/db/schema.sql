@@ -79,3 +79,27 @@ CREATE TABLE IF NOT EXISTS `wiki_revision` (
   KEY `idx_rev_author` (`author_id`),
   KEY `idx_rev_path` (`target_path`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 页面公开版本快照：与投稿记录解耦，统一记录投稿发布、管理员更新与回滚后的完整页面状态。
+CREATE TABLE IF NOT EXISTS `wiki_page_version` (
+  `id`                 BIGINT       NOT NULL,
+  `page_id`            BIGINT       NOT NULL,
+  `version`            INT          NOT NULL,
+  `path`               VARCHAR(380) NOT NULL,
+  `category_slug`      VARCHAR(120) DEFAULT NULL,
+  `title`              VARCHAR(200) NOT NULL,
+  `icon`               VARCHAR(40)  DEFAULT NULL,
+  `description`        VARCHAR(500) DEFAULT NULL,
+  `tags`               VARCHAR(500) DEFAULT NULL,
+  `headings`           TEXT         DEFAULT NULL,
+  `content`            MEDIUMTEXT   DEFAULT NULL,
+  `source_type`        VARCHAR(30)  NOT NULL, -- REVISION_CREATE / REVISION_UPDATE / ADMIN_* / ROLLBACK / MIGRATION
+  `source_revision_id` BIGINT       DEFAULT NULL,
+  `author_id`          BIGINT       DEFAULT NULL,
+  `summary`            VARCHAR(300) DEFAULT NULL,
+  `published_at`       DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_page_version` (`page_id`,`version`),
+  KEY `idx_page_version_time` (`page_id`,`published_at`),
+  KEY `idx_page_version_revision` (`source_revision_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

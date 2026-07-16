@@ -46,7 +46,8 @@ public class UserContentService {
         if (path == null || path.isBlank()) return null;
         return pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
                 .eq(WikiPage::getPath, path.trim())
-                .eq(WikiPage::getDeleted, 0));
+                .eq(WikiPage::getDeleted, 0)
+                .eq(WikiPage::getStatus, "PUBLISHED"));
     }
 
     private WikiPage requirePage(String path) {
@@ -68,18 +69,28 @@ public class UserContentService {
                     m.put("title", f.getTitle());
                     m.put("description", f.getDescription());
                     m.put("type", "page");
+                    m.put("notifyUpdates", enabled(f.getNotifyUpdates()));
                     m.put("createTime", fmt(f.getCreatedAt()));
                     return m;
                 }).toList();
     }
 
     public Map<String, Object> addFavorite(Long userId, String path) {
+        return addFavorite(userId, path, null);
+    }
+
+    /** 添加收藏；notifyUpdates 省略时保留既有设置，新收藏默认不关注更新。 */
+    public Map<String, Object> addFavorite(Long userId, String path, Boolean notifyUpdates) {
         WikiPage page = requirePage(path);
         UserFavorite existing = favoriteMapper.selectOne(Wrappers.<UserFavorite>lambdaQuery()
                 .eq(UserFavorite::getUserId, userId)
                 .eq(UserFavorite::getPageId, page.getId()));
         if (existing != null) {
-            return favResult(existing.getId());
+            if (notifyUpdates != null && enabled(existing.getNotifyUpdates()) != notifyUpdates) {
+                existing.setNotifyUpdates(notifyUpdates ? 1 : 0);
+                favoriteMapper.updateById(existing);
+            }
+            return favResult(existing);
         }
         UserFavorite f = new UserFavorite();
         f.setUserId(userId);
@@ -87,22 +98,28 @@ public class UserContentService {
         f.setPath(page.getPath());
         f.setTitle(page.getTitle());
         f.setDescription(page.getDescription());
+        f.setNotifyUpdates(Boolean.TRUE.equals(notifyUpdates) ? 1 : 0);
         try {
             favoriteMapper.insert(f);
-            return favResult(f.getId());
+            return favResult(f);
         } catch (DuplicateKeyException dup) {
             // 并发下唯一键冲突：重查返回既有记录
             UserFavorite again = favoriteMapper.selectOne(Wrappers.<UserFavorite>lambdaQuery()
                     .eq(UserFavorite::getUserId, userId)
                     .eq(UserFavorite::getPageId, page.getId()));
-            return favResult(again == null ? null : again.getId());
+            if (again != null && notifyUpdates != null && enabled(again.getNotifyUpdates()) != notifyUpdates) {
+                again.setNotifyUpdates(notifyUpdates ? 1 : 0);
+                favoriteMapper.updateById(again);
+            }
+            return favResult(again);
         }
     }
 
-    private static Map<String, Object> favResult(Long id) {
+    private static Map<String, Object> favResult(UserFavorite favorite) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("favorited", true);
-        m.put("id", id);
+        m.put("id", favorite == null ? null : favorite.getId());
+        m.put("notifyUpdates", favorite != null && enabled(favorite.getNotifyUpdates()));
         return m;
     }
 
@@ -118,6 +135,8 @@ public class UserContentService {
         WikiPage page = findPage(path);
         if (page == null) {
             m.put("favorited", false);
+            m.put("id", null);
+            m.put("notifyUpdates", false);
             return m;
         }
         UserFavorite f = favoriteMapper.selectOne(Wrappers.<UserFavorite>lambdaQuery()
@@ -125,7 +144,23 @@ public class UserContentService {
                 .eq(UserFavorite::getPageId, page.getId()));
         m.put("favorited", f != null);
         m.put("id", f == null ? null : f.getId());
+        m.put("notifyUpdates", f != null && enabled(f.getNotifyUpdates()));
         return m;
+    }
+
+    /** 只允许操作当前用户自己的收藏。 */
+    public Map<String, Object> setFavoriteNotification(Long userId, Long favoriteId, boolean notifyUpdates) {
+        UserFavorite favorite = favoriteMapper.selectOne(Wrappers.<UserFavorite>lambdaQuery()
+                .eq(UserFavorite::getId, favoriteId)
+                .eq(UserFavorite::getUserId, userId));
+        if (favorite == null) throw new BizException(404, "收藏不存在");
+        favorite.setNotifyUpdates(notifyUpdates ? 1 : 0);
+        favoriteMapper.updateById(favorite);
+        return favResult(favorite);
+    }
+
+    private static boolean enabled(Integer value) {
+        return value != null && value == 1;
     }
 
     // ---------- 浏览历史 ----------

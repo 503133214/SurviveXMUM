@@ -124,7 +124,8 @@ public class WikiContentService {
         if (path == null || path.isBlank()) path = HOME_PATH;
         WikiPage p = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
                 .eq(WikiPage::getPath, path)
-                .eq(WikiPage::getDeleted, 0));
+                .eq(WikiPage::getDeleted, 0)
+                .eq(WikiPage::getStatus, "PUBLISHED"));
         if (p == null) {
             throw new BizException(404, "页面不存在：" + path);
         }

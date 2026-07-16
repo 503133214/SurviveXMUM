@@ -42,7 +42,7 @@ public class PageAdminController {
 
     @PutMapping("/page/{id}")
     public ApiResponse<Void> update(@PathVariable Long id, @RequestBody PageUpsertDTO dto) {
-        service.update(id, dto);
+        service.update(id, dto, CurrentUser.get());
         return ApiResponse.ok(null);
     }
 
@@ -54,7 +54,7 @@ public class PageAdminController {
 
     @PostMapping("/page/{id}/restore")
     public ApiResponse<Void> restore(@PathVariable Long id) {
-        service.restore(id);
+        service.restore(id, CurrentUser.get());
         return ApiResponse.ok(null);
     }
 

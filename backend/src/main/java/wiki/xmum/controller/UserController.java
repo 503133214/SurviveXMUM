@@ -27,6 +27,16 @@ public class UserController {
         return p == null ? null : p.toString();
     }
 
+    private static Boolean notifyUpdates(Map<String, Object> body) {
+        Object value = body == null ? null : body.get("notifyUpdates");
+        if (value == null) return null;
+        if (value instanceof Boolean b) return b;
+        String text = value.toString().trim();
+        if ("true".equalsIgnoreCase(text)) return true;
+        if ("false".equalsIgnoreCase(text)) return false;
+        throw new wiki.xmum.common.BizException("notifyUpdates 必须是布尔值");
+    }
+
     // ---- 收藏 ----
 
     @GetMapping("/favorites")
@@ -36,7 +46,16 @@ public class UserController {
 
     @PostMapping("/favorites")
     public ApiResponse<Map<String, Object>> addFavorite(@RequestBody(required = false) Map<String, Object> body) {
-        return ApiResponse.ok(service.addFavorite(CurrentUser.get().getId(), path(body)));
+        return ApiResponse.ok(service.addFavorite(CurrentUser.get().getId(), path(body), notifyUpdates(body)));
+    }
+
+    @PutMapping("/favorites/{id}/notification")
+    public ApiResponse<Map<String, Object>> setFavoriteNotification(
+            @PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        Boolean enabled = notifyUpdates(body);
+        if (enabled == null) throw new wiki.xmum.common.BizException("缺少 notifyUpdates");
+        return ApiResponse.ok(service.setFavoriteNotification(
+                CurrentUser.get().getId(), id, enabled));
     }
 
     @PostMapping("/favorites/{id}/remove")

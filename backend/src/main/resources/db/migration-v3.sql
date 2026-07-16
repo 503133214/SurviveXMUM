@@ -7,10 +7,12 @@ CREATE TABLE IF NOT EXISTS `user_favorite` (
   `path`        VARCHAR(380)  DEFAULT NULL,
   `title`       VARCHAR(200)  DEFAULT NULL,
   `description` VARCHAR(500)  DEFAULT NULL,
+  `notify_updates` TINYINT     NOT NULL DEFAULT 0,
   `created_at`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_fav_user_page` (`user_id`,`page_id`),
-  KEY `idx_fav_user` (`user_id`)
+  KEY `idx_fav_user` (`user_id`),
+  KEY `idx_fav_page_notify` (`page_id`,`notify_updates`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `user_view_history` (

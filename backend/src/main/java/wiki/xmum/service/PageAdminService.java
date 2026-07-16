@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import wiki.xmum.common.BizException;
 import wiki.xmum.domain.dto.PageUpsertDTO;
 import wiki.xmum.domain.po.User;
@@ -20,6 +21,7 @@ import wiki.xmum.util.MarkdownUtil;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,12 +34,14 @@ public class PageAdminService {
     private final wiki.xmum.mapper.UserFavoriteMapper favoriteMapper;
     private final wiki.xmum.mapper.UserViewHistoryMapper historyMapper;
     private final wiki.xmum.mapper.WikiDraftMapper draftMapper;
+    private final PageVersionService pageVersionService;
 
     public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper,
                             UserMapper userMapper, AuditService auditService,
                             wiki.xmum.mapper.UserFavoriteMapper favoriteMapper,
                             wiki.xmum.mapper.UserViewHistoryMapper historyMapper,
-                            wiki.xmum.mapper.WikiDraftMapper draftMapper) {
+                            wiki.xmum.mapper.WikiDraftMapper draftMapper,
+                            PageVersionService pageVersionService) {
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
@@ -45,6 +49,7 @@ public class PageAdminService {
         this.favoriteMapper = favoriteMapper;
         this.historyMapper = historyMapper;
         this.draftMapper = draftMapper;
+        this.pageVersionService = pageVersionService;
     }
 
     public PageResult<PageAdminVO> list(String keyword, String category, boolean includeDeleted,
@@ -80,6 +85,7 @@ public class PageAdminService {
         return v;
     }
 
+    @Transactional
     public Long create(PageUpsertDTO dto, AuthUser actor) {
         String title = wiki.xmum.util.TitleUtil.cleanTitle(dto.getTitle());
         String cat = blankToNull(dto.getCategorySlug());
@@ -106,13 +112,26 @@ public class PageAdminService {
         p.setAuthorId(actor.getId());
         p.setViewCount(0);
         pageMapper.insert(p);
+        pageVersionService.publish(p, "ADMIN_CREATE", null, actor.getId(),
+                "管理员创建页面", java.util.Set.of(actor.getId()));
         auditService.log("PAGE_CREATE", "PAGE", p.getId(), "创建页面 " + path);
         return p.getId();
     }
 
-    public void update(Long id, PageUpsertDTO dto) {
+    @Transactional
+    public void update(Long id, PageUpsertDTO dto, AuthUser actor) {
         WikiPage p = pageMapper.selectById(id);
         if (p == null) throw new BizException(404, "页面不存在");
+        boolean wasPublished = "PUBLISHED".equals(p.getStatus())
+                && (p.getDeleted() == null || p.getDeleted() == 0);
+        String oldTitle = p.getTitle();
+        String oldCategorySlug = p.getCategorySlug();
+        String oldIcon = p.getIcon();
+        String oldDescription = p.getDescription();
+        String oldTags = p.getTags();
+        String oldHeadings = p.getHeadings();
+        String oldContent = p.getContent();
+        String oldStatus = p.getStatus();
         int current = p.getVersion() == null ? 0 : p.getVersion();
         if (dto.getVersion() == null || dto.getVersion() != current) {
             throw new BizException(409, "页面已被他人修改（当前版本 v" + current + "），请刷新后重试");
@@ -132,9 +151,24 @@ public class PageAdminService {
             p.setContent(dto.getContent());
             p.setHeadings(JsonUtil.toJson(MarkdownUtil.collectHeadings(dto.getContent())));
         }
-        p.setVersion(current + 1);
+        boolean publicStateChanged = !Objects.equals(oldTitle, p.getTitle())
+                || !Objects.equals(oldCategorySlug, p.getCategorySlug())
+                || !Objects.equals(oldIcon, p.getIcon())
+                || !Objects.equals(oldDescription, p.getDescription())
+                || !Objects.equals(oldTags, p.getTags())
+                || !Objects.equals(oldHeadings, p.getHeadings())
+                || !Objects.equals(oldContent, p.getContent())
+                || !Objects.equals(oldStatus, p.getStatus());
+        p.setVersion(publicStateChanged ? current + 1 : current);
         pageMapper.updateById(p);
-        auditService.log("PAGE_UPDATE", "PAGE", p.getId(), "编辑页面 " + p.getPath() + " → v" + (current + 1));
+        if (publicStateChanged) {
+            String sourceType = wasPublished ? "ADMIN_UPDATE" : "ADMIN_PUBLISH";
+            String summary = wasPublished ? "管理员更新页面" : "管理员发布页面";
+            pageVersionService.publish(p, sourceType, null, actor.getId(), summary,
+                    java.util.Set.of(actor.getId()));
+        }
+        auditService.log("PAGE_UPDATE", "PAGE", p.getId(), "编辑页面 " + p.getPath()
+                + (publicStateChanged ? " → v" + (current + 1) : "（仅排序/无公开内容变化）"));
     }
 
     public void softDelete(Long id) {
@@ -145,11 +179,20 @@ public class PageAdminService {
         auditService.log("PAGE_DELETE", "PAGE", p.getId(), "删除页面 " + p.getPath());
     }
 
-    public void restore(Long id) {
+    @Transactional
+    public void restore(Long id, AuthUser actor) {
         WikiPage p = pageMapper.selectById(id);
         if (p == null) throw new BizException(404, "页面不存在");
+        if (p.getDeleted() == null || p.getDeleted() != 1) {
+            throw new BizException("页面不在回收站中，无需恢复");
+        }
         p.setDeleted(0);
+        if ("PUBLISHED".equals(p.getStatus())) {
+            p.setVersion((p.getVersion() == null ? 0 : p.getVersion()) + 1);
+        }
         pageMapper.updateById(p);
+        pageVersionService.publish(p, "ADMIN_RESTORE", null, actor.getId(),
+                "管理员恢复页面", java.util.Set.of(actor.getId()));
         auditService.log("PAGE_RESTORE", "PAGE", p.getId(), "恢复页面 " + p.getPath());
     }
 
@@ -171,9 +214,11 @@ public class PageAdminService {
         // 指向该页的编辑草稿一并清掉：页面已永久删除，这些草稿永远无法提交
         int drafts = draftMapper.delete(Wrappers.<wiki.xmum.domain.po.WikiDraft>lambdaQuery()
                 .eq(wiki.xmum.domain.po.WikiDraft::getTargetPath, p.getPath()));
+        int versions = pageVersionService.purgePageVersions(id);
         pageMapper.deleteById(id);
         auditService.log("PAGE_PURGE", "PAGE", id,
-                "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists + "、草稿 " + drafts + "）");
+                "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists
+                        + "、草稿 " + drafts + "、版本 " + versions + "）");
     }
 
     private Long ensureCategory(String slug) {

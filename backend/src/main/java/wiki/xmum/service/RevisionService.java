@@ -7,6 +7,7 @@ import wiki.xmum.common.BizException;
 import wiki.xmum.domain.dto.RevisionSubmitDTO;
 import wiki.xmum.domain.po.WikiCategory;
 import wiki.xmum.domain.po.WikiPage;
+import wiki.xmum.domain.po.WikiPageVersion;
 import wiki.xmum.domain.po.WikiRevision;
 import wiki.xmum.domain.po.User;
 import wiki.xmum.domain.vo.RevisionDetailVO;
@@ -35,16 +36,19 @@ public class RevisionService {
     private final UserMapper userMapper;
     private final NotificationService notificationService;
     private final AuditService auditService;
+    private final PageVersionService pageVersionService;
 
     public RevisionService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper,
                            WikiCategoryMapper categoryMapper, UserMapper userMapper,
-                           NotificationService notificationService, AuditService auditService) {
+                           NotificationService notificationService, AuditService auditService,
+                           PageVersionService pageVersionService) {
         this.revisionMapper = revisionMapper;
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
         this.notificationService = notificationService;
         this.auditService = auditService;
+        this.pageVersionService = pageVersionService;
     }
 
     // ---------- 用户投稿 ----------
@@ -260,12 +264,18 @@ public class RevisionService {
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"PENDING".equals(r.getStatus())) throw new BizException("该投稿已被处理");
 
-        applyToPage(r);
+        WikiPage page = applyToPage(r);
 
         r.setStatus("APPROVED");
         r.setReviewerId(reviewer.getId());
         r.setReviewedAt(LocalDateTime.now());
         revisionMapper.updateById(r);
+
+        pageVersionService.publish(page,
+                "CREATE".equals(r.getType()) ? "REVISION_CREATE" : "REVISION_UPDATE",
+                r.getId(), r.getAuthorId(),
+                "CREATE".equals(r.getType()) ? "贡献者创建页面" : "贡献者更新页面",
+                excluded(r.getAuthorId(), reviewer.getId()));
 
         notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
                 "投稿已通过",
@@ -276,7 +286,7 @@ public class RevisionService {
     }
 
     /** 把投稿内容落到 wiki_page：无页则新建，有页则覆盖并 version++（approve / reapprove 共用）。 */
-    private void applyToPage(WikiRevision r) {
+    private WikiPage applyToPage(WikiRevision r) {
         WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, r.getTargetPath()));
         Long categoryId = ensureCategory(r.getCategorySlug());
         List<String> headings = MarkdownUtil.collectHeadings(r.getContent());
@@ -302,6 +312,7 @@ public class RevisionService {
             p.setAuthorId(r.getAuthorId());
             p.setViewCount(0);
             pageMapper.insert(p);
+            return p;
         } else {
             page.setCategorySlug(r.getCategorySlug() != null ? r.getCategorySlug() : page.getCategorySlug());
             page.setCategoryId(categoryId != null ? categoryId : page.getCategoryId());
@@ -312,9 +323,11 @@ public class RevisionService {
             page.setTags(r.getTags());
             page.setHeadings(JsonUtil.toJson(headings));
             page.setContent(r.getContent());
+            page.setStatus("PUBLISHED");
             page.setDeleted(0);
             page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
             pageMapper.updateById(page);
+            return page;
         }
     }
 
@@ -327,7 +340,7 @@ public class RevisionService {
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"REJECTED".equals(r.getStatus())) throw new BizException("仅可对已驳回的投稿改判通过");
 
-        applyToPage(r);
+        WikiPage page = applyToPage(r);
 
         // 用显式 UpdateWrapper：updateById 会跳过 null 字段，无法把 review_comment 清空
         revisionMapper.update(null, Wrappers.<WikiRevision>lambdaUpdate()
@@ -336,6 +349,12 @@ public class RevisionService {
                 .set(WikiRevision::getReviewerId, reviewer.getId())
                 .set(WikiRevision::getReviewedAt, LocalDateTime.now())
                 .eq(WikiRevision::getId, id));
+
+        pageVersionService.publish(page,
+                "CREATE".equals(r.getType()) ? "REVISION_CREATE" : "REVISION_UPDATE",
+                r.getId(), r.getAuthorId(),
+                "CREATE".equals(r.getType()) ? "贡献者创建页面（复核通过）" : "贡献者更新页面（复核通过）",
+                excluded(r.getAuthorId(), reviewer.getId()));
 
         notificationService.notify(r.getAuthorId(), "REVISION_APPROVED",
                 "投稿已通过",
@@ -357,8 +376,27 @@ public class RevisionService {
         if (r == null) throw new BizException(404, "投稿不存在");
         if (!"APPROVED".equals(r.getStatus())) throw new BizException("仅可撤销已通过的投稿");
 
-        // 守卫：只允许撤销该路径最新一次通过的投稿。
-        // 按 reviewedAt 倒序，再以雪花 id 倒序作确定性 tiebreak（同秒多次审核时 reviewedAt 可能相等）。
+        WikiPage currentPage = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                .eq(WikiPage::getPath, r.getTargetPath()));
+        if (currentPage == null || !"PUBLISHED".equals(currentPage.getStatus())
+                || currentPage.getDeleted() == null || currentPage.getDeleted() != 0) {
+            throw new BizException("页面已被管理员下架，不能通过撤销投稿重新发布");
+        }
+        WikiPageVersion currentSnapshot = currentPage == null ? null
+                : pageVersionService.currentSnapshot(currentPage.getId(), currentPage.getVersion());
+
+        // 有统一快照后，以当前公开快照为准：若管理员或其他投稿已发布新版本，禁止撤销旧投稿覆盖新内容。
+        if (currentSnapshot != null && currentSnapshot.getSourceRevisionId() != null
+                && !r.getId().equals(currentSnapshot.getSourceRevisionId())) {
+            throw new BizException("仅可撤销该页面当前公开版本对应的投稿");
+        }
+        if (currentSnapshot != null && currentSnapshot.getSourceRevisionId() == null
+                && !"MIGRATION".equals(currentSnapshot.getSourceType())) {
+            throw new BizException("页面已被管理员更新，不能撤销较早的投稿");
+        }
+
+        // 兼容部署前的旧投稿：初始迁移快照无法关联 revision，仍用原审核时间守卫。
+        // 按 reviewedAt 倒序，再以雪花 id 倒序作确定性 tiebreak。
         WikiRevision latest = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
                         .eq(WikiRevision::getTargetPath, r.getTargetPath())
                         .eq(WikiRevision::getStatus, "APPROVED")
@@ -370,26 +408,47 @@ public class RevisionService {
             throw new BizException("仅可撤销该页面最新一次通过的投稿");
         }
 
-        // 上一份 APPROVED 快照（回滚源）
-        WikiRevision prev = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
-                        .eq(WikiRevision::getTargetPath, r.getTargetPath())
-                        .eq(WikiRevision::getStatus, "APPROVED")
-                        .ne(WikiRevision::getId, r.getId())
-                        .orderByDesc(WikiRevision::getReviewedAt)
-                        .orderByDesc(WikiRevision::getId)
-                        .last("LIMIT 1"))
-                .stream().findFirst().orElse(null);
-
         String pageAction;
-        if (prev != null) {
-            applyToPage(prev);
+        WikiPageVersion rollbackOrigin = currentSnapshot;
+        if (currentSnapshot != null && "ROLLBACK".equals(currentSnapshot.getSourceType())
+                && r.getId().equals(currentSnapshot.getSourceRevisionId())) {
+            // 当前内容是一次回滚复制：先找到这份内容真正发布的版本，再回到它之前的状态。
+            rollbackOrigin = pageVersionService.latestRevisionSnapshot(
+                    currentSnapshot.getPageId(), r.getId(), currentSnapshot.getVersion());
+        }
+        WikiPageVersion previousSnapshot = rollbackOrigin == null ? null
+                : pageVersionService.previousSnapshot(rollbackOrigin.getPageId(), rollbackOrigin.getVersion());
+        // CREATE 首次发布→撤销软删→复核再次发布时，紧邻的旧快照仍来自同一 CREATE，不能拿它回滚。
+        if (previousSnapshot != null && r.getId().equals(previousSnapshot.getSourceRevisionId())
+                && ("REVISION_CREATE".equals(previousSnapshot.getSourceType())
+                    || "REVISION_UPDATE".equals(previousSnapshot.getSourceType()))) {
+            previousSnapshot = null;
+        }
+        if (currentSnapshot != null && r.getId().equals(currentSnapshot.getSourceRevisionId())
+                && previousSnapshot != null && currentPage != null) {
+            restoreSnapshot(currentPage, previousSnapshot);
+            pageVersionService.publish(currentPage, "ROLLBACK", previousSnapshot.getSourceRevisionId(),
+                    reviewer.getId(),
+                    "撤销投稿并恢复上一公开版本", excluded(r.getAuthorId(), reviewer.getId()));
             pageAction = "ROLLED_BACK";
         } else {
-            WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
-                    .eq(WikiPage::getPath, r.getTargetPath()));
-            if ("CREATE".equals(r.getType()) && page != null) {
-                page.setDeleted(1);   // 内容完全来自该投稿：软删页面（页面管理可恢复）
-                pageMapper.updateById(page);
+            // 旧数据兼容：部署前没有统一快照时，仍从上一份 APPROVED 投稿恢复。
+            WikiRevision prev = revisionMapper.selectList(Wrappers.<WikiRevision>lambdaQuery()
+                            .eq(WikiRevision::getTargetPath, r.getTargetPath())
+                            .eq(WikiRevision::getStatus, "APPROVED")
+                            .ne(WikiRevision::getId, r.getId())
+                            .orderByDesc(WikiRevision::getReviewedAt)
+                            .orderByDesc(WikiRevision::getId)
+                            .last("LIMIT 1"))
+                    .stream().findFirst().orElse(null);
+            if (prev != null) {
+                WikiPage rolledBack = applyToPage(prev);
+                pageVersionService.publish(rolledBack, "ROLLBACK", prev.getId(), reviewer.getId(),
+                        "撤销投稿并恢复上一公开版本", excluded(r.getAuthorId(), reviewer.getId()));
+                pageAction = "ROLLED_BACK";
+            } else if ("CREATE".equals(r.getType()) && currentPage != null) {
+                currentPage.setDeleted(1);   // 内容完全来自该投稿：软删页面（页面管理可恢复）
+                pageMapper.updateById(currentPage);
                 pageAction = "PAGE_DELETED";
             } else {
                 pageAction = "CONTENT_KEPT"; // 页面来自初始导入，无快照可回滚，保留现内容
@@ -412,6 +471,22 @@ public class RevisionService {
         return pageAction;
     }
 
+    /** 恢复某一历史快照，但页面版本保持单调递增，回滚本身也成为新的公开版本。 */
+    private void restoreSnapshot(WikiPage page, WikiPageVersion snapshot) {
+        page.setCategorySlug(snapshot.getCategorySlug());
+        page.setCategoryId(ensureCategory(snapshot.getCategorySlug()));
+        page.setTitle(snapshot.getTitle());
+        page.setIcon(snapshot.getIcon());
+        page.setDescription(snapshot.getDescription());
+        page.setTags(snapshot.getTags());
+        page.setHeadings(snapshot.getHeadings());
+        page.setContent(snapshot.getContent());
+        page.setStatus("PUBLISHED");
+        page.setDeleted(0);
+        page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
+        pageMapper.updateById(page);
+    }
+
     /** 修改驳回原因（仅 REJECTED）。 */
     public void updateComment(Long id, String comment, AuthUser reviewer) {
         WikiRevision r = revisionMapper.selectById(id);
@@ -430,13 +505,26 @@ public class RevisionService {
     }
 
     /** 彻底删除投稿记录（仅非 PENDING；删除 APPROVED 会减少贡献榜计数并丢失一版回滚快照）。 */
+    @Transactional
     public void purge(Long id) {
         WikiRevision r = revisionMapper.selectById(id);
         if (r == null) throw new BizException(404, "投稿不存在");
         if ("PENDING".equals(r.getStatus())) throw new BizException("待审核投稿请先通过或驳回后再删除");
+        WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
+                .eq(WikiPage::getPath, r.getTargetPath()));
+        WikiPageVersion current = page == null ? null
+                : pageVersionService.currentSnapshot(page.getId(), page.getVersion());
+        if (page != null && current == null) {
+            throw new BizException("页面当前状态缺少版本快照，请先发布修正版");
+        }
+        if (current != null && r.getId().equals(current.getSourceRevisionId())) {
+            throw new BizException("该投稿仍是页面当前内容来源，请先撤销或更新页面后再删除");
+        }
+        int snapshots = pageVersionService.purgeRevisionVersions(id);
         revisionMapper.deleteById(id);
         auditService.log("REVISION_PURGE", "REVISION", id,
-                "彻底删除投稿记录《" + r.getTitle() + "》(" + r.getTargetPath() + "，原状态 " + r.getStatus() + ")");
+                "彻底删除投稿记录《" + r.getTitle() + "》(" + r.getTargetPath() + "，原状态 "
+                        + r.getStatus() + "，清理公开快照 " + snapshots + ")");
     }
 
     public void reject(Long id, String comment, AuthUser reviewer) {
@@ -460,6 +548,14 @@ public class RevisionService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s;
+    }
+
+    private static Set<Long> excluded(Long... ids) {
+        Set<Long> result = new HashSet<>();
+        if (ids != null) {
+            for (Long id : ids) if (id != null) result.add(id);
+        }
+        return result;
     }
 
     /** 确保分类存在，返回 categoryId；无 slug 返回 null。 */

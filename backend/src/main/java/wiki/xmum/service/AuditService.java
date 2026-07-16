@@ -28,19 +28,30 @@ public class AuditService {
     /** 记录一条管理操作；操作者取当前请求用户（无则记 null，如系统任务）。 */
     public void log(String action, String targetType, Long targetId, String detail) {
         try {
-            AuthUser actor = CurrentUser.getOrNull();
-            AuditLog a = new AuditLog();
-            a.setActorId(actor == null ? null : actor.getId());
-            a.setActorEmail(actor == null ? null : actor.getEmail());
-            a.setAction(action);
-            a.setTargetType(targetType);
-            a.setTargetId(targetId);
-            a.setDetail(detail == null ? null
-                    : (detail.length() > 500 ? detail.substring(0, 500) : detail));
-            mapper.insert(a);
+            mapper.insert(entry(action, targetType, targetId, detail));
         } catch (Exception ignore) {
             // 审计失败不影响主流程
         }
+    }
+
+    /**
+     * 必须成功的审计写入。仅用于不可逆敏感操作，由调用方事务保证审计失败时业务操作一起回滚。
+     */
+    public void logStrict(String action, String targetType, Long targetId, String detail) {
+        mapper.insert(entry(action, targetType, targetId, detail));
+    }
+
+    private static AuditLog entry(String action, String targetType, Long targetId, String detail) {
+        AuthUser actor = CurrentUser.getOrNull();
+        AuditLog a = new AuditLog();
+        a.setActorId(actor == null ? null : actor.getId());
+        a.setActorEmail(actor == null ? null : actor.getEmail());
+        a.setAction(action);
+        a.setTargetType(targetType);
+        a.setTargetId(targetId);
+        a.setDetail(detail == null ? null
+                : (detail.length() > 500 ? detail.substring(0, 500) : detail));
+        return a;
     }
 
     /** 分页查询：日期闭区间含当天；keyword 命中操作者邮箱/详情；action 精确匹配。 */
