@@ -170,7 +170,11 @@ public class PageVersionService {
         Map<Long, String> names = publicAuthorNames(versions);
         int currentVersion = normalizeVersion(page.getVersion());
         return versions.stream()
-                .map(v -> toPublic(v, names.get(v.getAuthorId()), currentVersion, false, null))
+                // Map.of() is used when all migration snapshots have no author; its get(null)
+                // throws, so do not look up an absent author id.
+                .map(v -> toPublic(v,
+                        v.getAuthorId() == null ? null : names.get(v.getAuthorId()),
+                        currentVersion, false, null))
                 .toList();
     }
 

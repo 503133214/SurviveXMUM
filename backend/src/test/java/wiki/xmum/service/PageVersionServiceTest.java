@@ -117,6 +117,21 @@ class PageVersionServiceTest {
     }
 
     @Test
+    void publicHistorySupportsMigrationSnapshotWithoutAuthor() {
+        WikiPage page = publicPage();
+        WikiPageVersion version = version(90L, page.getId(), 2, "迁移后的正文");
+        version.setSourceType("MIGRATION");
+        version.setAuthorId(null);
+        when(pageMapper.selectOne(any())).thenReturn(page);
+        when(versionMapper.selectList(any())).thenReturn(List.of(version));
+
+        List<PublicPageRevisionVO> result = service().listPublic(page.getPath());
+
+        assertEquals("匿名贡献者", result.get(0).getAuthorName());
+        verifyNoInteractions(userMapper);
+    }
+
+    @Test
     void detailReturnsBeforeAndAfterContentForDiff() {
         WikiPage page = publicPage();
         WikiPageVersion current = version(90L, page.getId(), 2, "新正文");
