@@ -15,6 +15,22 @@ function decodedPath(path) {
   }
 }
 
+/** Match the legacy root bookmark even when Vue Router preserves URL encoding. */
+export function isLegacyContributionGuidePath(path = '') {
+  return decodedPath(String(path)).replace(/\/+$/, '') === '/贡献指南'
+}
+
+/** Build a lossless Vue Router target for an old contribution-guide bookmark. */
+export function legacyContributionGuideRedirect(to = {}) {
+  if (!isLegacyContributionGuidePath(to.path)) return null
+  return {
+    path: '/docs/贡献指南',
+    query: to.query || {},
+    hash: to.hash || '',
+    replace: true,
+  }
+}
+
 function decodedSegment(segment) {
   try {
     return decodeURIComponent(segment)
@@ -56,7 +72,7 @@ export function resolveDocHref(href, basePath = '') {
   const { path, suffix } = splitSuffix(href)
   if (path.startsWith('/')) {
     // Compatibility for already-rendered bookmarks and manually authored links.
-    if (decodedPath(path) === '/贡献指南') return `/docs/贡献指南${suffix}`
+    if (isLegacyContributionGuidePath(path)) return `/docs/贡献指南${suffix}`
     return href
   }
 

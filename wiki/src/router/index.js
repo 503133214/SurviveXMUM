@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { legacyContributionGuideRedirect } from "@/utils/docLinks.js";
 
 const routes = [
   {
@@ -106,6 +107,10 @@ function readAuth() {
 let pendingFullPath = null;
 router.beforeEach((to, from, next) => {
   pendingFullPath = to.fullPath;
+  // Direct visits can retain the percent-encoded Unicode path and miss the
+  // static route above, so normalize the old bookmark before showing 404.
+  const legacyGuideRedirect = legacyContributionGuideRedirect(to);
+  if (legacyGuideRedirect) return next(legacyGuideRedirect);
   const { loggedIn, role } = readAuth();
   if (to.meta.requiresAuth && !loggedIn) {
     return next({ path: "/login", query: { redirect: to.fullPath } });

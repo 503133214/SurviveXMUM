@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { resolveDocAssetSrc, resolveDocHref } from '../src/utils/docLinks.js'
+import {
+  isLegacyContributionGuidePath,
+  legacyContributionGuideRedirect,
+  resolveDocAssetSrc,
+  resolveDocHref,
+} from '../src/utils/docLinks.js'
 
 test('keeps over-deep contribution links inside the docs root', () => {
   assert.equal(resolveDocHref('../../贡献指南.md', '专业篇'), '/docs/贡献指南')
@@ -35,6 +40,24 @@ test('normalizes the legacy root contribution URL', () => {
     resolveDocHref('/%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97#投稿', '专业篇'),
     '/docs/贡献指南#投稿',
   )
+  assert.equal(isLegacyContributionGuidePath('/贡献指南'), true)
+  assert.equal(isLegacyContributionGuidePath('/%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97'), true)
+  assert.equal(isLegacyContributionGuidePath('/%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97/'), true)
+  assert.equal(isLegacyContributionGuidePath('/docs/贡献指南'), false)
+  assert.deepEqual(
+    legacyContributionGuideRedirect({
+      path: '/%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97/',
+      query: { from: 'old' },
+      hash: '#投稿',
+    }),
+    {
+      path: '/docs/贡献指南',
+      query: { from: 'old' },
+      hash: '#投稿',
+      replace: true,
+    },
+  )
+  assert.equal(legacyContributionGuideRedirect({ path: '/docs/贡献指南' }), null)
 })
 
 test('resolves relative images without escaping the docs root', () => {
