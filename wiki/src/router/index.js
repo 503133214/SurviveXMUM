@@ -58,6 +58,10 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
+    path: "/docs/api",
+    redirect: "/docs/api/api-overview",
+  },
+  {
     path: "/docs/:pathMatch(.*)*",
     name: "DocPage",
     component: () => import("@/views/DocPage.vue"),
@@ -66,6 +70,11 @@ const routes = [
       const pathString = Array.isArray(pathMatch) ? pathMatch.join("/") : pathMatch;
       return { pathMatch: pathString || "" };
     },
+  },
+  {
+    // 兼容历史 Markdown 被浏览器规范化后产生的旧地址与外部书签。
+    path: "/贡献指南",
+    redirect: "/docs/贡献指南",
   },
   {
     path: "/:pathMatch(.*)*",

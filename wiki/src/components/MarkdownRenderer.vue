@@ -55,6 +55,7 @@
 <script>
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
+import { resolveDocAssetSrc, resolveDocHref } from "@/utils/docLinks.js";
 
 const MOBILE_BREAKPOINT = 992;
 
@@ -129,22 +130,14 @@ export default {
         return origHeading(tokens, idx, options, env, self);
       };
 
-      // 链接：相对 .md 链接 → /docs 路由
-      const base = this.basePath ? this.basePath.replace(/\/$/, "") + "/" : "";
+      // 链接：规范化相对路径（含历史内容里的 ../..）并固定到 /docs 路由。
       md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
         const token = tokens[idx];
         const hi = token.attrIndex("href");
         if (hi >= 0) {
-          let href = token.attrs[hi][1];
-          if (href && !/^(https?:|\/|#|mailto:)/.test(href)) {
-            const clean = href.replace(/^\.\//, "");
-            if (/\.md$/i.test(clean)) {
-              token.attrs[hi][1] = `/docs/${base}${clean.replace(/\.md$/i, "")}`;
-            } else {
-              token.attrs[hi][1] = `/docs/${base}${clean}`;
-            }
-          }
-          if (/^https?:/.test(href)) {
+          const href = resolveDocHref(token.attrs[hi][1], this.basePath);
+          token.attrs[hi][1] = href;
+          if (/^https?:/i.test(href)) {
             token.attrSet("target", "_blank");
             token.attrSet("rel", "noopener noreferrer");
           }
@@ -165,9 +158,7 @@ export default {
             token.attrSet("width", sz[1]);
             if (sz[2]) token.attrSet("height", sz[2]);
           }
-          if (src && !/^(https?:|\/|data:)/.test(src)) {
-            src = `/docs/${base}${src.replace(/^\.\//, "")}`;
-          }
+          src = resolveDocAssetSrc(src, this.basePath);
           token.attrs[si][1] = src;
         }
         token.attrSet("loading", "lazy");
