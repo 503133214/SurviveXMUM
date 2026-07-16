@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import wiki.xmum.common.BizException;
+import wiki.xmum.common.DateRangeFilter;
 import wiki.xmum.domain.dto.RevisionSubmitDTO;
 import wiki.xmum.domain.po.WikiCategory;
 import wiki.xmum.domain.po.WikiPage;
@@ -21,7 +22,6 @@ import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
 import wiki.xmum.util.TitleUtil;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -166,7 +166,7 @@ public class RevisionService {
     /**
      * 审核队列查询，支持按提交日期区间 + 关键词筛选。
      * 日期为闭区间含当天：from 00:00:00 ≤ createdAt < (to+1天) 00:00:00；
-     * from/to 非法或留空则忽略该侧；from 晚于 to 时自然返回空结果（不报错）。
+     * from/to 必须是今天或更早的有效日期；非法、未来或反向区间返回业务错误。
      * 关键词命中标题 / 目标路径 / 作者邮箱之一。
      */
     public List<RevisionVO> listByStatus(String status, String from, String to, String keyword) {
@@ -174,10 +174,9 @@ public class RevisionService {
         if (status != null && !status.isBlank()) {
             q.eq(WikiRevision::getStatus, status);
         }
-        LocalDate fromDate = parseDate(from);
-        LocalDate toDate = parseDate(to);
-        if (fromDate != null) q.ge(WikiRevision::getCreatedAt, fromDate.atStartOfDay());
-        if (toDate != null) q.lt(WikiRevision::getCreatedAt, toDate.plusDays(1).atStartOfDay());
+        DateRangeFilter.Range dates = DateRangeFilter.parse(from, to);
+        if (dates.from() != null) q.ge(WikiRevision::getCreatedAt, dates.from().atStartOfDay());
+        if (dates.to() != null) q.lt(WikiRevision::getCreatedAt, dates.to().plusDays(1).atStartOfDay());
         if (keyword != null && !keyword.isBlank()) {
             String kw = keyword.trim();
             q.and(w -> w.like(WikiRevision::getTitle, kw)
@@ -191,15 +190,6 @@ public class RevisionService {
             q.orderByDesc(WikiRevision::getCreatedAt);
         }
         return toVOsWithReviewer(revisionMapper.selectList(q));
-    }
-
-    private static LocalDate parseDate(String s) {
-        if (s == null || s.isBlank()) return null;
-        try {
-            return LocalDate.parse(s.trim());
-        } catch (Exception e) {
-            return null; // 非法日期忽略，避免影响查询
-        }
     }
 
     /** 某用户的全部投稿历史（倒序）。 */

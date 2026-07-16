@@ -4,14 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.stereotype.Service;
+import wiki.xmum.common.DateRangeFilter;
 import wiki.xmum.domain.po.AuditLog;
 import wiki.xmum.domain.vo.AuditVO;
 import wiki.xmum.domain.vo.PageResult;
 import wiki.xmum.mapper.AuditLogMapper;
 import wiki.xmum.security.AuthUser;
 import wiki.xmum.security.CurrentUser;
-
-import java.time.LocalDate;
 
 /**
  * 管理操作审计。写入尽力而为（吞异常，绝不阻断业务）；查询仅超管（控制器把关）。
@@ -58,10 +57,9 @@ public class AuditService {
     public PageResult<AuditVO> query(String from, String to, String keyword, String action,
                                      long page, long size) {
         LambdaQueryWrapper<AuditLog> q = Wrappers.lambdaQuery();
-        LocalDate f = parseDate(from);
-        LocalDate t = parseDate(to);
-        if (f != null) q.ge(AuditLog::getCreatedAt, f.atStartOfDay());
-        if (t != null) q.lt(AuditLog::getCreatedAt, t.plusDays(1).atStartOfDay());
+        DateRangeFilter.Range dates = DateRangeFilter.parse(from, to);
+        if (dates.from() != null) q.ge(AuditLog::getCreatedAt, dates.from().atStartOfDay());
+        if (dates.to() != null) q.lt(AuditLog::getCreatedAt, dates.to().plusDays(1).atStartOfDay());
         if (action != null && !action.isBlank()) q.eq(AuditLog::getAction, action.trim());
         if (keyword != null && !keyword.isBlank()) {
             String kw = keyword.trim();
@@ -71,10 +69,5 @@ public class AuditService {
         Page<AuditLog> p = mapper.selectPage(new Page<>(Math.max(1, page), Math.min(Math.max(1, size), 100)), q);
         return new PageResult<>(p.getRecords().stream().map(AuditVO::from).toList(),
                 p.getTotal(), p.getCurrent(), p.getSize());
-    }
-
-    private static LocalDate parseDate(String s) {
-        if (s == null || s.isBlank()) return null;
-        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
     }
 }

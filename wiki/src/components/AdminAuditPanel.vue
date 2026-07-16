@@ -6,6 +6,7 @@
       <el-date-picker
         v-model="dates" type="daterange" unlink-panels value-format="YYYY-MM-DD"
         range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期"
+        :disabled-date="disableFutureDate"
         @change="search"
       />
       <el-select v-model="action" placeholder="全部动作" clearable style="width: 160px" @change="search" @clear="search">
@@ -45,6 +46,7 @@
 <script>
 import { ElMessage } from 'element-plus'
 import { adminAuditQuery } from '@/net/index.js'
+import { disableFutureDate } from '@/utils/dateLimits.js'
 
 const ACTION_LABELS = {
   REVISION_APPROVE: '通过投稿',
@@ -78,6 +80,7 @@ export default {
   },
   mounted() { this.load() },
   methods: {
+    disableFutureDate,
     actionTag(a) {
       if (!a) return 'info'
       if (a.endsWith('_DELETE') || a === 'REVISION_REJECT') return 'danger'

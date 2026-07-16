@@ -42,6 +42,7 @@
         start-placeholder="开始日期"
         end-placeholder="结束日期"
         value-format="YYYY-MM-DD"
+        :disabled-date="disableFutureDate"
         @change="onFilterChange"
       />
       <el-input
@@ -210,6 +211,7 @@ import AdminCategoriesPanel from '@/components/AdminCategoriesPanel.vue'
 import AdminBroadcastPanel from '@/components/AdminBroadcastPanel.vue'
 import AdminAuditPanel from '@/components/AdminAuditPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
+import { disableFutureDate } from '@/utils/dateLimits.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
   adminReapproveRevision, adminRevokeRevision, adminUpdateRevisionComment, adminPurgeRevision,
@@ -305,6 +307,7 @@ export default {
     this.adminMediaQuery?.removeEventListener('change', this.syncMobileAdmin)
   },
   methods: {
+    disableFutureDate,
     syncMobileAdmin() {
       const wasMobile = this.isMobileAdmin
       this.isMobileAdmin = this.adminMediaQuery?.matches ?? false
