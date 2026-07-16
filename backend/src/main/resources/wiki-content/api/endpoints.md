@@ -92,16 +92,43 @@ https://surivivexmum.wiki/api
 }
 ```
 
-版本列表会公开作者昵称或角色标签，但不会公开邮箱、审核意见、审核人 ID。详情的 `changedFields` 可能包含 `title`、`categorySlug`、`icon`、`description`、`tags`、`content`。
+版本列表会公开发布时作者或操作者的显示名快照：优先使用昵称，否则保存并返回掩码邮箱；无法识别时使用系统迁移或已注销身份标签。接口不会公开原始邮箱、审核意见、审核人 ID。详情的 `changedFields` 可能包含 `title`、`categorySlug`、`icon`、`description`、`tags`、`content`。
 
 ### 社区与健康状态
 
 | 方法 | 路径 | 请求 | 返回 |
 |---|---|---|---|
 | `GET` | `/contributors` | query: `limit=50`，范围 1–100 | `ContributorVO[]` |
+| `GET` | `/contributors/page` | query: 必填 `path`，页面路径 | `PageContributorVO[]`，本页全部贡献者 |
 | `GET` | `/contributors/{id}` | path: 用户 ID | `ContributorProfileVO` |
 | `GET` | `/wall` | 无 | `WallEntry[]` |
 | `GET` | `/health` | 无 | `{status, service}` |
+
+`GET /contributors/page?path=...` 只接受当前公开且未删除的页面。`path` 为空、页面不存在、未发布或已删除时返回业务 404；页面存在但没有可确认的人类贡献者时返回 HTTP 200 和空数组。路径中包含 `/`、空格或中文时应进行 URL 编码。
+
+返回项使用 `PageContributorVO`；字段形状与贡献榜条目相同，但 `count` 的统计范围不同：
+
+```json
+[
+  {
+    "userId": "1066",
+    "displayName": "XMUM Wiki 编辑者",
+    "avatar": null,
+    "count": 3
+  },
+  {
+    "userId": "1077",
+    "displayName": "ab***@xmu.edu.my",
+    "avatar": "https://example.invalid/avatar.png",
+    "count": 1
+  }
+]
+```
+
+- `count` 是该用户对当前页面去重后的已发布编写、修改事件数，不是其全站投稿数。同一投稿产生的发布快照按投稿 ID 去重；管理员直接编写或修改的发布动作逐次计数，回滚、恢复操作不计数。
+- 接口不使用贡献榜的 `limit`，返回本页全部可确认贡献者，依次按 `count` 降序、最近贡献时间降序、`displayName` 排序。
+- 当前用户的 `displayName` 优先使用非空昵称；没有昵称时只返回打码邮箱。用户后来被删除或记录已无法关联当前账户时，可返回发布时保存的公开显示名，此时 `userId` 和 `avatar` 为 `null`。响应绝不包含原始邮箱。
+- 部署页面版本功能之前的旧记录会用已通过投稿补齐；可确认作者没有其他可计数事件时，其迁移基线最多补作一次编写事件。若页面只有无法确认人类作者的系统迁移记录，结果为空数组。
 
 ## 登录用户接口
 

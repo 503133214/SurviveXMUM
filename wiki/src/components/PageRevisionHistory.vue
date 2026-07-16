@@ -313,10 +313,7 @@ export default {
       return '更新页面'
     },
     authorLabel(revision) {
-      if (revision?.sourceType === 'ROLLBACK' || revision?.sourceType?.startsWith('ADMIN')) {
-        return 'Wiki 管理员'
-      }
-      return revision?.authorName || revision?.authorNickname || 'Wiki 贡献者'
+      return revision?.authorName || '系统记录'
     },
     formatDate(value) {
       if (!value) return '未知时间'

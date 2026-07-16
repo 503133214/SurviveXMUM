@@ -54,7 +54,7 @@
             <h1 class="doc-title">{{ title }}</h1>
             <div class="doc-meta">
               <span v-if="lastUpdated" class="meta-item">更新于 {{ lastUpdated }}</span>
-              <span v-if="!errorLoading && viewCount > 0" class="meta-item">👁 {{ viewCount }} 次浏览</span>
+              <span v-if="!errorLoading && viewCount > 0" class="meta-item">{{ viewCount }} 次浏览</span>
               <router-link
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item edit-link"
@@ -106,6 +106,13 @@
           <MarkdownRenderer v-if="content" :content="content" :base-path="baseDir" />
           <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容" />
 
+          <PageContributors
+            v-if="!errorLoading"
+            :contributors="contributors"
+            :loading="contributorsLoading"
+            :error="contributorsError"
+          />
+
           <!-- 上一篇 / 下一篇 -->
           <nav v-if="(prev || next) && !errorLoading" class="doc-pager">
             <button v-if="prev" class="pager-card" @click="onNavigate(prev.path)">
@@ -134,6 +141,7 @@
 <script>
 import { markRaw } from "vue";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
+import PageContributors from "@/components/PageContributors.vue";
 import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { ElMessage } from "element-plus";
@@ -151,6 +159,7 @@ import {
   docFavoriteAdd,
   docFavoriteRemove,
   docFavoriteUpdateNotification,
+  getPageContributors,
   recordHistory,
 } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
@@ -161,6 +170,7 @@ export default {
   name: "DocPage",
   components: {
     MarkdownRenderer,
+    PageContributors,
     PageRevisionHistory,
     Sidebar,
     Bell,
@@ -192,6 +202,11 @@ export default {
       notifyLoading: false,
       favoriteStateToken: 0,
       viewCount: 0,
+      contributors: [],
+      contributorsLoading: false,
+      contributorsError: "",
+      contributorsRequestToken: 0,
+      pageRequestToken: 0,
     };
   },
   computed: {
@@ -237,6 +252,7 @@ export default {
   },
   methods: {
     async fetchMarkdown(path) {
+      const pageRequestToken = ++this.pageRequestToken;
       // 使上一页面尚未返回的收藏/关注请求失效，避免切页后覆盖新页面状态。
       this.favoriteStateToken++;
       this.isLoading = true;
@@ -250,8 +266,13 @@ export default {
       this.notifyUpdates = false;
       this.notifyLoading = false;
       this.viewCount = 0;
+      this.contributors = [];
+      this.contributorsLoading = false;
+      this.contributorsError = "";
+      const contributorsRequestToken = ++this.contributorsRequestToken;
       try {
         const detail = await fetchPageContent(path, true);
+        if (this.docPath !== path || pageRequestToken !== this.pageRequestToken) return;
         let raw = detail.content || "";
 
         // 去掉可能残留的 YAML frontmatter
@@ -269,14 +290,18 @@ export default {
         this.pageLastUpdated = detail.lastUpdated || "";
         this.viewCount = detail.viewCount || 0;
         this.content = raw.trim();
+        this.loadContributors(path, contributorsRequestToken);
         this.afterLoad(path);
       } catch (e) {
+        if (this.docPath !== path || pageRequestToken !== this.pageRequestToken) return;
         this.errorLoading = true;
         this.title = "页面未找到";
         this.content = `> 无法加载文档 \`${path}\`。\n\n这篇文档可能尚未撰写，或返回[首页](/)继续浏览。`;
       } finally {
-        this.isLoading = false;
-        this.scrollToTopOrHash();
+        if (this.docPath === path && pageRequestToken === this.pageRequestToken) {
+          this.isLoading = false;
+          this.scrollToTopOrHash();
+        }
       }
     },
     scrollToTopOrHash() {
@@ -289,6 +314,18 @@ export default {
           }
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    },
+    loadContributors(path, requestToken) {
+      this.contributorsLoading = true;
+      getPageContributors(path, (data) => {
+        if (this.docPath !== path || requestToken !== this.contributorsRequestToken) return;
+        this.contributors = Array.isArray(data) ? data : [];
+        this.contributorsLoading = false;
+      }, (message) => {
+        if (this.docPath !== path || requestToken !== this.contributorsRequestToken) return;
+        this.contributorsError = message || "贡献者信息加载失败";
+        this.contributorsLoading = false;
       });
     },
     afterLoad(path) {

@@ -391,6 +391,11 @@ function getContributors(success, failure = defaultFailure) {
 function getContributorProfile(id, success, failure = defaultFailure) {
     get(`/contributors/${id}`, success, failure)
 }
+function getPageContributors(path, success, failure = defaultFailure) {
+    const url = `/contributors/page?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '贡献者信息加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
 
 // ---- 致谢墙（公开读；管理仅超管）----
 function getWall(success, failure = defaultFailure) {
@@ -419,7 +424,7 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
     getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
     adminListFeedback,adminReplyFeedback,
-    getContributors,getContributorProfile,
+    getContributors,getContributorProfile,getPageContributors,
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,
     saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
     adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,

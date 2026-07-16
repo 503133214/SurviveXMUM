@@ -3,6 +3,7 @@ package wiki.xmum.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import wiki.xmum.common.BizException;
@@ -46,8 +47,13 @@ class PageVersionServiceTest {
     void publishingFansOutOnlyToWatchersNotAuthorOrOperator() {
         WikiPage page = publicPage();
         UserFavorite watcher = favorite(2L, page.getId());
-        UserFavorite author = favorite(3L, page.getId());
-        when(favoriteMapper.selectList(any())).thenReturn(List.of(watcher, author));
+        UserFavorite authorFavorite = favorite(3L, page.getId());
+        User author = new User();
+        author.setId(3L);
+        author.setNickname("小明");
+        author.setEmail("private@example.com");
+        when(userMapper.selectById(3L)).thenReturn(author);
+        when(favoriteMapper.selectList(any())).thenReturn(List.of(watcher, authorFavorite));
         doAnswer(invocation -> {
             WikiPageVersion version = invocation.getArgument(0);
             version.setId(99L);
@@ -60,6 +66,61 @@ class PageVersionServiceTest {
                 eq("/docs/生活/交通"), eq(99L));
         verify(notificationService, never()).notify(eq(3L), any(), any(), any(), any(), anyLong());
         verify(notificationService, never()).notify(eq(4L), any(), any(), any(), any(), anyLong());
+        ArgumentCaptor<WikiPageVersion> snapshot = ArgumentCaptor.forClass(WikiPageVersion.class);
+        verify(versionMapper).insert(snapshot.capture());
+        assertEquals("小明", snapshot.getValue().getAuthorName());
+    }
+
+    @Test
+    void publishingMasksEmailWhenContributorHasNoNickname() {
+        WikiPage page = publicPage();
+        User author = new User();
+        author.setId(3L);
+        author.setEmail("student123@xmu.edu.my");
+        when(userMapper.selectById(3L)).thenReturn(author);
+        when(favoriteMapper.selectList(any())).thenReturn(List.of());
+
+        service().publish(page, "REVISION_UPDATE", 50L, 3L,
+                "贡献者更新页面", Set.of(3L));
+
+        ArgumentCaptor<WikiPageVersion> snapshot = ArgumentCaptor.forClass(WikiPageVersion.class);
+        verify(versionMapper).insert(snapshot.capture());
+        assertEquals("st***@xmu.edu.my", snapshot.getValue().getAuthorName());
+        assertFalse(snapshot.getValue().getAuthorName().contains("student123"));
+    }
+
+    @Test
+    void publishingUsesRoleSpecificLabelWhenUserNoLongerExists() {
+        WikiPage page = publicPage();
+        when(favoriteMapper.selectList(any())).thenReturn(List.of());
+
+        service().publish(page, "ADMIN_UPDATE", null, 30L,
+                "管理员更新页面", Set.of(30L));
+        service().publish(page, "REVISION_UPDATE", 50L, 31L,
+                "贡献者更新页面", Set.of(31L));
+
+        ArgumentCaptor<WikiPageVersion> snapshots = ArgumentCaptor.forClass(WikiPageVersion.class);
+        verify(versionMapper, org.mockito.Mockito.times(2)).insert(snapshots.capture());
+        assertEquals("已注销管理员", snapshots.getAllValues().get(0).getAuthorName());
+        assertEquals("已注销贡献者", snapshots.getAllValues().get(1).getAuthorName());
+    }
+
+    @Test
+    void migrationWithKnownAuthorKeepsConcreteDisplayName() {
+        WikiPage page = publicPage();
+        User author = new User();
+        author.setId(3L);
+        author.setNickname("历史修稿者");
+        author.setDeleted(1); // 软删除仍保留署名；只有 user 行真正缺失才降级。
+        when(userMapper.selectById(3L)).thenReturn(author);
+        when(favoriteMapper.selectList(any())).thenReturn(List.of());
+
+        service().publish(page, "MIGRATION", null, 3L,
+                "部署前当前公开版本", Set.of());
+
+        ArgumentCaptor<WikiPageVersion> snapshot = ArgumentCaptor.forClass(WikiPageVersion.class);
+        verify(versionMapper).insert(snapshot.capture());
+        assertEquals("历史修稿者", snapshot.getValue().getAuthorName());
     }
 
     @Test
@@ -76,17 +137,13 @@ class PageVersionServiceTest {
     }
 
     @Test
-    void publicHistoryUsesNicknameAndNeverExposesEmail() throws Exception {
+    void publicHistoryUsesSnapshottedNameAndNeverExposesEmail() throws Exception {
         WikiPage page = publicPage();
         WikiPageVersion version = version(90L, page.getId(), 2, "新正文");
-        User author = new User();
-        author.setId(3L);
-        author.setNickname("小明");
-        author.setEmail("private@example.com");
-        version.setAuthorId(author.getId());
+        version.setAuthorId(3L);
+        version.setAuthorName("小明");
         when(pageMapper.selectOne(any())).thenReturn(page);
         when(versionMapper.selectList(any())).thenReturn(List.of(version));
-        when(userMapper.selectBatchIds(any())).thenReturn(List.of(author));
 
         List<PublicPageRevisionVO> result = service().listPublic(page.getPath());
         String json = new ObjectMapper().writeValueAsString(result);
@@ -96,24 +153,23 @@ class PageVersionServiceTest {
         assertFalse(json.contains("private@example.com"));
         assertFalse(json.contains("reviewComment"));
         assertFalse(json.contains("reviewerId"));
+        verifyNoInteractions(userMapper);
     }
 
     @Test
-    void publicHistoryDoesNotExposeAdministratorNickname() {
+    void publicHistoryUsesSnapshottedAdministratorName() {
         WikiPage page = publicPage();
         WikiPageVersion version = version(90L, page.getId(), 2, "管理员更新后的正文");
         version.setSourceType("ADMIN_UPDATE");
         version.setAuthorId(3L);
-        User administrator = new User();
-        administrator.setId(3L);
-        administrator.setNickname("内部管理员昵称");
+        version.setAuthorName("维护者小王");
         when(pageMapper.selectOne(any())).thenReturn(page);
         when(versionMapper.selectList(any())).thenReturn(List.of(version));
-        when(userMapper.selectBatchIds(any())).thenReturn(List.of(administrator));
 
         List<PublicPageRevisionVO> result = service().listPublic(page.getPath());
 
-        assertEquals("Wiki 管理员", result.get(0).getAuthorName());
+        assertEquals("维护者小王", result.get(0).getAuthorName());
+        verifyNoInteractions(userMapper);
     }
 
     @Test
@@ -127,7 +183,23 @@ class PageVersionServiceTest {
 
         List<PublicPageRevisionVO> result = service().listPublic(page.getPath());
 
-        assertEquals("匿名贡献者", result.get(0).getAuthorName());
+        assertEquals("系统迁移", result.get(0).getAuthorName());
+        verifyNoInteractions(userMapper);
+    }
+
+    @Test
+    void publicHistoryKeepsKnownAuthorOnMigrationSnapshot() {
+        WikiPage page = publicPage();
+        WikiPageVersion version = version(90L, page.getId(), 2, "迁移后的正文");
+        version.setSourceType("MIGRATION");
+        version.setAuthorId(3L);
+        version.setAuthorName("历史修稿者");
+        when(pageMapper.selectOne(any())).thenReturn(page);
+        when(versionMapper.selectList(any())).thenReturn(List.of(version));
+
+        List<PublicPageRevisionVO> result = service().listPublic(page.getPath());
+
+        assertEquals("历史修稿者", result.get(0).getAuthorName());
         verifyNoInteractions(userMapper);
     }
 

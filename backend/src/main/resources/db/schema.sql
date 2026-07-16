@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS `wiki_page_version` (
   `source_type`        VARCHAR(30)  NOT NULL, -- REVISION_CREATE / REVISION_UPDATE / ADMIN_* / ROLLBACK / MIGRATION
   `source_revision_id` BIGINT       DEFAULT NULL,
   `author_id`          BIGINT       DEFAULT NULL,
+  `author_name`        VARCHAR(255) DEFAULT NULL, -- 发布时公开显示名快照；不存原始邮箱
   `summary`            VARCHAR(300) DEFAULT NULL,
   `published_at`       DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),

@@ -19,10 +19,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -70,6 +68,7 @@ public class PageVersionService {
         snapshot.setSourceType(sourceType);
         snapshot.setSourceRevisionId(sourceRevisionId);
         snapshot.setAuthorId(authorId);
+        snapshot.setAuthorName(resolveAuthorName(sourceType, authorId));
         snapshot.setSummary(summary);
         snapshot.setPublishedAt(LocalDateTime.now());
         // 快照是版本完整性的关键路径；写入失败应让外层发布事务一起回滚。
@@ -167,14 +166,9 @@ public class PageVersionService {
         List<WikiPageVersion> versions = versionMapper.selectList(Wrappers.<WikiPageVersion>lambdaQuery()
                 .eq(WikiPageVersion::getPageId, page.getId())
                 .orderByDesc(WikiPageVersion::getVersion));
-        Map<Long, String> names = publicAuthorNames(versions);
         int currentVersion = normalizeVersion(page.getVersion());
         return versions.stream()
-                // Map.of() is used when all migration snapshots have no author; its get(null)
-                // throws, so do not look up an absent author id.
-                .map(v -> toPublic(v,
-                        v.getAuthorId() == null ? null : names.get(v.getAuthorId()),
-                        currentVersion, false, null))
+                .map(v -> toPublic(v, currentVersion, false, null))
                 .toList();
     }
 
@@ -189,8 +183,7 @@ public class PageVersionService {
         if (!isPublic(page)) throw new BizException(404, "页面版本不存在");
 
         WikiPageVersion previous = previousSnapshot(version.getPageId(), version.getVersion());
-        String authorName = publicAuthorName(version.getAuthorId());
-        return toPublic(version, authorName, normalizeVersion(page.getVersion()), true, previous);
+        return toPublic(version, normalizeVersion(page.getVersion()), true, previous);
     }
 
     private WikiPage requirePublicPage(String path) {
@@ -203,40 +196,58 @@ public class PageVersionService {
         return page;
     }
 
-    private Map<Long, String> publicAuthorNames(List<WikiPageVersion> versions) {
-        List<Long> ids = versions.stream().map(WikiPageVersion::getAuthorId)
-                .filter(Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) return Map.of();
-        Map<Long, String> result = new HashMap<>();
-        for (User user : userMapper.selectBatchIds(ids)) {
-            result.put(user.getId(), safeNickname(user));
+    private String resolveAuthorName(String sourceType, Long authorId) {
+        if ("MIGRATION".equals(sourceType) && authorId == null) return "系统迁移";
+        User user = authorId == null ? null : userMapper.selectById(authorId);
+        return displayName(user, sourceType);
+    }
+
+    private static String displayName(User user, String sourceType) {
+        if (user == null) return missingAuthorName(sourceType);
+        if (user.getNickname() != null && !user.getNickname().isBlank()) {
+            return user.getNickname().trim();
         }
-        return result;
+        String maskedEmail = maskEmail(user.getEmail());
+        return maskedEmail == null ? missingAuthorName(sourceType) : maskedEmail;
     }
 
-    private String publicAuthorName(Long authorId) {
-        if (authorId == null) return "匿名贡献者";
-        User user = userMapper.selectById(authorId);
-        return safeNickname(user);
+    /** 仅保留邮箱开头 1–2 个字符与域名；公开快照绝不保存原始邮箱。 */
+    private static String maskEmail(String email) {
+        if (email == null || email.isBlank()) return null;
+        String normalized = email.trim();
+        int at = normalized.indexOf('@');
+        if (at <= 0) return null;
+        String local = normalized.substring(0, at);
+        String head = local.length() <= 2 ? local.substring(0, 1) : local.substring(0, 2);
+        return head + "***" + normalized.substring(at);
     }
 
-    private static String safeNickname(User user) {
-        return user == null || user.getNickname() == null || user.getNickname().isBlank()
-                ? "匿名贡献者" : user.getNickname().trim();
+    private static String storedAuthorName(WikiPageVersion version) {
+        if ("MIGRATION".equals(version.getSourceType()) && version.getAuthorId() == null) {
+            return "系统迁移";
+        }
+        String name = version.getAuthorName();
+        return name == null || name.isBlank()
+                ? missingAuthorName(version.getSourceType()) : name.trim();
     }
 
-    private static PublicPageRevisionVO toPublic(WikiPageVersion version, String authorName,
+    private static String missingAuthorName(String sourceType) {
+        return isAdminAction(sourceType) ? "已注销管理员" : "已注销贡献者";
+    }
+
+    private static boolean isAdminAction(String sourceType) {
+        return "ROLLBACK".equals(sourceType)
+                || (sourceType != null && sourceType.startsWith("ADMIN"));
+    }
+
+    private static PublicPageRevisionVO toPublic(WikiPageVersion version,
                                                   int currentVersion, boolean detail,
                                                   WikiPageVersion previous) {
         PublicPageRevisionVO vo = new PublicPageRevisionVO();
         vo.setId(version.getId());
         vo.setVersion(version.getVersion());
         vo.setTitle(version.getTitle());
-        // 管理操作只公开角色，不通过匿名接口暴露管理员个人昵称。
-        boolean adminAction = "ROLLBACK".equals(version.getSourceType())
-                || (version.getSourceType() != null && version.getSourceType().startsWith("ADMIN"));
-        vo.setAuthorName(adminAction ? "Wiki 管理员"
-                : (authorName == null ? "匿名贡献者" : authorName));
+        vo.setAuthorName(storedAuthorName(version));
         vo.setCreatedAt(iso(version.getPublishedAt()));
         vo.setSummary(version.getSummary());
         vo.setSourceType(version.getSourceType());

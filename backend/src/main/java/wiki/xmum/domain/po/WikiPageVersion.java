@@ -26,6 +26,7 @@ public class WikiPageVersion {
     private String sourceType;
     private Long sourceRevisionId;
     private Long authorId;
+    private String authorName;
     private String summary;
     private LocalDateTime publishedAt;
 }

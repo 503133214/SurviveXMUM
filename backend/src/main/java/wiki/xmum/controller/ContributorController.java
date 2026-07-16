@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.*;
 import wiki.xmum.common.ApiResponse;
 import wiki.xmum.domain.vo.ContributorProfileVO;
 import wiki.xmum.domain.vo.ContributorVO;
+import wiki.xmum.domain.vo.PageContributorVO;
 import wiki.xmum.service.ContributorService;
 
 import java.util.List;
@@ -24,6 +25,11 @@ public class ContributorController {
     @GetMapping
     public ApiResponse<List<ContributorVO>> list(@RequestParam(required = false, defaultValue = "50") int limit) {
         return ApiResponse.ok(service.leaderboard(Math.max(1, Math.min(limit, 100))));
+    }
+
+    @GetMapping("/page")
+    public ApiResponse<List<PageContributorVO>> pageContributors(@RequestParam(required = false) String path) {
+        return ApiResponse.ok(service.pageContributors(path));
     }
 
     @GetMapping("/{id}")
