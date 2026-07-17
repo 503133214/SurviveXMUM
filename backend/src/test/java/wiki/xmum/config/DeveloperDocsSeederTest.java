@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import wiki.xmum.domain.po.WikiCategory;
 import wiki.xmum.domain.po.WikiPage;
 import wiki.xmum.mapper.WikiCategoryMapper;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,6 +38,20 @@ class DeveloperDocsSeederTest {
     @Mock private WikiCategoryMapper categoryMapper;
     @Mock private WikiPageMapper pageMapper;
     @Mock private PageVersionService pageVersionService;
+
+    @Test
+    void springSelectsTheProductionConstructorWhenTestConstructorAlsoExists() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(WikiCategoryMapper.class, () -> categoryMapper);
+            context.registerBean(WikiPageMapper.class, () -> pageMapper);
+            context.registerBean(PageVersionService.class, () -> pageVersionService);
+            context.register(DeveloperDocsSeeder.class);
+
+            context.refresh();
+
+            assertNotNull(context.getBean(DeveloperDocsSeeder.class));
+        }
+    }
 
     @Test
     void fillsKnownEmptyPlaceholderWithoutOverwritingExistingDocs() {

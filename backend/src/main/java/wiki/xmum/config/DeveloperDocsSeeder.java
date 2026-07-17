@@ -3,6 +3,7 @@ package wiki.xmum.config;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -60,6 +61,7 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
     private final PageVersionService pageVersionService;
     private final Map<String, Set<String>> replaceableBundledHashes;
 
+    @Autowired
     public DeveloperDocsSeeder(WikiCategoryMapper categoryMapper, WikiPageMapper pageMapper,
                                PageVersionService pageVersionService) {
         this(categoryMapper, pageMapper, pageVersionService, REPLACEABLE_BUNDLED_HASHES);
