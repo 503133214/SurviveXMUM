@@ -1,5 +1,6 @@
 package wiki.xmum.config;
 
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -12,6 +13,7 @@ import wiki.xmum.mapper.WikiCategoryMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.service.PageVersionService;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -169,6 +171,7 @@ class DeveloperDocsSeederTest {
     }
 
     @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
     void upgradesExactBundledContentOnceAndPreservesAdministratorMetadata() {
         WikiCategory category = category(9L);
         WikiPage overview = page(1066L, "api/api-overview", "# 自定义概览", 2);
@@ -185,6 +188,7 @@ class DeveloperDocsSeederTest {
         when(pageMapper.selectOne(any())).thenReturn(
                 overview, endpoints, development, null,
                 overview, endpoints, development, null);
+        when(pageMapper.update(isNull(), any())).thenReturn(1);
 
         DeveloperDocsSeeder managedSeeder = seeder(Map.of(
                 "api/endpoints", Set.of(
@@ -201,9 +205,44 @@ class DeveloperDocsSeederTest {
         assertEquals(88L, endpoints.getCategoryId());
         assertEquals("custom-category", endpoints.getCategorySlug());
         assertEquals(77, endpoints.getSortOrder());
-        verify(pageMapper, times(1)).updateById(endpoints);
+        ArgumentCaptor<UpdateWrapper> updateCaptor = ArgumentCaptor.forClass(UpdateWrapper.class);
+        verify(pageMapper, times(1)).update(isNull(), updateCaptor.capture());
+        String sqlSet = updateCaptor.getValue().getSqlSet();
+        Set<String> updatedColumns = Arrays.stream(sqlSet.split(","))
+                .map(assignment -> assignment.substring(0, assignment.indexOf('='))
+                        .replace("`", "").trim())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("content", "headings", "version"), updatedColumns);
+        String sqlWhere = updateCaptor.getValue().getSqlSegment();
+        assertTrue(sqlWhere.contains("id"));
+        assertTrue(sqlWhere.contains("path"));
+        assertTrue(sqlWhere.contains("status"));
+        assertTrue(sqlWhere.contains("deleted"));
+        assertTrue(sqlWhere.contains("version"));
+        assertTrue(sqlWhere.contains("CAST(`content` AS BINARY)"));
+        verify(pageMapper, never()).updateById(endpoints);
         verify(pageVersionService, times(1)).publish(eq(endpoints), eq("MIGRATION"),
                 isNull(), isNull(), eq("更新内置开发文档"), eq(Set.of()));
+    }
+
+    @Test
+    void managedUpgradeSkipsSnapshotWhenCompareAndSetLosesARace() {
+        WikiCategory category = category(9L);
+        WikiPage overview = page(1066L, "api/api-overview", "# 自定义概览", 2);
+        WikiPage endpoints = page(1067L, "api/endpoints", "abc", 4);
+        WikiPage development = page(1068L, "api/development", "# 自定义开发文档", 3);
+        when(categoryMapper.selectOne(any())).thenReturn(category);
+        when(pageMapper.selectOne(any())).thenReturn(overview, endpoints, development, null);
+        when(pageMapper.update(isNull(), any())).thenReturn(0);
+
+        seeder(Map.of("api/endpoints", Set.of(
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"))).run();
+
+        assertEquals("abc", endpoints.getContent());
+        assertEquals(4, endpoints.getVersion());
+        verify(pageMapper).update(isNull(), any());
+        verify(pageMapper, never()).updateById(endpoints);
+        verifyNoInteractions(pageVersionService);
     }
 
     @Test

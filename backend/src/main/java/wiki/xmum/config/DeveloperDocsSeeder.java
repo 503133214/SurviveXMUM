@@ -125,13 +125,16 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
                 replaceableBundledHashes.getOrDefault(seed.path(), Set.of()));
         if (!created && !isEmptyPlaceholder(page) && !managedUpgrade) return;
 
+        Integer storedVersion = created ? null : page.getVersion();
+        String storedContent = created ? null : page.getContent();
+
         if (created) {
             page = new WikiPage();
             page.setPath(seed.path());
             page.setSlug(seed.path().substring(seed.path().lastIndexOf('/') + 1));
             page.setViewCount(0);
             page.setVersion(0);
-        } else {
+        } else if (!managedUpgrade) {
             page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
         }
 
@@ -147,16 +150,53 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
             page.setStatus("PUBLISHED");
             page.setDeleted(0);
         }
-        page.setHeadings(JsonUtil.toJson(MarkdownUtil.collectHeadings(seed.content())));
-        page.setContent(seed.content());
+        String seededHeadings = JsonUtil.toJson(MarkdownUtil.collectHeadings(seed.content()));
 
-        if (created) pageMapper.insert(page);
-        else pageMapper.updateById(page);
+        if (created) {
+            page.setHeadings(seededHeadings);
+            page.setContent(seed.content());
+            pageMapper.insert(page);
+        } else if (managedUpgrade) {
+            int nextVersion = (storedVersion == null ? 0 : storedVersion) + 1;
+            int updated = updateManagedContent(page, storedVersion, storedContent,
+                    seed.content(), seededHeadings, nextVersion);
+            if (updated != 1) {
+                log.warn("开发文档 {} 在同步期间已变化，跳过内置内容更新", seed.path());
+                return;
+            }
+            page.setContent(seed.content());
+            page.setHeadings(seededHeadings);
+            page.setVersion(nextVersion);
+        } else {
+            page.setHeadings(seededHeadings);
+            page.setContent(seed.content());
+            pageMapper.updateById(page);
+        }
 
         pageVersionService.publish(page, "MIGRATION", null, null,
                 created ? "初始化公开开发文档"
                         : (managedUpgrade ? "更新内置开发文档" : "补充公开开发文档"), Set.of());
         log.info("已{}开发文档 {}", created ? "创建" : (managedUpgrade ? "更新" : "补充"), seed.path());
+    }
+
+    /**
+     * 托管升级使用列级 CAS：只写正文、目录和版本，并要求读到的公开状态、
+     * 删除状态、版本与正文仍未变化，避免与管理员编辑并发时写回陈旧元数据。
+     */
+    private int updateManagedContent(WikiPage page, Integer storedVersion, String storedContent,
+                                     String newContent, String newHeadings, int nextVersion) {
+        var update = Wrappers.<WikiPage>update()
+                .set("content", newContent)
+                .set("headings", newHeadings)
+                .set("version", nextVersion)
+                .eq("id", page.getId())
+                .eq("path", page.getPath())
+                .eq("status", "PUBLISHED")
+                .eq("deleted", 0)
+                .apply("CAST(`content` AS BINARY) = CAST({0} AS BINARY)", storedContent);
+        if (storedVersion == null) update.isNull("version");
+        else update.eq("version", storedVersion);
+        return pageMapper.update(null, update);
     }
 
     static boolean matchesBundledHash(String content, Set<String> acceptedHashes) {
