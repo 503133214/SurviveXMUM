@@ -12,6 +12,7 @@ import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.service.PageVersionService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -140,8 +141,77 @@ class DeveloperDocsSeederTest {
         assertTrue(DeveloperDocsSeeder.isEmptyPlaceholder(published));
     }
 
+    @Test
+    void bundledHashUpgradeOnlyMatchesExactPreviousContent() {
+        Set<String> knownHashes = Set.of(
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+        assertTrue(DeveloperDocsSeeder.matchesBundledHash("abc", knownHashes));
+        assertFalse(DeveloperDocsSeeder.matchesBundledHash("abc\n", knownHashes));
+        assertFalse(DeveloperDocsSeeder.matchesBundledHash("管理员自行修改", knownHashes));
+        assertFalse(DeveloperDocsSeeder.matchesBundledHash(null, knownHashes));
+    }
+
+    @Test
+    void upgradesExactBundledContentOnceAndPreservesAdministratorMetadata() {
+        WikiCategory category = category(9L);
+        WikiPage overview = page(1066L, "api/api-overview", "# 自定义概览", 2);
+        WikiPage endpoints = page(1067L, "api/endpoints", "abc", 4);
+        endpoints.setTitle("管理员自定义标题");
+        endpoints.setIcon("🧪");
+        endpoints.setDescription("管理员自定义简介");
+        endpoints.setTags("[\"custom\"]");
+        endpoints.setCategoryId(88L);
+        endpoints.setCategorySlug("custom-category");
+        endpoints.setSortOrder(77);
+        WikiPage development = page(1068L, "api/development", "# 自定义开发文档", 3);
+        when(categoryMapper.selectOne(any())).thenReturn(category);
+        when(pageMapper.selectOne(any())).thenReturn(
+                overview, endpoints, development, null,
+                overview, endpoints, development, null);
+
+        DeveloperDocsSeeder managedSeeder = seeder(Map.of(
+                "api/endpoints", Set.of(
+                        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")));
+        managedSeeder.run();
+        managedSeeder.run();
+
+        assertEquals(5, endpoints.getVersion());
+        assertTrue(endpoints.getContent().startsWith("# 接口参考"));
+        assertEquals("管理员自定义标题", endpoints.getTitle());
+        assertEquals("🧪", endpoints.getIcon());
+        assertEquals("管理员自定义简介", endpoints.getDescription());
+        assertEquals("[\"custom\"]", endpoints.getTags());
+        assertEquals(88L, endpoints.getCategoryId());
+        assertEquals("custom-category", endpoints.getCategorySlug());
+        assertEquals(77, endpoints.getSortOrder());
+        verify(pageMapper, times(1)).updateById(endpoints);
+        verify(pageVersionService, times(1)).publish(eq(endpoints), eq("MIGRATION"),
+                isNull(), isNull(), eq("更新内置开发文档"), eq(Set.of()));
+    }
+
+    @Test
+    void managedUpgradeNeverRepublishesDraftOrDeletedPage() {
+        Set<String> knownHashes = Set.of(
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        WikiPage published = page(1L, "api/endpoints", "abc", 1);
+        WikiPage draft = page(2L, "api/endpoints", "abc", 1);
+        draft.setStatus("DRAFT");
+        WikiPage deleted = page(3L, "api/endpoints", "abc", 1);
+        deleted.setDeleted(1);
+
+        assertTrue(DeveloperDocsSeeder.isManagedUpgradeCandidate(published, knownHashes));
+        assertFalse(DeveloperDocsSeeder.isManagedUpgradeCandidate(draft, knownHashes));
+        assertFalse(DeveloperDocsSeeder.isManagedUpgradeCandidate(deleted, knownHashes));
+    }
+
     private DeveloperDocsSeeder seeder() {
         return new DeveloperDocsSeeder(categoryMapper, pageMapper, pageVersionService);
+    }
+
+    private DeveloperDocsSeeder seeder(Map<String, Set<String>> replaceableBundledHashes) {
+        return new DeveloperDocsSeeder(categoryMapper, pageMapper, pageVersionService,
+                replaceableBundledHashes);
     }
 
     private static WikiCategory category(Long id) {

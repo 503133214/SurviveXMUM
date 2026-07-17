@@ -18,15 +18,20 @@ import wiki.xmum.util.MarkdownUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Safely fills the built-in developer documentation on existing installations.
  *
  * The Wiki is database-driven, so classpath Markdown cannot be served directly.
- * This seeder only updates the two known empty v0 placeholders, creates missing
- * built-in pages, and never overwrites later administrator edits.
+ * This seeder creates missing pages, fills known empty placeholders, and upgrades
+ * a page only while its content still exactly matches a previous bundled version.
+ * Administrator edits never match a bundled hash and are therefore preserved.
  */
 @Component
 @Order(20)
@@ -34,6 +39,11 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DeveloperDocsSeeder.class);
     private static final String CATEGORY_SLUG = "api";
+    private static final Map<String, Set<String>> REPLACEABLE_BUNDLED_HASHES = Map.of(
+            // Built-in content shipped before the page-contributor endpoint was documented.
+            "api/endpoints", Set.of("eb19a34834d423291af88dcd31d726fe3e5e9615f2d0ab2096db9a6256232781"),
+            "api/development", Set.of("d1d1e74eaa113c6d57e8b8cd6d6d7987969526e431f677955b7f2bd7c19e5eca")
+    );
     private static final String ORIGINAL_TEST_PLACEHOLDER = """
             # test3
             这是一篇test3文章
@@ -48,12 +58,20 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
     private final WikiCategoryMapper categoryMapper;
     private final WikiPageMapper pageMapper;
     private final PageVersionService pageVersionService;
+    private final Map<String, Set<String>> replaceableBundledHashes;
 
     public DeveloperDocsSeeder(WikiCategoryMapper categoryMapper, WikiPageMapper pageMapper,
                                PageVersionService pageVersionService) {
+        this(categoryMapper, pageMapper, pageVersionService, REPLACEABLE_BUNDLED_HASHES);
+    }
+
+    DeveloperDocsSeeder(WikiCategoryMapper categoryMapper, WikiPageMapper pageMapper,
+                        PageVersionService pageVersionService,
+                        Map<String, Set<String>> replaceableBundledHashes) {
         this.categoryMapper = categoryMapper;
         this.pageMapper = pageMapper;
         this.pageVersionService = pageVersionService;
+        this.replaceableBundledHashes = Map.copyOf(replaceableBundledHashes);
     }
 
     @Override
@@ -101,7 +119,9 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
         WikiPage page = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery()
                 .eq(WikiPage::getPath, seed.path()));
         boolean created = page == null;
-        if (!created && !isEmptyPlaceholder(page)) return;
+        boolean managedUpgrade = !created && isManagedUpgradeCandidate(page,
+                replaceableBundledHashes.getOrDefault(seed.path(), Set.of()));
+        if (!created && !isEmptyPlaceholder(page) && !managedUpgrade) return;
 
         if (created) {
             page = new WikiPage();
@@ -113,31 +133,58 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
             page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
         }
 
-        page.setCategoryId(categoryId);
-        page.setCategorySlug(CATEGORY_SLUG);
-        page.setTitle(seed.title());
-        page.setIcon(seed.icon());
-        page.setDescription(seed.description());
-        page.setTags(JsonUtil.toJson(seed.tags()));
+        // 托管升级只替换确实由内置资源管理的正文与目录，不覆盖管理员可能单独改过的元数据。
+        if (!managedUpgrade) {
+            page.setCategoryId(categoryId);
+            page.setCategorySlug(CATEGORY_SLUG);
+            page.setTitle(seed.title());
+            page.setIcon(seed.icon());
+            page.setDescription(seed.description());
+            page.setTags(JsonUtil.toJson(seed.tags()));
+            page.setSortOrder(seed.sortOrder());
+            page.setStatus("PUBLISHED");
+            page.setDeleted(0);
+        }
         page.setHeadings(JsonUtil.toJson(MarkdownUtil.collectHeadings(seed.content())));
         page.setContent(seed.content());
-        page.setSortOrder(seed.sortOrder());
-        page.setStatus("PUBLISHED");
-        page.setDeleted(0);
 
         if (created) pageMapper.insert(page);
         else pageMapper.updateById(page);
 
         pageVersionService.publish(page, "MIGRATION", null, null,
-                created ? "初始化公开开发文档" : "补充公开开发文档", Set.of());
-        log.info("已{}开发文档 {}", created ? "创建" : "补充", seed.path());
+                created ? "初始化公开开发文档"
+                        : (managedUpgrade ? "更新内置开发文档" : "补充公开开发文档"), Set.of());
+        log.info("已{}开发文档 {}", created ? "创建" : (managedUpgrade ? "更新" : "补充"), seed.path());
+    }
+
+    static boolean matchesBundledHash(String content, Set<String> acceptedHashes) {
+        if (content == null || acceptedHashes == null || acceptedHashes.isEmpty()) return false;
+        return acceptedHashes.contains(sha256(content));
+    }
+
+    static boolean isManagedUpgradeCandidate(WikiPage page, Set<String> acceptedHashes) {
+        return isPublicPage(page) && matchesBundledHash(page.getContent(), acceptedHashes);
+    }
+
+    private static String sha256(String content) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(content.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("当前 JRE 不支持 SHA-256", e);
+        }
     }
 
     static boolean isEmptyPlaceholder(WikiPage page) {
         int version = page.getVersion() == null ? 0 : page.getVersion();
-        boolean publicPage = "PUBLISHED".equals(page.getStatus())
+        return isPublicPage(page) && version == 0
+                && (page.getContent() == null || page.getContent().isBlank());
+    }
+
+    private static boolean isPublicPage(WikiPage page) {
+        return page != null && "PUBLISHED".equals(page.getStatus())
                 && (page.getDeleted() == null || page.getDeleted() == 0);
-        return publicPage && version == 0 && (page.getContent() == null || page.getContent().isBlank());
     }
 
     /**
