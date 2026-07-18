@@ -212,5 +212,15 @@ export default {
 @media (max-width: 768px) {
   .afp-head { align-items: flex-start; }
   .afp-filter { width: 100%; }
+  .afp-filter :deep(.el-select),
+  .afp-filter :deep(.el-input),
+  .afp-filter :deep(.el-button) {
+    width: 100% !important;
+    margin-inline: 0;
+  }
+  .afp-detail .afp-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
 }
 </style>

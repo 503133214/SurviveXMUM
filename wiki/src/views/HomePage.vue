@@ -473,9 +473,33 @@ html.dark .hero-logo { filter: brightness(0) invert(1); }
 }
 
 @media (max-width: 640px) {
-  .hero { padding: 64px 20px 48px; }
+  .hero { padding: 58px 16px 44px; }
+  .hero-logo { width: 72px; margin-bottom: 22px; }
+  .hero-title { font-size: clamp(2.55rem, 14vw, 3.6rem); }
+  .hero-sub { font-size: 1rem; margin-bottom: 28px; }
+  .hero-actions { gap: 10px; }
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding-inline: 18px;
+  }
+  .block { padding: 32px 16px 48px; }
+  .block-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 24px;
+    padding-bottom: 15px;
+  }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .pop-row { gap: 10px; padding: 14px 4px; }
+  .pop-views { font-size: .78rem; }
   .news-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
   .news-date { grid-column: 1 / -1; order: 3; }
   .news-go { display: none; }
+  .news-cat { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cta { padding: 60px 16px 68px; }
+  .cta p { font-size: 1rem; }
+  .foot { padding: 26px 16px; }
 }
 </style>

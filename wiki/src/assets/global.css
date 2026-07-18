@@ -120,6 +120,20 @@ body {
   background-color: var(--bg-page);
 }
 
+/* 路由页面是 #app 纵向 flex 的直接子项。带 auto margin 的页面若没有显式宽度，
+   会按内容收缩成窄列；统一让所有页面占满可用宽度。 */
+#app > :not(.site-header) {
+  width: 100%;
+  min-width: 0;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
 /* 链接样式 */
 a {
   color: var(--brand-blue);
@@ -280,3 +294,21 @@ a:hover {
 .el-dialog { max-width: calc(100vw - 24px); }
 .el-message-box { max-width: calc(100vw - 24px); }
 .el-drawer.ltr, .el-drawer.rtl { max-width: 92vw; }
+.el-message {
+  min-width: 0;
+  max-width: calc(100vw - 24px);
+}
+
+@media (max-width: 640px) {
+  .el-dialog { margin-top: max(12px, env(safe-area-inset-top)) !important; }
+  .el-dialog__header { padding: 16px 18px 10px; }
+  .el-dialog__body { padding: 14px 18px 18px; }
+  .el-dialog__footer { padding: 10px 18px 16px; }
+  .el-message-box { width: calc(100vw - 24px); padding: 16px; }
+  .el-pagination {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 8px;
+  }
+}

@@ -391,6 +391,14 @@ export default {
 
 @media (max-width: 640px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }
+  .filters > .btn-ghost { width: 100%; margin: 0; }
   .form-row { grid-template-columns: 1fr; gap: 0; }
+}
+@media (max-width: 480px) {
+  .panel-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel-head .btn-solid { width: 100%; }
 }
 </style>

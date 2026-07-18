@@ -117,4 +117,20 @@ export default {
 .acp-note { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; }
 .acp-icon { font-size: 20px; }
 .acp-hint { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 640px) {
+  .acp-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .acp-head h1 { font-size: 1.25rem; }
+  .acp-note {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .acp-hint {
+    display: block;
+    width: 100%;
+    margin: 6px 0 0;
+  }
+}
 </style>

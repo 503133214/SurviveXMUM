@@ -132,4 +132,20 @@ export default {
 .awp-avatar { display: flex; align-items: center; gap: 12px; }
 .awp-hint { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
 .muted { color: var(--text-muted); }
+@media (max-width: 640px) {
+  .awp-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .awp-head h1 { font-size: 1.25rem; }
+  .awp-avatar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .awp-hint {
+    display: block;
+    width: 100%;
+    margin: 6px 0 0;
+  }
+}
 </style>

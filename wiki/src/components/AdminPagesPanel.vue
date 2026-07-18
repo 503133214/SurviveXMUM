@@ -414,8 +414,17 @@ export default {
 
 @media (max-width: 860px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }
+  .filters > .btn-ghost { width: 100%; margin: 0; }
   .meta, .editor-grid { grid-template-columns: 1fr; }
   .editor-grid { height: auto; }
   .pane { min-height: 360px; }
+}
+@media (max-width: 480px) {
+  .panel-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel-head .btn-solid { width: 100%; }
+  .pane { min-height: 300px; }
 }
 </style>

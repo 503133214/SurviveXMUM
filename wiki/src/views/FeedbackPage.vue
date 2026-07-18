@@ -221,6 +221,7 @@ export default {
 
 <style scoped>
 .feedback-page {
+  width: 100%;
   max-width: 800px;
   margin: 20px auto;
   padding: 0 20px;
@@ -257,7 +258,7 @@ export default {
 
 .feedback-content {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
   white-space: pre-wrap;
 }
@@ -265,23 +266,28 @@ export default {
 .feedback-reply {
   margin-top: 16px;
   padding: 12px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-subtle);
   border-radius: 8px;
 }
 
 .feedback-reply p {
   margin: 0 0 8px;
-  color: #333;
+  color: var(--text-body);
   line-height: 1.6;
 }
 
 .reply-time {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--text-muted);
 }
 
 /* 移动端：标签置顶、输入框占满整行（左侧 100px 标签太挤） */
 @media (max-width: 640px) {
+  .feedback-page { margin: 14px auto; padding: 0 12px 36px; }
+  .feedback-card,
+  .feedback-list-card { border-radius: var(--radius); }
+  .feedback-page :deep(.el-card__header) { padding: 15px 16px; }
+  .feedback-page :deep(.el-card__body) { padding: 16px; }
   .feedback-page :deep(.el-form-item) { display: block; }
   .feedback-page :deep(.el-form-item__label) {
     display: block;
@@ -290,5 +296,16 @@ export default {
     margin-bottom: 4px;
   }
   .feedback-page :deep(.el-form-item__content) { margin-left: 0 !important; }
+  .feedback-page :deep(.el-radio-group) { gap: 4px 10px; }
+  .feedback-page :deep(.el-radio) { margin-right: 4px; }
+  .feedback-page :deep(.el-rate) {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .feedback-page :deep(.el-timeline) { padding-left: 10px; }
+  .feedback-item-header { align-items: flex-start; gap: 10px; }
+  .feedback-item-header h4 { min-width: 0; overflow-wrap: anywhere; }
 }
 </style>

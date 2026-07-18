@@ -112,5 +112,15 @@ export default {
 .aap-pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 @media (max-width: 768px) {
   .aap-kw { width: 100%; }
+  .aap-filter :deep(.el-date-editor),
+  .aap-filter :deep(.el-select),
+  .aap-filter :deep(.el-button) {
+    width: 100% !important;
+    margin-inline: 0;
+  }
+  .aap-pager { justify-content: center; }
+}
+@media (max-width: 420px) {
+  .aap-pager :deep(.el-pagination__total) { display: none; }
 }
 </style>

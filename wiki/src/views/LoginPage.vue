@@ -257,7 +257,7 @@ html.dark .auth-logo { filter: brightness(0) invert(1); }
   padding-bottom: 4px;
 }
 .code-row { display: flex; gap: 10px; width: 100%; }
-.code-row .el-input { flex: 1; }
+.code-row .el-input { flex: 1; min-width: 0; }
 .code-btn {
   flex-shrink: 0;
   white-space: nowrap;
@@ -304,5 +304,14 @@ html.dark .auth-logo { filter: brightness(0) invert(1); }
   color: var(--text-muted);
   text-align: center;
   line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .auth-page { min-height: calc(100dvh - var(--header-height)); padding: 32px 12px 48px; }
+  .auth-card { padding: 30px 18px; border-radius: 20px; }
+  .auth-logo { height: 38px; margin-bottom: 14px; }
+  .auth-title { font-size: 1.4rem; }
+  .code-row { gap: 7px; }
+  .code-btn { padding-inline: 11px; font-size: 12.5px; }
 }
 </style>

@@ -523,6 +523,16 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
   .search-container { max-width: none; padding: 0 10px; }
   .logo-text { font-size: 17px; }
 }
+
+@media (max-width: 420px) {
+  .site-header { gap: 3px; padding: 0 8px; }
+  .logo-img { height: 22px; }
+  .search-container { min-width: 0; padding: 0 5px; }
+  .search-container :deep(.kbd) { display: none; }
+  .mobile-nav { gap: 2px; }
+  .theme-toggle,
+  .bell-btn { width: 34px; height: 34px; }
+}
 </style>
 
 <style>

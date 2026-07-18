@@ -617,5 +617,15 @@ export default {
   .doc-main-content { padding: 16px 8px 50px; }
   .doc-title { font-size: 1.7rem; }
   .doc-pager { grid-template-columns: 1fr; }
+  .doc-breadcrumb,
+  .doc-header,
+  .doc-pager { padding-inline: 8px; }
+  .doc-meta { gap: 10px 14px; }
+  .mobile-menu-toggle {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 14px;
+    width: 46px;
+    height: 46px;
+  }
 }
 </style>

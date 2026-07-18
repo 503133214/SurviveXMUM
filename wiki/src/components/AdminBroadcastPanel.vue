@@ -72,4 +72,32 @@ export default {
   background: var(--bg-surface);
 }
 .abp-result { margin-left: 12px; color: var(--text-muted); font-size: 13px; }
+@media (max-width: 640px) {
+  .abp-card {
+    max-width: none;
+    padding: 18px 14px;
+  }
+  .abp-card :deep(.el-form-item) {
+    display: block;
+  }
+  .abp-card :deep(.el-form-item__label) {
+    width: auto !important;
+    height: auto;
+    margin-bottom: 7px;
+    line-height: 1.4;
+  }
+  .abp-card :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+  .abp-card :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
+  .abp-result {
+    display: block;
+    width: 100%;
+    margin: 10px 0 0;
+    overflow-wrap: anywhere;
+  }
+}
 </style>

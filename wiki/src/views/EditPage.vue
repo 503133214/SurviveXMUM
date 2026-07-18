@@ -1068,6 +1068,13 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
 }
 
 @media (max-width: 640px) {
+  .edit-page { padding: 20px 14px 48px; }
+  .meta-grid { gap: 13px; padding: 14px; }
+  .field.span2 { grid-column: auto; }
+  .editor-grid { gap: 12px; }
+  .pane { min-height: 320px; }
+  .md-input { padding: 14px; }
+  .md-preview { padding: 16px 14px; }
   .pane-head { align-items: flex-start; gap: 8px; }
   .pane-tools { gap: 6px; }
   .upload-progress, .pane-hint { display: none; }
@@ -1078,5 +1085,6 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   .edit-actions .btn-solid,
   .edit-actions .btn-ghost { flex: 1 1 auto; padding: 10px 8px; white-space: nowrap; }
   .draft-saved-hint { width: 100%; order: -1; }
+  .draft-list li { align-items: flex-start; flex-wrap: wrap; }
 }
 </style>

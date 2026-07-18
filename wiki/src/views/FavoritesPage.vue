@@ -140,6 +140,7 @@ export default {
 
 <style scoped>
 .fav-page {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px 64px;
@@ -243,5 +244,14 @@ export default {
   .fav-page { padding: 20px 14px 48px; }
   .fav-header h1 { font-size: 1.5rem; }
   .card-grid { grid-template-columns: 1fr; gap: 12px; }
+  .hist-bar { align-items: flex-start; gap: 10px; }
+  .grid-card { min-height: 122px; padding: 16px; }
+  .gc-foot { align-items: flex-end; }
+  .gc-time { line-height: 1.45; }
+}
+
+@media (max-width: 360px) {
+  .hist-bar { flex-direction: column; }
+  .hist-bar :deep(.el-button) { margin-left: 0; padding-left: 0; }
 }
 </style>
