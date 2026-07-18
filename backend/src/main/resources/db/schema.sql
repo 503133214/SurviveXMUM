@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS `wiki_page` (
   `author_id`    BIGINT       DEFAULT NULL,
   `view_count`   INT          NOT NULL DEFAULT 0,
   `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- 文章更新时间只代表公开内容变化；浏览量等统计字段更新时不得自动刷新。
+  `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_page_path` (`path`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

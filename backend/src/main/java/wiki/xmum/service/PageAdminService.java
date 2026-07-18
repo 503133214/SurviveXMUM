@@ -19,6 +19,7 @@ import wiki.xmum.security.AuthUser;
 import wiki.xmum.util.JsonUtil;
 import wiki.xmum.util.MarkdownUtil;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -160,6 +161,9 @@ public class PageAdminService {
                 || !Objects.equals(oldContent, p.getContent())
                 || !Objects.equals(oldStatus, p.getStatus());
         p.setVersion(publicStateChanged ? current + 1 : current);
+        if (publicStateChanged) {
+            p.setUpdatedAt(LocalDateTime.now());
+        }
         pageMapper.updateById(p);
         if (publicStateChanged) {
             String sourceType = wasPublished ? "ADMIN_UPDATE" : "ADMIN_PUBLISH";
@@ -189,6 +193,7 @@ public class PageAdminService {
         p.setDeleted(0);
         if ("PUBLISHED".equals(p.getStatus())) {
             p.setVersion((p.getVersion() == null ? 0 : p.getVersion()) + 1);
+            p.setUpdatedAt(LocalDateTime.now());
         }
         pageMapper.updateById(p);
         pageVersionService.publish(p, "ADMIN_RESTORE", null, actor.getId(),

@@ -15,8 +15,12 @@ import wiki.xmum.mapper.WikiDraftMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.security.AuthUser;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,6 +41,7 @@ class PageAdminServiceTest {
     @Test
     void sortOnlyUpdateDoesNotCreatePublicVersionOrNotifyFollowers() {
         WikiPage page = page();
+        LocalDateTime originalUpdatedAt = page.getUpdatedAt();
         PageUpsertDTO dto = new PageUpsertDTO();
         dto.setVersion(2);
         dto.setSortOrder(99);
@@ -46,8 +51,27 @@ class PageAdminServiceTest {
 
         assertEquals(2, page.getVersion());
         assertEquals(99, page.getSortOrder());
+        assertEquals(originalUpdatedAt, page.getUpdatedAt());
         verify(pageMapper).updateById(page);
         verify(pageVersionService, never()).publish(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void contentUpdateRefreshesArticleTimestamp() {
+        WikiPage page = page();
+        LocalDateTime originalUpdatedAt = page.getUpdatedAt();
+        PageUpsertDTO dto = new PageUpsertDTO();
+        dto.setVersion(2);
+        dto.setContent("new content");
+        when(pageMapper.selectById(10L)).thenReturn(page);
+
+        service().update(10L, dto, actor());
+
+        assertEquals(3, page.getVersion());
+        assertNotNull(page.getUpdatedAt());
+        assertTrue(page.getUpdatedAt().isAfter(originalUpdatedAt));
+        verify(pageVersionService).publish(page, "ADMIN_UPDATE", null, 99L,
+                "管理员更新页面", java.util.Set.of(99L));
     }
 
     @Test
@@ -98,6 +122,7 @@ class PageAdminServiceTest {
         page.setStatus("PUBLISHED");
         page.setDeleted(0);
         page.setVersion(2);
+        page.setUpdatedAt(LocalDateTime.of(2026, 1, 1, 0, 0));
         return page;
     }
 }

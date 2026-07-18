@@ -316,6 +316,7 @@ public class RevisionService {
             page.setStatus("PUBLISHED");
             page.setDeleted(0);
             page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
+            page.setUpdatedAt(LocalDateTime.now());
             pageMapper.updateById(page);
             return page;
         }
@@ -474,6 +475,7 @@ public class RevisionService {
         page.setStatus("PUBLISHED");
         page.setDeleted(0);
         page.setVersion((page.getVersion() == null ? 0 : page.getVersion()) + 1);
+        page.setUpdatedAt(LocalDateTime.now());
         pageMapper.updateById(page);
     }
 

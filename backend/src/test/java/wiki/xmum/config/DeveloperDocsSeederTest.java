@@ -212,7 +212,7 @@ class DeveloperDocsSeederTest {
                 .map(assignment -> assignment.substring(0, assignment.indexOf('='))
                         .replace("`", "").trim())
                 .collect(Collectors.toSet());
-        assertEquals(Set.of("content", "headings", "version"), updatedColumns);
+        assertEquals(Set.of("content", "headings", "version", "updated_at"), updatedColumns);
         String sqlWhere = updateCaptor.getValue().getSqlSegment();
         assertTrue(sqlWhere.contains("id"));
         assertTrue(sqlWhere.contains("path"));

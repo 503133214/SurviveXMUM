@@ -135,7 +135,8 @@ public class WikiContentService {
         if (track) {
             try {
                 pageMapper.update(null, Wrappers.<WikiPage>lambdaUpdate()
-                        .setSql("view_count = view_count + 1")
+                        // 显式保留更新时间，兼容尚未执行 v10 迁移的数据库。
+                        .setSql("view_count = view_count + 1, updated_at = updated_at")
                         .eq(WikiPage::getId, p.getId()));
             } catch (Exception ignore) {
                 // 计数非关键，失败不影响正文返回

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -158,8 +159,9 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
             pageMapper.insert(page);
         } else if (managedUpgrade) {
             int nextVersion = (storedVersion == null ? 0 : storedVersion) + 1;
+            LocalDateTime updatedAt = LocalDateTime.now();
             int updated = updateManagedContent(page, storedVersion, storedContent,
-                    seed.content(), seededHeadings, nextVersion);
+                    seed.content(), seededHeadings, nextVersion, updatedAt);
             if (updated != 1) {
                 log.warn("开发文档 {} 在同步期间已变化，跳过内置内容更新", seed.path());
                 return;
@@ -167,9 +169,11 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
             page.setContent(seed.content());
             page.setHeadings(seededHeadings);
             page.setVersion(nextVersion);
+            page.setUpdatedAt(updatedAt);
         } else {
             page.setHeadings(seededHeadings);
             page.setContent(seed.content());
+            page.setUpdatedAt(LocalDateTime.now());
             pageMapper.updateById(page);
         }
 
@@ -184,11 +188,13 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
      * 删除状态、版本与正文仍未变化，避免与管理员编辑并发时写回陈旧元数据。
      */
     private int updateManagedContent(WikiPage page, Integer storedVersion, String storedContent,
-                                     String newContent, String newHeadings, int nextVersion) {
+                                     String newContent, String newHeadings, int nextVersion,
+                                     LocalDateTime updatedAt) {
         var update = Wrappers.<WikiPage>update()
                 .set("content", newContent)
                 .set("headings", newHeadings)
                 .set("version", nextVersion)
+                .set("updated_at", updatedAt)
                 .eq("id", page.getId())
                 .eq("path", page.getPath())
                 .eq("status", "PUBLISHED")
