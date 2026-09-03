@@ -10,7 +10,7 @@ SurviveXMUM 是一个旨在帮助厦门大学马来西亚分校（Xiamen Univers
 
 - **前端**：Vue 3 + Vite + Element Plus
 - **后端**：Spring Boot 3 + MySQL + Redis + MinIO（图片存储），JWT 鉴权
-- **部署**：Docker Compose
+- **部署**：Docker Compose，运维步骤见 [`DEPLOY.md`](DEPLOY.md)
 
 ## 如何贡献内容（推荐：直接在网站上）
 内容不再通过 GitHub 上的 Markdown 文件维护，而是**直接在网站上完成**：
