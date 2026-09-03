@@ -18,6 +18,7 @@
       <AdminPagesPanel v-if="activeSection === 'pages'" />
       <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
       <AdminFeedbackPanel v-else-if="activeSection === 'feedback'" />
+      <AdminCommentsPanel v-else-if="activeSection === 'comments'" />
       <AdminWallPanel v-else-if="activeSection === 'wall' && isSuperAdmin" />
       <AdminCategoriesPanel v-else-if="activeSection === 'categories' && isSuperAdmin" />
       <AdminBroadcastPanel v-else-if="activeSection === 'broadcast' && isSuperAdmin" />
@@ -200,12 +201,13 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Tickets, User, ChatDotRound, Trophy, FolderOpened, Bell, List } from '@element-plus/icons-vue'
+import { Document, Tickets, User, ChatDotRound, ChatLineSquare, Trophy, FolderOpened, Bell, List } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
 import AdminFeedbackPanel from '@/components/AdminFeedbackPanel.vue'
+import AdminCommentsPanel from '@/components/AdminCommentsPanel.vue'
 import AdminWallPanel from '@/components/AdminWallPanel.vue'
 import AdminCategoriesPanel from '@/components/AdminCategoriesPanel.vue'
 import AdminBroadcastPanel from '@/components/AdminBroadcastPanel.vue'
@@ -225,6 +227,7 @@ export default {
     AdminPagesPanel: markRaw(AdminPagesPanel),
     AdminUsersPanel: markRaw(AdminUsersPanel),
     AdminFeedbackPanel: markRaw(AdminFeedbackPanel),
+    AdminCommentsPanel: markRaw(AdminCommentsPanel),
     AdminWallPanel: markRaw(AdminWallPanel),
     AdminCategoriesPanel: markRaw(AdminCategoriesPanel),
     AdminBroadcastPanel: markRaw(AdminBroadcastPanel),
@@ -260,6 +263,7 @@ export default {
         { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
         { key: 'pages', label: '页面管理', icon: markRaw(Document) },
         { key: 'feedback', label: '反馈管理', icon: markRaw(ChatDotRound) },
+        { key: 'comments', label: '评论管理', icon: markRaw(ChatLineSquare) },
       ]
       // 以下仅超级管理员可见
       if (this.isSuperAdmin) {

@@ -71,6 +71,7 @@ https://surivivexmum.wiki/api
 | `GET` | `/wiki/page` | query: `path?=README`, `track?=false` | `PageDetailVO`，含 Markdown 正文 |
 | `GET` | `/wiki/page/revisions` | query: `path` | `PublicPageRevisionVO[]`，列表不含正文 |
 | `GET` | `/wiki/page/revisions/{id}` | path: 版本 ID | `PublicPageRevisionVO`，含前后正文与变更字段 |
+| `GET` | `/wiki/comments` | query: `path` | `CommentVO[]`，该页讨论串 |
 
 公开内容只包含 `PUBLISHED` 且未删除的页面。`track=true` 会增加浏览量，不适合缓存预热或批量同步。
 
@@ -242,6 +243,19 @@ curl -X POST \
 
 `type` 常用值为 `bug`、`feature`、`ui`、`other`。
 
+### 讨论区
+
+| 方法 | 路径 | 请求 | 返回 |
+|---|---|---|---|
+| `POST` | `/comments` | `{path, content, parentId?}` | `{id}` |
+| `DELETE` | `/comments/{id}` | path: 本人的评论 ID | `null` |
+
+正文最多 1000 字。同一用户两条评论至少间隔 15 秒，5 分钟内不能在同一页重复发送完全相同的内容，否则返回业务码 `400`。
+
+`parentId` 指向被回复的那条评论，可以是主楼也可以是楼中回复；服务端始终把新评论挂到该楼的主楼下，因此讨论只有两层。回复他人时会给被回复者写入 `COMMENT_REPLY` 站内通知，回复自己不通知。
+
+自删是软删除（`status=DELETED`），主楼下若还有可见回复会保留一个不含作者信息的占位，避免回复变成孤儿。
+
 ## 管理员接口
 
 管理员接口会修改公开内容或审核状态。自动化工具应先读取详情和版本号，不要对生产数据进行试调用。
@@ -293,6 +307,15 @@ curl -X POST \
 | `POST` | `/admin/feedback/{id}/reply` | `{reply, status}` | `null` |
 
 反馈状态使用小写：`pending`、`processing`、`resolved`、`rejected`。
+
+### 评论管理
+
+| 方法 | 路径 | 请求 | 返回 |
+|---|---|---|---|
+| `GET` | `/admin/comments` | query: `status?`, `path?`, `keyword?`, `page=1`, `size=20` | `PageResult<AdminCommentVO>` |
+| `POST` | `/admin/comments/{id}/status` | `{status, reason?}` | `null` |
+
+`status` 取 `VISIBLE`（恢复显示）或 `HIDDEN`（隐藏），其余值返回业务码 `400`；作者已自删的评论不能再隐藏。隐藏理由最多 200 字，会随 `COMMENT_HIDDEN` 通知发给作者。两种操作都会写入审计日志（`COMMENT_HIDE` / `COMMENT_SHOW`）。
 
 ## 超级管理员接口
 
@@ -354,6 +377,7 @@ curl -X POST \
 | `POST` | `/admin/broadcast` | `{title, content, link?}` | `{sent}` |
 | `GET` | `/admin/audit` | query: `from?`, `to?`, `keyword?`, `action?`, `page=1`, `size=20` | `PageResult<AuditVO>` |
 | `DELETE` | `/admin/feedback/{id}` | 物理删除反馈 | `null` |
+| `DELETE` | `/admin/comments/{id}` | 物理删除评论，删主楼会连带楼中回复 | `null` |
 | `DELETE` | `/admin/page/{id}/purge` | 页面须已在回收站 | `null` |
 | `DELETE` | `/admin/page-version/{id}` | 不能删除当前版本 | `null` |
 

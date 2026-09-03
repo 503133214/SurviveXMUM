@@ -36,6 +36,7 @@ class PageAdminServiceTest {
     @Mock private UserFavoriteMapper favoriteMapper;
     @Mock private UserViewHistoryMapper historyMapper;
     @Mock private WikiDraftMapper draftMapper;
+    @Mock private wiki.xmum.mapper.PageCommentMapper commentMapper;
     @Mock private PageVersionService pageVersionService;
 
     @Test
@@ -103,7 +104,7 @@ class PageAdminServiceTest {
 
     private PageAdminService service() {
         return new PageAdminService(pageMapper, categoryMapper, userMapper, auditService,
-                favoriteMapper, historyMapper, draftMapper, pageVersionService);
+                favoriteMapper, historyMapper, draftMapper, commentMapper, pageVersionService);
     }
 
     private static AuthUser actor() {

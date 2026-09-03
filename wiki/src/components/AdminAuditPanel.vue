@@ -67,6 +67,9 @@ const ACTION_LABELS = {
   CATEGORY_UPDATE: '编辑分类',
   CATEGORY_DELETE: '删除分类',
   BROADCAST: '发布公告',
+  COMMENT_HIDE: '隐藏评论',
+  COMMENT_SHOW: '恢复评论',
+  COMMENT_DELETE: '删除评论',
 }
 
 export default {

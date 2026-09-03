@@ -35,6 +35,7 @@ public class PageAdminService {
     private final wiki.xmum.mapper.UserFavoriteMapper favoriteMapper;
     private final wiki.xmum.mapper.UserViewHistoryMapper historyMapper;
     private final wiki.xmum.mapper.WikiDraftMapper draftMapper;
+    private final wiki.xmum.mapper.PageCommentMapper commentMapper;
     private final PageVersionService pageVersionService;
 
     public PageAdminService(WikiPageMapper pageMapper, WikiCategoryMapper categoryMapper,
@@ -42,6 +43,7 @@ public class PageAdminService {
                             wiki.xmum.mapper.UserFavoriteMapper favoriteMapper,
                             wiki.xmum.mapper.UserViewHistoryMapper historyMapper,
                             wiki.xmum.mapper.WikiDraftMapper draftMapper,
+                            wiki.xmum.mapper.PageCommentMapper commentMapper,
                             PageVersionService pageVersionService) {
         this.pageMapper = pageMapper;
         this.categoryMapper = categoryMapper;
@@ -50,6 +52,7 @@ public class PageAdminService {
         this.favoriteMapper = favoriteMapper;
         this.historyMapper = historyMapper;
         this.draftMapper = draftMapper;
+        this.commentMapper = commentMapper;
         this.pageVersionService = pageVersionService;
     }
 
@@ -219,11 +222,14 @@ public class PageAdminService {
         // 指向该页的编辑草稿一并清掉：页面已永久删除，这些草稿永远无法提交
         int drafts = draftMapper.delete(Wrappers.<wiki.xmum.domain.po.WikiDraft>lambdaQuery()
                 .eq(wiki.xmum.domain.po.WikiDraft::getTargetPath, p.getPath()));
+        // 讨论区同理：页面没了，评论只会指向 404
+        int comments = commentMapper.delete(Wrappers.<wiki.xmum.domain.po.PageComment>lambdaQuery()
+                .eq(wiki.xmum.domain.po.PageComment::getPageId, id));
         int versions = pageVersionService.purgePageVersions(id);
         pageMapper.deleteById(id);
         auditService.log("PAGE_PURGE", "PAGE", id,
                 "彻底删除页面 " + p.getPath() + "（清理收藏 " + favs + "、历史 " + hists
-                        + "、草稿 " + drafts + "、版本 " + versions + "）");
+                        + "、草稿 " + drafts + "、评论 " + comments + "、版本 " + versions + "）");
     }
 
     private Long ensureCategory(String slug) {

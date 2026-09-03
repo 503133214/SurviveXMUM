@@ -125,6 +125,8 @@
               <span class="pager-title">{{ next.icon }} {{ next.title }}</span>
             </button>
           </nav>
+
+          <PageComments v-if="!errorLoading" :doc-path="docPath" />
           </div>
         </template>
       </div>
@@ -141,6 +143,7 @@
 <script>
 import { markRaw } from "vue";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
+import PageComments from "@/components/PageComments.vue";
 import PageContributors from "@/components/PageContributors.vue";
 import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
@@ -170,6 +173,7 @@ export default {
   name: "DocPage",
   components: {
     MarkdownRenderer,
+    PageComments,
     PageContributors,
     PageRevisionHistory,
     Sidebar,

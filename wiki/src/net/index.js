@@ -313,6 +313,30 @@ function recordHistory(path, success = () => {}, failure = () => {}) {
     internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
 }
 
+// ---- 文档页讨论区 ----
+function listComments(path, success, failure = defaultFailure) {
+    const url = `/wiki/comments?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '讨论加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function postComment(payload, success, failure = defaultFailure) {
+    const url = '/comments'
+    internalPost(url, payload, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '发表失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function deleteComment(id, success, failure = defaultFailure) {
+    remove(`/comments/${id}`, success, failure)
+}
+function adminListComments(query, success, failure = defaultFailure) {
+    get(`/admin/comments?${queryString(query)}`, success, failure)
+}
+function adminSetCommentStatus(id, payload, success, failure = defaultFailure) {
+    post(`/admin/comments/${id}/status`, payload, success, failure)
+}
+function adminPurgeComment(id, success, failure = defaultFailure) {
+    remove(`/admin/comments/${id}`, success, failure)
+}
+
 // ---- 页面公开版本历史 ----
 function getPageRevisionHistory(path, success, failure = defaultFailure) {
     const url = `/wiki/page/revisions?path=${encodeURIComponent(path)}`
@@ -423,6 +447,7 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     getNotifications,getUnreadCount,readNotification,readAllNotifications,
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
     getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
+    listComments,postComment,deleteComment,adminListComments,adminSetCommentStatus,adminPurgeComment,
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,getPageContributors,
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,

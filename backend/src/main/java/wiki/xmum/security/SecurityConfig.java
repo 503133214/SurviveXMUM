@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .requestMatchers("/login", "/register", "/send/code", "/password/reset").permitAll()
                 // 公开：wiki 内容只读
                 .requestMatchers(HttpMethod.GET, "/wiki/manifest", "/wiki/page",
-                        "/wiki/page/revisions", "/wiki/page/revisions/**").permitAll()
+                        "/wiki/page/revisions", "/wiki/page/revisions/**", "/wiki/comments").permitAll()
                 // 公开：贡献榜 / 贡献者主页 / 致谢墙（只读）
                 .requestMatchers(HttpMethod.GET, "/contributors", "/contributors/**", "/wall").permitAll()
                 // 健康检查

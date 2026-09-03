@@ -42,8 +42,11 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DeveloperDocsSeeder.class);
     private static final String CATEGORY_SLUG = "api";
     private static final Map<String, Set<String>> REPLACEABLE_BUNDLED_HASHES = Map.of(
-            // Built-in content shipped before the page-contributor endpoint was documented.
-            "api/endpoints", Set.of("eb19a34834d423291af88dcd31d726fe3e5e9615f2d0ab2096db9a6256232781"),
+            // Built-in content shipped before the page-contributor endpoint was documented,
+            // and before the discussion (comment) endpoints were documented.
+            "api/endpoints", Set.of(
+                    "eb19a34834d423291af88dcd31d726fe3e5e9615f2d0ab2096db9a6256232781",
+                    "5dff0c9da7dd753e54e97dfc210f66eb06deae80f4f31c576846f1bf67d33b3a"),
             "api/development", Set.of("d1d1e74eaa113c6d57e8b8cd6d6d7987969526e431f677955b7f2bd7c19e5eca")
     );
     private static final String ORIGINAL_TEST_PLACEHOLDER = """
