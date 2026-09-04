@@ -102,6 +102,34 @@ class PageAdminServiceTest {
                 "管理员恢复页面", java.util.Set.of(99L));
     }
 
+    @Test
+    void updateValidatesTitleInsteadOfLettingTheDatabaseReject() {
+        WikiPage page = page();
+        when(pageMapper.selectById(10L)).thenReturn(page);
+        PageUpsertDTO dto = new PageUpsertDTO();
+        dto.setVersion(2);
+        dto.setTitle("长".repeat(300));   // 超过 title 列的 200 字上限
+
+        BizException error = assertThrows(BizException.class, () -> service().update(10L, dto, actor()));
+
+        assertTrue(error.getMessage().contains("标题过长"));
+        assertEquals("交通", page.getTitle());
+        verify(pageMapper, never()).updateById(any(WikiPage.class));
+    }
+
+    @Test
+    void updateRejectsCategorySlugThatWouldBreakThePagePath() {
+        WikiPage page = page();
+        when(pageMapper.selectById(10L)).thenReturn(page);
+        PageUpsertDTO dto = new PageUpsertDTO();
+        dto.setVersion(2);
+        dto.setCategorySlug("生活/../hack");
+
+        assertThrows(BizException.class, () -> service().update(10L, dto, actor()));
+
+        verify(pageMapper, never()).updateById(any(WikiPage.class));
+    }
+
     private PageAdminService service() {
         return new PageAdminService(pageMapper, categoryMapper, userMapper, auditService,
                 favoriteMapper, historyMapper, draftMapper, commentMapper, pageVersionService);

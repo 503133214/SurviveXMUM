@@ -223,7 +223,8 @@ public class CommentService {
         if (c == null) throw new BizException(404, "评论不存在");
         boolean hide = "HIDDEN".equals(status);
         if (!hide && !"VISIBLE".equals(status)) throw new BizException("不支持的状态");
-        if (hide && "DELETED".equals(c.getStatus())) throw new BizException("该评论已被作者删除");
+        // 作者自删是作者的意思表示，管理员不能替他撤销（隐藏同理，本来就没得可隐藏）
+        if ("DELETED".equals(c.getStatus())) throw new BizException("该评论已被作者删除，无法再操作");
 
         String trimmed = reason == null || reason.isBlank() ? null : reason.trim();
         if (trimmed != null && trimmed.length() > 200) trimmed = trimmed.substring(0, 200);

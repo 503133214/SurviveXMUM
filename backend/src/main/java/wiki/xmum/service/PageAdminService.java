@@ -92,7 +92,7 @@ public class PageAdminService {
     @Transactional
     public Long create(PageUpsertDTO dto, AuthUser actor) {
         String title = wiki.xmum.util.TitleUtil.cleanTitle(dto.getTitle());
-        String cat = blankToNull(dto.getCategorySlug());
+        String cat = wiki.xmum.util.TitleUtil.cleanCategorySlug(dto.getCategorySlug());
         String path = cat == null ? title : cat + "/" + title;
         if (path.length() > 380) throw new BizException("标题过长，路径超出限制");
         if (pageMapper.selectCount(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, path)) > 0) {
@@ -140,9 +140,11 @@ public class PageAdminService {
         if (dto.getVersion() == null || dto.getVersion() != current) {
             throw new BizException(409, "页面已被他人修改（当前版本 v" + current + "），请刷新后重试");
         }
-        if (dto.getTitle() != null) p.setTitle(dto.getTitle().trim());
+        // 与 create 同规则：之前这里只 trim，超 200 字会撞 DB 长度限制返回 500，
+        // 空标题与 / # ? % 等字符也能存进去。
+        if (dto.getTitle() != null) p.setTitle(wiki.xmum.util.TitleUtil.cleanTitle(dto.getTitle()));
         if (dto.getCategorySlug() != null) {
-            String cat = blankToNull(dto.getCategorySlug());
+            String cat = wiki.xmum.util.TitleUtil.cleanCategorySlug(dto.getCategorySlug());
             p.setCategorySlug(cat);
             p.setCategoryId(ensureCategory(cat));
         }

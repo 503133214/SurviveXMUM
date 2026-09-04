@@ -228,7 +228,7 @@ export default {
         this.query,
         (data) => {
           this.list = data.list || []
-          this.total = data.total || 0
+          this.total = Number(data && data.total) || 0
           this.loading = false
         },
         (message) => {

@@ -50,8 +50,8 @@ public class CategoryAdminService {
     }
 
     public Long create(CategoryUpsertDTO dto) {
-        String slug = TitleUtil.cleanTitle(dto.getSlug()); // slug 拼进路径，同标题字符规则
-        if (slug.length() > 120) throw new BizException("分类标识过长（最多 120 字）");
+        String slug = TitleUtil.cleanCategorySlug(dto.getSlug()); // slug 拼进路径，同标题字符规则
+        if (slug == null) throw new BizException("请填写分类标识");
         if (categoryMapper.selectCount(Wrappers.<WikiCategory>lambdaQuery()
                 .eq(WikiCategory::getSlug, slug)) > 0) {
             throw new BizException("已存在同名分类：" + slug);

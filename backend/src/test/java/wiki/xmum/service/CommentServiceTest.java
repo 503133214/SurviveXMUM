@@ -141,6 +141,34 @@ class CommentServiceTest {
         assertEquals("阿八", replies.get(1).getReplyToName());
     }
 
+    @Test
+    void adminCannotUndoAnAuthorsOwnDeletion() {
+        PageComment deleted = comment(1L, null, null, "DELETED");
+        deleted.setUserId(7L);
+        when(mapper.selectById(1L)).thenReturn(deleted);
+
+        BizException error = assertThrows(BizException.class,
+                () -> service().adminSetStatus(1L, "VISIBLE", null, admin()));
+
+        assertTrue(error.getMessage().contains("作者删除"));
+        verify(mapper, never()).updateById(any(PageComment.class));
+    }
+
+    @Test
+    void adminCanRestoreAHiddenComment() {
+        PageComment hidden = comment(1L, null, null, "HIDDEN");
+        hidden.setUserId(7L);
+        hidden.setHiddenReason("与本页无关");
+        when(mapper.selectById(1L)).thenReturn(hidden);
+
+        service().adminSetStatus(1L, "VISIBLE", null, admin());
+
+        assertEquals("VISIBLE", hidden.getStatus());
+        // 理由必须一起清掉，否则后台还会显示上一次的隐藏原因
+        assertNull(hidden.getHiddenReason());
+        verify(mapper).updateById(hidden);
+    }
+
     private CommentService service() {
         return new CommentService(mapper, pageMapper, userMapper, notificationService, auditService);
     }
@@ -164,6 +192,10 @@ class CommentServiceTest {
         c.setStatus(status);
         c.setCreatedAt(LocalDateTime.of(2026, 1, 1, 12, 0).plusMinutes(id));
         return c;
+    }
+
+    private static AuthUser admin() {
+        return new AuthUser(99L, "admin@xmu.edu.my", "SUPER_ADMIN");
     }
 
     private static AuthUser user(Long id) {

@@ -95,9 +95,10 @@ public class RevisionService {
             baseVersion = dto.getBaseVersion() != null
                     ? dto.getBaseVersion() : (page.getVersion() == null ? 0 : page.getVersion());
         } else {
-            // CREATE：路径 = 分类/标题（无分类则用标题）
-            String cat = dto.getCategorySlug();
-            targetPath = (cat == null || cat.isBlank()) ? title : cat + "/" + title;
+            // CREATE：路径 = 分类/标题（无分类则用标题）。slug 与标题同规则，
+            // 否则 "a#b" / "生活/.." 这类分类会拼出打不开的页面路径。
+            String cat = TitleUtil.cleanCategorySlug(dto.getCategorySlug());
+            targetPath = cat == null ? title : cat + "/" + title;
             if (targetPath.length() > 380) throw new BizException("标题过长，路径超出限制");
             WikiPage existing = pageMapper.selectOne(Wrappers.<WikiPage>lambdaQuery().eq(WikiPage::getPath, targetPath));
             if (existing != null) {
@@ -108,7 +109,7 @@ public class RevisionService {
         WikiRevision rev = new WikiRevision();
         rev.setPageId(pageId);
         rev.setTargetPath(targetPath);
-        rev.setCategorySlug(dto.getCategorySlug());
+        rev.setCategorySlug(TitleUtil.cleanCategorySlug(dto.getCategorySlug()));
         rev.setTitle(title);
         rev.setIcon(icon);
         rev.setDescription(description);
