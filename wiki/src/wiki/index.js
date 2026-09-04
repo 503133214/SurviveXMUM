@@ -119,6 +119,41 @@ function findCategoryBySlug(nodes, slug) {
 }
 
 /**
+ * 全站标签及其文档数，按热度降序、同热度按标签名排序。
+ * 标签只存在于 manifest 的 pages 里，没有独立接口。
+ */
+export function allTags() {
+  const freq = new Map()
+  for (const page of pages) {
+    for (const raw of page.tags || []) {
+      const tag = (raw || '').trim()
+      if (!tag) continue
+      freq.set(tag, (freq.get(tag) || 0) + 1)
+    }
+  }
+  return [...freq.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'zh'))
+}
+
+/** 某个标签下的全部文档，沿用侧栏的排序口径。标签比较忽略大小写与首尾空格。 */
+export function pagesByTag(tag) {
+  const target = (tag || '').trim().toLowerCase()
+  if (!target) return []
+  return orderedPages().filter((page) =>
+    (page.tags || []).some((t) => (t || '').trim().toLowerCase() === target))
+}
+
+/** 与查询词匹配的标签，用于搜索框里的「按标签浏览」。 */
+export function searchTags(query, limit = 5) {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return []
+  return allTags()
+    .filter(({ tag }) => tag.toLowerCase().includes(q))
+    .slice(0, limit)
+}
+
+/**
  * Lightweight client-side search across title, category, tags and headings.
  * Returns scored results, best first. No dependencies.
  */

@@ -7,12 +7,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import wiki.xmum.common.BizException;
 import wiki.xmum.domain.po.PageComment;
+import wiki.xmum.domain.po.UserFavorite;
 import wiki.xmum.domain.po.User;
 import wiki.xmum.domain.po.WikiPage;
 import wiki.xmum.domain.vo.AdminCommentVO;
 import wiki.xmum.domain.vo.CommentVO;
+import wiki.xmum.domain.vo.MyCommentVO;
 import wiki.xmum.domain.vo.PageResult;
 import wiki.xmum.mapper.PageCommentMapper;
+import wiki.xmum.mapper.UserFavoriteMapper;
 import wiki.xmum.mapper.UserMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.security.AuthUser;
@@ -56,14 +59,17 @@ public class CommentService {
     private final PageCommentMapper mapper;
     private final WikiPageMapper pageMapper;
     private final UserMapper userMapper;
+    private final UserFavoriteMapper favoriteMapper;
     private final NotificationService notificationService;
     private final AuditService auditService;
 
     public CommentService(PageCommentMapper mapper, WikiPageMapper pageMapper, UserMapper userMapper,
+                          UserFavoriteMapper favoriteMapper,
                           NotificationService notificationService, AuditService auditService) {
         this.mapper = mapper;
         this.pageMapper = pageMapper;
         this.userMapper = userMapper;
+        this.favoriteMapper = favoriteMapper;
         this.notificationService = notificationService;
         this.auditService = auditService;
     }
@@ -157,13 +163,38 @@ public class CommentService {
         }
         mapper.insert(c);
 
-        if (parent != null && !Objects.equals(parent.getUserId(), user.getId())) {
-            notificationService.notify(parent.getUserId(), "COMMENT_REPLY",
-                    "有人回复了你的评论",
-                    "在《" + page.getTitle() + "》：" + preview(content),
-                    "/docs/" + page.getPath(), c.getId());
+        if (parent != null) {
+            // 回复只打扰被回复的那个人，避免整层的人都被 ping
+            if (!Objects.equals(parent.getUserId(), user.getId())) {
+                notificationService.notify(parent.getUserId(), "COMMENT_REPLY",
+                        "有人回复了你的评论",
+                        "在《" + page.getTitle() + "》：" + preview(content),
+                        "/docs/" + page.getPath(), c.getId());
+            }
+        } else {
+            notifyFollowers(page, c, user.getId(), content);
         }
         return c.getId();
+    }
+
+    /**
+     * 新开一层讨论时提醒「关注更新」了这一页的人（发帖者自己除外）。
+     * 复用收藏的 notify_updates 开关：用户关注的是这一页，新版本和新讨论都属于该页动态。
+     * 只有主楼触发；楼中回复只通知被回复者，否则一层热闹会把关注者刷屏。
+     */
+    private void notifyFollowers(WikiPage page, PageComment comment, Long authorId, String content) {
+        favoriteMapper.selectList(Wrappers.<UserFavorite>lambdaQuery()
+                        .eq(UserFavorite::getPageId, page.getId())
+                        .eq(UserFavorite::getNotifyUpdates, 1))
+                .stream()
+                .map(UserFavorite::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .filter(userId -> !Objects.equals(userId, authorId))
+                .forEach(userId -> notificationService.notify(userId, "COMMENT_NEW",
+                        "关注的页面有新讨论",
+                        "《" + page.getTitle() + "》：" + preview(content),
+                        "/docs/" + page.getPath(), comment.getId()));
     }
 
     /** 作者删除自己的评论（软删，保留楼层结构）。 */
@@ -175,6 +206,31 @@ public class CommentService {
                 .set(PageComment::getStatus, "DELETED")
                 .eq(PageComment::getId, id)
                 .eq(PageComment::getUserId, user.getId()));
+    }
+
+    /** 个人中心「我的讨论」：本人发过的、未自删的评论，最近 50 条。 */
+    public List<MyCommentVO> mine(Long userId) {
+        List<PageComment> rows = mapper.selectList(Wrappers.<PageComment>lambdaQuery()
+                .eq(PageComment::getUserId, userId)
+                .ne(PageComment::getStatus, "DELETED")
+                .orderByDesc(PageComment::getCreatedAt)
+                .orderByDesc(PageComment::getId)
+                .last("LIMIT 50"));
+        if (rows.isEmpty()) return List.of();
+        Map<Long, String> titles = loadPageTitles(rows.stream().map(PageComment::getPageId).toList());
+        return rows.stream().map(c -> {
+            MyCommentVO v = new MyCommentVO();
+            v.setId(c.getId());
+            v.setPath(c.getPath());
+            v.setPageTitle(titles.getOrDefault(c.getPageId(), c.getPath()));
+            v.setContent(c.getContent());
+            v.setStatus(c.getStatus());
+            v.setHiddenReason(c.getHiddenReason());
+            v.setReply(c.getRootId() != null);
+            v.setCreatedAt(c.getCreatedAt() == null ? null
+                    : c.getCreatedAt().atOffset(ZoneOffset.ofHours(8)).format(FMT));
+            return v;
+        }).toList();
     }
 
     // ---------- 后台管理 ----------

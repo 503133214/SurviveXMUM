@@ -133,6 +133,7 @@ export default {
   props: {
     docPath: { type: String, required: true },
   },
+  emits: ['count'],
   data() {
     return {
       MAX_LEN,
@@ -160,6 +161,11 @@ export default {
     },
   },
   watch: {
+    // 文档页头部的「N 条讨论」用它，省掉一次单独的计数请求
+    total: {
+      immediate: true,
+      handler(n) { this.$emit('count', n) },
+    },
     docPath: {
       immediate: true,
       handler() {

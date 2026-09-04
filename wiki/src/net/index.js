@@ -324,6 +324,9 @@ function postComment(payload, success, failure = defaultFailure) {
     internalPost(url, payload, accessHeader(), success, failure,
         (err) => failure(err.response?.data?.message || '发表失败，请检查网络后重试', err.response?.status || -1, url))
 }
+function listMyComments(success, failure = defaultFailure) {
+    get('/comments/mine', success, failure)
+}
 function deleteComment(id, success, failure = defaultFailure) {
     remove(`/comments/${id}`, success, failure)
 }
@@ -447,7 +450,7 @@ export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessTok
     getNotifications,getUnreadCount,readNotification,readAllNotifications,
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
     getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
-    listComments,postComment,deleteComment,adminListComments,adminSetCommentStatus,adminPurgeComment,
+    listComments,postComment,deleteComment,listMyComments,adminListComments,adminSetCommentStatus,adminPurgeComment,
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,getPageContributors,
     getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,

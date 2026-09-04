@@ -56,6 +56,47 @@
       </ul>
     </section>
 
+    <!-- 我的讨论：只列本人发过的，自删的不再出现 -->
+    <section v-if="comments.length" class="pf-section">
+      <div class="sec-head">
+        <div>
+          <p class="sec-kicker">DISCUSSIONS</p>
+          <h2>我的讨论 <span class="count">{{ comments.length }}</span></h2>
+        </div>
+      </div>
+      <ul class="rev-list">
+        <li v-for="c in comments" :key="c.id" class="rev-item" role="button" tabindex="0"
+            @click="openComment(c)" @keydown.enter="openComment(c)">
+          <div class="rev-mark" :class="c.reply ? 't-update' : 't-create'">
+            {{ c.reply ? '复' : '评' }}
+          </div>
+          <div class="rev-main">
+            <span class="rev-title cm-text">{{ c.content }}</span>
+            <div class="rev-meta">
+              <span>{{ c.pageTitle }}</span>
+              <span class="meta-separator" aria-hidden="true"></span>
+              <span>{{ c.reply ? '回复' : '主楼' }}</span>
+              <template v-if="c.status === 'HIDDEN'">
+                <span class="meta-separator" aria-hidden="true"></span>
+                <span class="cm-hidden">
+                  已被管理员隐藏<template v-if="c.hiddenReason">：{{ c.hiddenReason }}</template>
+                </span>
+              </template>
+            </div>
+          </div>
+          <div class="rev-side draft-side">
+            <span class="rev-date">{{ c.createdAt }}</span>
+            <el-button link type="primary" size="small" @click.stop="openComment(c)">查看</el-button>
+            <el-button
+              v-if="c.status === 'VISIBLE'"
+              link type="danger" size="small"
+              @click.stop="removeComment(c)"
+            >删除</el-button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
     <section class="pf-section">
       <div class="sec-head">
         <div>
@@ -132,7 +173,7 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import { getMyRevision, getMyRevisions, listDrafts, deleteDraft } from '@/net/index.js'
+import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
@@ -143,6 +184,7 @@ export default {
       userStore: useUserStore(),
       revisions: [],
       drafts: [],
+      comments: [],
       loading: true,
       detailVisible: false,
       detailLoading: false,
@@ -163,6 +205,7 @@ export default {
       (msg) => { this.loading = false; ElMessage.error(msg || '加载投稿失败') }
     )
     listDrafts((data) => { this.drafts = data || [] }, () => {})
+    listMyComments((data) => { this.comments = data || [] }, () => {})
   },
   methods: {
     statusText(s) {
@@ -194,6 +237,18 @@ export default {
       const d = new Date(iso)
       return Number.isNaN(d.getTime()) ? '' :
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    },
+    openComment(c) {
+      this.$router.push(`/docs/${c.path}`)
+    },
+    async removeComment(c) {
+      try {
+        await ElMessageBox.confirm('确定删除这条讨论？删除后原帖只会留下一个占位。', '提示', { type: 'warning' })
+      } catch { return }
+      deleteComment(c.id, () => {
+        ElMessage.success('已删除')
+        this.comments = this.comments.filter((x) => x.id !== c.id)
+      }, (m) => ElMessage.error(m || '删除失败'))
     },
     resumeDraft(d) {
       if (d.type === 'UPDATE' && d.targetPath) {
@@ -369,6 +424,8 @@ a.rev-title:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .rev-side { display: grid; grid-template-columns: auto 104px 16px; align-items: center; gap: 14px; }
+.cm-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-hidden { color: var(--el-color-warning, #e6a23c); }
 .rev-side.draft-side { grid-template-columns: auto auto auto; gap: 10px; }
 .status { padding: 4px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
 .s-pending { background: #fff4e0; color: #b3691a; }

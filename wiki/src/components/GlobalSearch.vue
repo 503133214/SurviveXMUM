@@ -20,7 +20,18 @@
 
     <transition name="fade">
       <div v-if="open && query" class="search-panel">
-        <div v-if="results.length === 0" class="search-empty">
+        <!-- 命中的标签：鼠标点击进入标签页；键盘上下键仍只在文档结果里循环 -->
+        <div v-if="matchedTags.length" class="tag-row">
+          <span class="tag-row-label">标签</span>
+          <button
+            v-for="t in matchedTags"
+            :key="t.tag"
+            type="button"
+            class="tag-pill"
+            @mousedown.prevent="goTag(t.tag)"
+          >#{{ t.tag }}<span>{{ t.count }}</span></button>
+        </div>
+        <div v-if="results.length === 0 && !matchedTags.length" class="search-empty">
           没有找到与 “{{ query }}” 相关的内容
         </div>
         <ul v-else class="result-list">
@@ -55,7 +66,7 @@
 
 <script>
 import { Search } from "@element-plus/icons-vue";
-import { searchPages, categories } from "@/wiki";
+import { searchPages, searchTags, categories } from "@/wiki";
 
 export default {
   name: "GlobalSearch",
@@ -70,6 +81,9 @@ export default {
   computed: {
     results() {
       return searchPages(this.query);
+    },
+    matchedTags() {
+      return searchTags(this.query);
     },
     shortcutLabel() {
       return this.isMac ? "⌘K" : "Ctrl K";
@@ -115,6 +129,11 @@ export default {
     choose() {
       const r = this.results[this.activeIndex];
       if (r) this.go(r.page);
+    },
+    goTag(tag) {
+      this.$router.push(`/tags/${encodeURIComponent(tag)}`);
+      this.close();
+      this.query = "";
     },
     go(page) {
       this.$router.push(`/docs/${page.path}`);
@@ -182,6 +201,40 @@ export default {
   overflow: hidden;
   z-index: 1100;
 }
+.tag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tag-row-label {
+  margin-right: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tag-pill:hover { border-color: var(--brand); color: var(--brand); }
+.tag-pill span { color: var(--text-muted); font-size: 10.5px; }
+
 .search-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; }
 .result-list { list-style: none; margin: 0; padding: 6px; max-height: 360px; overflow-y: auto; }
 .result-item {

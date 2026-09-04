@@ -31,6 +31,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/tags/:tag?",
+    name: "Tags",
+    component: () => import("@/views/TagsPage.vue"),
+    props: (route) => ({ tag: route.params.tag || "" }),
+  },
+  {
     path: "/contributors",
     name: "Contributors",
     component: () => import("@/views/ContributorsPage.vue"),

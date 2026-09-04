@@ -10,6 +10,7 @@
 
     <nav v-if="!isMobileView" class="desktop-nav">
       <router-link :to="`/docs/${HOME_PATH}`">文档</router-link>
+      <router-link to="/tags">标签</router-link>
       <a v-if="!hasToken" :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
 
       <button class="theme-toggle" @click="toggleTheme" :aria-label="isDark ? '切换到亮色' : '切换到暗色'">
@@ -158,6 +159,9 @@
             <el-dropdown-item :command="`/docs/${HOME_PATH}`">
               <el-icon><Document /></el-icon>文档
             </el-dropdown-item>
+            <el-dropdown-item command="/tags">
+              <el-icon><PriceTag /></el-icon>标签
+            </el-dropdown-item>
             <template v-if="backendEnabled">
               <template v-if="hasToken">
                 <el-dropdown-item command="/profile">
@@ -200,7 +204,7 @@
 
 <script>
 import { markRaw } from "vue";
-import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy } from "@element-plus/icons-vue";
+import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag } from "@element-plus/icons-vue";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
@@ -213,7 +217,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy },
+  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };

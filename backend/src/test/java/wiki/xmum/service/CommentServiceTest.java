@@ -8,9 +8,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import wiki.xmum.common.BizException;
 import wiki.xmum.domain.po.PageComment;
 import wiki.xmum.domain.po.User;
+import wiki.xmum.domain.po.UserFavorite;
 import wiki.xmum.domain.po.WikiPage;
 import wiki.xmum.domain.vo.CommentVO;
+import wiki.xmum.domain.vo.MyCommentVO;
 import wiki.xmum.mapper.PageCommentMapper;
+import wiki.xmum.mapper.UserFavoriteMapper;
 import wiki.xmum.mapper.UserMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.security.AuthUser;
@@ -19,10 +22,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +38,7 @@ class CommentServiceTest {
     @Mock private PageCommentMapper mapper;
     @Mock private WikiPageMapper pageMapper;
     @Mock private UserMapper userMapper;
+    @Mock private UserFavoriteMapper favoriteMapper;
     @Mock private NotificationService notificationService;
     @Mock private AuditService auditService;
 
@@ -169,8 +175,59 @@ class CommentServiceTest {
         verify(mapper).updateById(hidden);
     }
 
+    @Test
+    void newThreadNotifiesPageFollowersButNotItsOwnAuthor() {
+        stubPage();
+        when(mapper.selectCount(any())).thenReturn(0L);
+        when(favoriteMapper.selectList(any()))
+                .thenReturn(List.of(follower(7L), follower(8L), follower(8L)));
+
+        service().submit("生活/交通", "这一页少了校车时刻", null, user(8L));
+
+        // 8 是发帖者本人，重复关注行也只算一次
+        verify(notificationService).notify(eq(7L), eq("COMMENT_NEW"), any(), any(), any(), any());
+        verify(notificationService, never()).notify(eq(8L), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void repliesDoNotSprayThePageFollowers() {
+        stubPage();
+        when(mapper.selectCount(any())).thenReturn(0L);
+        PageComment root = comment(1L, null, null, "VISIBLE");
+        root.setUserId(7L);
+        when(mapper.selectById(1L)).thenReturn(root);
+
+        service().submit("生活/交通", "同问", 1L, user(8L));
+
+        // 只提醒被回复的人，关注者不参与
+        verify(notificationService).notify(eq(7L), eq("COMMENT_REPLY"), any(), any(), any(), any());
+        verify(notificationService, never()).notify(any(), eq("COMMENT_NEW"), any(), any(), any(), any());
+        verify(favoriteMapper, never()).selectList(any());
+    }
+
+    @Test
+    void myDiscussionsSkipSelfDeletedOnesAndFlagReplies() {
+        PageComment root = comment(1L, null, null, "VISIBLE");
+        PageComment reply = comment(2L, 1L, 1L, "HIDDEN");
+        reply.setHiddenReason("与本页无关");
+        when(mapper.selectList(any())).thenReturn(List.of(root, reply));
+        WikiPage page = new WikiPage();
+        page.setId(10L);
+        page.setTitle("交通");
+        when(pageMapper.selectBatchIds(any())).thenReturn(List.of(page));
+
+        List<MyCommentVO> mine = service().mine(8L);
+
+        assertEquals(2, mine.size());
+        assertEquals("交通", mine.get(0).getPageTitle());
+        assertFalse(mine.get(0).getReply());
+        assertTrue(mine.get(1).getReply());
+        assertEquals("与本页无关", mine.get(1).getHiddenReason());
+    }
+
     private CommentService service() {
-        return new CommentService(mapper, pageMapper, userMapper, notificationService, auditService);
+        return new CommentService(mapper, pageMapper, userMapper, favoriteMapper,
+                notificationService, auditService);
     }
 
     private void stubPage() {
@@ -192,6 +249,14 @@ class CommentServiceTest {
         c.setStatus(status);
         c.setCreatedAt(LocalDateTime.of(2026, 1, 1, 12, 0).plusMinutes(id));
         return c;
+    }
+
+    private static UserFavorite follower(Long userId) {
+        UserFavorite f = new UserFavorite();
+        f.setUserId(userId);
+        f.setPageId(10L);
+        f.setNotifyUpdates(1);
+        return f;
     }
 
     private static AuthUser admin() {

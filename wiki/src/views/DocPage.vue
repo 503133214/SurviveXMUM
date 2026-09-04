@@ -78,7 +78,7 @@
               <span
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item follow-toggle"
-                title="关注后会同时收藏此页；有新版本发布时会收到站内通知"
+                title="关注后会同时收藏此页；有新版本发布或有人新开讨论时会收到站内通知"
               >
                 <el-icon :size="15"><Bell /></el-icon>
                 <span>关注更新</span>
@@ -100,8 +100,26 @@
                 <el-icon :size="15"><Clock /></el-icon>
                 版本历史
               </button>
+              <button
+                v-if="!errorLoading"
+                class="meta-item meta-action"
+                type="button"
+                @click="scrollToComments"
+              >
+                <el-icon :size="15"><ChatLineSquare /></el-icon>
+                {{ commentCount ? `${commentCount} 条讨论` : '参与讨论' }}
+              </button>
             </div>
           </header>
+
+          <nav v-if="pageTags.length && !errorLoading" class="doc-tags" aria-label="本页标签">
+            <router-link
+              v-for="t in pageTags"
+              :key="t"
+              class="doc-tag"
+              :to="`/tags/${encodeURIComponent(t)}`"
+            >#{{ t }}</router-link>
+          </nav>
 
           <MarkdownRenderer v-if="content" :content="content" :base-path="baseDir" />
           <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容" />
@@ -126,7 +144,12 @@
             </button>
           </nav>
 
-          <PageComments v-if="!errorLoading" :doc-path="docPath" />
+          <PageComments
+            v-if="!errorLoading"
+            ref="comments"
+            :doc-path="docPath"
+            @count="commentCount = $event"
+          />
           </div>
         </template>
       </div>
@@ -148,7 +171,7 @@ import PageContributors from "@/components/PageContributors.vue";
 import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { ElMessage } from "element-plus";
-import { Bell, Clock, Menu, Star, StarFilled } from "@element-plus/icons-vue";
+import { Bell, ChatLineSquare, Clock, Menu, Star, StarFilled } from "@element-plus/icons-vue";
 import {
   tree,
   getPage,
@@ -178,6 +201,7 @@ export default {
     PageRevisionHistory,
     Sidebar,
     Bell,
+    ChatLineSquare,
     Clock,
     Star,
     StarFilled,
@@ -211,6 +235,8 @@ export default {
       contributorsError: "",
       contributorsRequestToken: 0,
       pageRequestToken: 0,
+      pageTags: [],
+      commentCount: 0,
     };
   },
   computed: {
@@ -264,6 +290,8 @@ export default {
       this.content = "";
       this.title = "";
       this.pageLastUpdated = "";
+      this.pageTags = [];
+      this.commentCount = 0;
       this.favorited = false;
       this.favoriteId = null;
       this.favLoading = false;
@@ -293,6 +321,7 @@ export default {
         this.title = detail.title || h1Text || path.split("/").pop();
         this.pageLastUpdated = detail.lastUpdated || "";
         this.viewCount = detail.viewCount || 0;
+        this.pageTags = (detail.tags || []).map((t) => (t || "").trim()).filter(Boolean);
         this.content = raw.trim();
         this.loadContributors(path, contributorsRequestToken);
         this.afterLoad(path);
@@ -343,6 +372,11 @@ export default {
         this.favoriteId = d && d.id ? d.id : null;
         this.notifyUpdates = !!(d && d.notifyUpdates);
       }, () => {});
+    },
+    scrollToComments() {
+      const el = this.$refs.comments && this.$refs.comments.$el;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     },
     toggleFavorite() {
       if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
@@ -455,6 +489,29 @@ export default {
 </script>
 
 <style scoped>
+.doc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 20px;
+}
+
+.doc-tag {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: border-color .18s ease, color .18s ease;
+}
+
+.doc-tag:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  text-decoration: none;
+}
+
 .doc-page-container {
   min-height: calc(100vh - var(--header-height));
   background-color: var(--bg-page);

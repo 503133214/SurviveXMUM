@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import wiki.xmum.common.ApiResponse;
 import wiki.xmum.domain.dto.CommentSubmitDTO;
 import wiki.xmum.domain.vo.CommentVO;
+import wiki.xmum.domain.vo.MyCommentVO;
 import wiki.xmum.security.AuthUser;
 import wiki.xmum.security.CurrentUser;
 import wiki.xmum.service.CommentService;
@@ -39,6 +40,12 @@ public class CommentController {
     public ApiResponse<Map<String, Object>> submit(@RequestBody CommentSubmitDTO dto) {
         Long id = service.submit(dto.getPath(), dto.getContent(), dto.getParentId(), CurrentUser.get());
         return ApiResponse.ok(Map.of("id", id));
+    }
+
+    /** 个人中心「我的讨论」。 */
+    @GetMapping("/comments/mine")
+    public ApiResponse<List<MyCommentVO>> mine() {
+        return ApiResponse.ok(service.mine(CurrentUser.get().getId()));
     }
 
     @DeleteMapping("/comments/{id}")
