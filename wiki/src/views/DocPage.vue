@@ -490,10 +490,13 @@ export default {
 
 <style scoped>
 .doc-tags {
+  /* 与 .doc-header 同一套宽度和内边距，标签行才会和标题左对齐 */
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: -4px 0 20px;
+  max-width: 1360px;
+  margin: -4px auto 20px;
+  padding: 0 20px;
 }
 
 .doc-tag {
