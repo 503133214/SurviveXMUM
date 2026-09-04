@@ -466,6 +466,14 @@ html.dark .detail-reason { background: rgba(192,57,43,.1); color: #f3a097; }
     gap: 10px;
     margin-top: -2px;
   }
+  /* 草稿/讨论行是「日期 + 两个操作」三格；窄屏下固定三列会互相挤，
+     改成可换行的 flex，放不下就掉到第二行。 */
+  .rev-side.draft-side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+  }
   .row-arrow { display: none; }
 }
 

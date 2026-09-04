@@ -586,6 +586,8 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .markdown-body { padding: 22px 18px; border-radius: var(--radius-sm); }
+  /* 外层 DocPage 已给出统一留白，这里再叠一层只会把正文挤窄 */
+  .markdown-container { padding-inline: 0; }
+  .markdown-body { padding: 20px 14px; border-radius: var(--radius-sm); }
 }
 </style>

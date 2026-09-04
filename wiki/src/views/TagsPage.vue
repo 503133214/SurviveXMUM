@@ -13,15 +13,23 @@
 
     <div v-if="tags.length" class="tp-cloud">
       <button
-        v-for="item in tags"
+        v-for="item in visibleTags"
         :key="item.tag"
         type="button"
         class="tp-chip"
-        :class="{ active: item.tag === activeTag, [`heat-${heat(item.count)}`]: true }"
+        :class="{ active: sameTag(item.tag, activeTag), [`heat-${heat(item.count)}`]: true }"
         @click="select(item.tag)"
       >
         {{ item.tag }}
         <span class="tp-chip-count">{{ item.count }}</span>
+      </button>
+      <button
+        v-if="tags.length > COLLAPSED_LIMIT"
+        type="button"
+        class="tp-more"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? '收起' : `展开全部 ${tags.length} 个` }}
       </button>
     </div>
 
@@ -57,16 +65,32 @@
 <script>
 import { allTags, pagesByTag, orderedPages, loadManifest } from '@/wiki'
 
+const COLLAPSED_LIMIT = 24
+
 export default {
   name: 'TagsPage',
   props: {
     // 路由 /tags/:tag，无参数时只显示标签云
     tag: { type: String, default: '' },
   },
+  data() {
+    return { expanded: false, COLLAPSED_LIMIT }
+  },
   computed: {
     // pages 是 reactive 数组，manifest 异步到达后这些计算属性会自动重算
     tags() {
       return allTags()
+    },
+    // 线上有 82 个标签，全铺开在手机上有 1500px 高，结果列表被埋在两屏之下。
+    // 默认只露出最热门的一批；当前选中的标签即使排在后面也一定可见。
+    visibleTags() {
+      if (this.expanded || this.tags.length <= COLLAPSED_LIMIT) return this.tags
+      const head = this.tags.slice(0, COLLAPSED_LIMIT)
+      if (this.activeTag && !head.some((t) => this.sameTag(t.tag, this.activeTag))) {
+        const active = this.tags.find((t) => this.sameTag(t.tag, this.activeTag))
+        if (active) return [...head.slice(0, COLLAPSED_LIMIT - 1), active]
+      }
+      return head
     },
     activeTag() {
       return (this.tag || '').trim()
@@ -159,7 +183,19 @@ export default {
 }
 .tp-chip:hover { border-color: var(--brand); color: var(--brand); transform: translateY(-1px); }
 .tp-chip.active { border-color: var(--brand); background: var(--brand); color: #fff; }
-.tp-chip.active .tp-chip-count { background: rgba(255, 255, 255, .25); color: #fff; }
+.tp-chip.active .tp-more {
+  padding: 7px 13px;
+  border: 1px dashed var(--border-strong, var(--border));
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.tp-more:hover { border-color: var(--brand); color: var(--brand); }
+
+.tp-chip-count { background: rgba(255, 255, 255, .25); color: #fff; }
 
 /* 热度只影响字号，颜色留给 hover/选中，避免整片花掉 */
 .tp-chip.heat-1 { font-size: 12.5px; }
@@ -224,6 +260,7 @@ export default {
 .tp-card-body strong { color: var(--text-primary); font-size: 14.5px; }
 .tp-card-body small {
   overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--text-muted);
   font-size: 12.5px;
   line-height: 1.5;

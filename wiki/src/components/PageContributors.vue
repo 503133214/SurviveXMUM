@@ -210,7 +210,7 @@ export default {
 }
 
 @media (max-width: 600px) {
-  .page-contributors { padding: 16px; }
+  .page-contributors { padding: 20px 14px; }
   .contributors-heading { align-items: center; }
   .contributors-list { grid-template-columns: 1fr; }
   .contributors-note { display: none; }

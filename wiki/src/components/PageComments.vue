@@ -395,7 +395,7 @@ a.pc-name:hover { color: var(--brand); }
 .pc-reply-form { margin: 12px 0 0 45px; }
 
 @media (max-width: 600px) {
-  .page-comments { padding: 16px; }
+  .page-comments { padding: 20px 14px; }
   .pc-note { display: none; }
   .pc-replies, .pc-reply-form { margin-left: 12px; }
 }

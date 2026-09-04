@@ -675,13 +675,20 @@ export default {
 }
 
 @media (max-width: 767px) {
-  .doc-main-content { padding: 16px 8px 50px; }
+  /* 整列只留一层左右留白。此前 main(8) + markdown-container(12) + 正文卡片(18)
+     三层内边距叠加，375px 屏上正文只剩 297px；面包屑/标题/标签/正文/评论卡
+     还各自落在 5 个不同的左边缘上，滚动时整列是歪的。 */
+  .doc-main-content { padding: 16px 12px 50px; }
   .doc-title { font-size: 1.7rem; }
   .doc-pager { grid-template-columns: 1fr; }
   .doc-breadcrumb,
   .doc-header,
-  .doc-pager { padding-inline: 8px; }
+  .doc-tags,
+  .doc-pager { padding-inline: 0; }
   .doc-meta { gap: 10px 14px; }
+  /* 元信息是一排纯文字按钮，行高只有 21px，手指很难点准 */
+  .doc-meta .meta-item { display: inline-flex; align-items: center; min-height: 32px; }
+  .doc-tag { padding: 5px 11px; }
   .mobile-menu-toggle {
     bottom: calc(16px + env(safe-area-inset-bottom));
     left: 14px;
