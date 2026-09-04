@@ -77,22 +77,24 @@ export default {
     taggedPageCount() {
       return orderedPages().filter((p) => (p.tags || []).some((t) => (t || '').trim())).length
     },
-    maxCount() {
-      return this.tags.reduce((m, t) => Math.max(m, t.count), 0)
+    // 标签数量是长尾的（线上 82 个标签里 65 个只有 1 篇），按“占最大值的比例”
+    // 分档会把几乎所有标签压进最小一档，字号差别等于没有。改成按不同计数值的
+    // 名次分四档：同样多的文档永远同一档，分布再偏也能拉开层次。
+    heatByCount() {
+      const distinct = [...new Set(this.tags.map((t) => t.count))].sort((a, b) => b - a)
+      const map = new Map()
+      distinct.forEach((count, rank) => {
+        map.set(count, Math.max(1, 4 - Math.floor((rank * 4) / distinct.length)))
+      })
+      return map
     },
   },
   mounted() {
     loadManifest()
   },
   methods: {
-    // 按占最高热度的比例分四档，标签少时也不会全挤在同一档
     heat(count) {
-      if (!this.maxCount) return 1
-      const ratio = count / this.maxCount
-      if (ratio > 0.75) return 4
-      if (ratio > 0.5) return 3
-      if (ratio > 0.25) return 2
-      return 1
+      return this.heatByCount.get(count) || 1
     },
     sameTag(a, b) {
       return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase()
