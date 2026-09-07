@@ -152,18 +152,46 @@
           </div>
         </template>
       </el-dropdown>
-      <el-dropdown trigger="click" @command="handleMobileNavCommand">
-        <el-button :icon="MenuIcon" text circle aria-label="导航菜单"></el-button>
+      <el-dropdown
+        trigger="click"
+        popper-class="nav-menu"
+        :show-timeout="80"
+        @command="handleMobileNavCommand"
+        @visible-change="menuOpen = $event"
+      >
+        <button class="menu-btn" :class="{ open: menuOpen }" aria-label="导航菜单">
+          <el-icon :size="18"><Fold v-if="menuOpen" /><Menu v-else /></el-icon>
+        </button>
         <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item :command="`/docs/${HOME_PATH}`">
-              <el-icon><Document /></el-icon>文档
-            </el-dropdown-item>
-            <el-dropdown-item command="/tags">
-              <el-icon><PriceTag /></el-icon>标签
-            </el-dropdown-item>
-            <template v-if="backendEnabled">
-              <template v-if="hasToken">
+          <div class="nv-card">
+            <!-- 已登录时先亮明身份，与桌面端用户菜单同一套信息 -->
+            <div v-if="backendEnabled && hasToken" class="nv-id">
+              <el-avatar v-if="userAvatar" :src="userAvatar" :size="36" />
+              <el-avatar v-else :size="36">{{ userName.charAt(0) }}</el-avatar>
+              <div class="nv-meta">
+                <span class="nv-name">
+                  {{ userName }}
+                  <span v-if="isSuperAdmin" class="nv-badge nv-badge-super">超级管理员</span>
+                  <span v-else-if="isAdmin" class="nv-badge">管理员</span>
+                </span>
+                <span class="nv-email">{{ userEmail }}</span>
+              </div>
+            </div>
+
+            <el-dropdown-menu>
+              <li class="nv-group">浏览</li>
+              <el-dropdown-item :command="`/docs/${HOME_PATH}`">
+                <el-icon><Document /></el-icon>文档
+              </el-dropdown-item>
+              <el-dropdown-item command="/tags">
+                <el-icon><PriceTag /></el-icon>标签
+              </el-dropdown-item>
+              <el-dropdown-item command="/contributors">
+                <el-icon><Trophy /></el-icon>贡献榜
+              </el-dropdown-item>
+
+              <template v-if="backendEnabled && hasToken">
+                <li class="nv-group">我的</li>
                 <el-dropdown-item command="/profile">
                   <el-icon><User /></el-icon>个人中心
                 </el-dropdown-item>
@@ -176,26 +204,24 @@
                 <el-dropdown-item command="/feedback">
                   <el-icon><ChatDotRound /></el-icon>反馈
                 </el-dropdown-item>
-                <el-dropdown-item command="/contributors">
-                  <el-icon><Trophy /></el-icon>贡献榜
-                </el-dropdown-item>
                 <el-dropdown-item v-if="isAdmin" command="/admin">
                   <el-icon><Setting /></el-icon>管理后台
                 </el-dropdown-item>
               </template>
-            </template>
-            <el-dropdown-item command="github" divided>
-              <el-icon><Link /></el-icon>GitHub
-            </el-dropdown-item>
-            <template v-if="backendEnabled">
-              <el-dropdown-item v-if="hasToken" command="logout">
-                <el-icon><SwitchButton /></el-icon>退出登录
+
+              <el-dropdown-item command="github" divided>
+                <el-icon><Link /></el-icon>GitHub
               </el-dropdown-item>
-              <el-dropdown-item v-else command="login">
-                <el-icon><User /></el-icon>登录
-              </el-dropdown-item>
-            </template>
-          </el-dropdown-menu>
+              <template v-if="backendEnabled">
+                <el-dropdown-item v-if="hasToken" command="logout" class="nv-logout">
+                  <el-icon><SwitchButton /></el-icon>退出登录
+                </el-dropdown-item>
+                <el-dropdown-item v-else command="login">
+                  <el-icon><User /></el-icon>登录
+                </el-dropdown-item>
+              </template>
+            </el-dropdown-menu>
+          </div>
         </template>
       </el-dropdown>
     </div>
@@ -203,8 +229,7 @@
 </template>
 
 <script>
-import { markRaw } from "vue";
-import { Menu, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag } from "@element-plus/icons-vue";
+import { Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag } from "@element-plus/icons-vue";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
@@ -217,7 +242,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag },
+  components: { GlobalSearch, Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
@@ -226,7 +251,7 @@ export default {
     return {
       isMobileView: false,
       isScrolled: false,
-      MenuIcon: markRaw(Menu),
+      menuOpen: false,
       resizeTimeout: null,
       backendEnabled: BACKEND_ENABLED,
       HOME_PATH,
@@ -471,6 +496,34 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
 
 .mobile-nav { display: flex; align-items: center; gap: 8px; }
 
+/* 汉堡按钮：与相邻的主题/通知按钮同一套圆形描边规格，此前是无边框的 el-button，
+   两个挨着的按钮一个有环一个没有，看着像少了一半。 */
+.menu-btn {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, color .2s ease;
+}
+.menu-btn:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+/* 展开时保持按下态，让人知道这个面板是从哪儿出来的 */
+.menu-btn.open {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+
 .bell-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -533,9 +586,10 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
   .logo-img { height: 22px; }
   .search-container { min-width: 0; padding: 0 5px; }
   .search-container :deep(.kbd) { display: none; }
-  .mobile-nav { gap: 2px; }
+  .mobile-nav { gap: 6px; }
   .theme-toggle,
-  .bell-btn { width: 34px; height: 34px; }
+  .bell-btn,
+  .menu-btn { width: 34px; height: 34px; }
 }
 </style>
 
@@ -638,6 +692,114 @@ html.dark .logo-img { filter: brightness(0) invert(1); }
 .user-menu .um-logout:not(.is-disabled):hover .el-icon { color: #c0392b; }
 .user-menu .um-logout:not(.is-disabled):hover { background: #fbe9e9; }
 html.dark .user-menu .um-logout:not(.is-disabled):hover { background: rgba(192, 57, 43, 0.16); }
+
+/* 移动端导航下拉：此前完全是 Element Plus 默认样式——98px 宽、贴着屏幕右边缘、
+   行高只有 30 出头，和桌面端用户菜单完全不是一套东西。 */
+.nav-menu.el-dropdown__popper {
+  overflow: hidden;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+.nav-menu.el-dropdown__popper .el-popper__arrow { display: none; }
+.nav-menu .nv-card {
+  width: 232px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+}
+.nav-menu .nv-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.nav-menu .nv-id .el-avatar {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.nav-menu .nv-meta { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.nav-menu .nv-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.nav-menu .nv-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.nav-menu .nv-badge-super {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.nav-menu .nv-email {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-menu .el-dropdown-menu {
+  padding: 4px 0 0;
+  border: none;
+  background: transparent;
+}
+/* 分组小标题：条目变多之后（浏览 7 项 + 我的 5 项）没有分组就是一长条 */
+.nav-menu .nv-group {
+  padding: 7px 10px 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  list-style: none;
+}
+.nav-menu .el-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  margin: 1px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-body);
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.nav-menu .el-dropdown-menu__item .el-icon {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+.nav-menu .el-dropdown-menu__item:not(.is-disabled):hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.nav-menu .el-dropdown-menu__item:not(.is-disabled):hover .el-icon { color: var(--text-primary); }
+.nav-menu .el-dropdown-menu__item--divided {
+  margin-top: 5px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.nav-menu .el-dropdown-menu__item--divided::before { display: none; }
+.nav-menu .nv-logout,
+.nav-menu .nv-logout .el-icon { color: #c0392b; }
+.nav-menu .nv-logout:not(.is-disabled):hover,
+.nav-menu .nv-logout:not(.is-disabled):hover .el-icon { color: #c0392b; }
+.nav-menu .nv-logout:not(.is-disabled):hover { background: #fbe9e9; }
+html.dark .nav-menu .nv-logout:not(.is-disabled):hover { background: rgba(192, 57, 43, 0.16); }
 
 /* 通知下拉 */
 .notif-menu.el-dropdown__popper {
