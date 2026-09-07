@@ -3,11 +3,15 @@
     <div class="sidebar-filter">
       <el-input
         v-model="filter"
-        size="small"
+        class="filter-input"
         placeholder="筛选目录…"
         clearable
         :prefix-icon="SearchIcon"
       />
+      <p v-if="filter.trim()" class="filter-hint">
+        <template v-if="matchCount">找到 {{ matchCount }} 篇</template>
+        <template v-else>没有匹配的文档</template>
+      </p>
     </div>
 
     <el-menu
@@ -85,6 +89,12 @@ export default {
     return { filter: "", SearchIcon: markRaw(Search) };
   },
   computed: {
+    // 筛选时给个「找到 N 篇」的反馈，否则只能靠自己数
+    matchCount() {
+      const count = (nodes) => (nodes || []).reduce(
+        (n, node) => n + (node.children ? count(node.children) : 1), 0)
+      return count(this.filteredItems)
+    },
     filteredItems() {
       const q = this.filter.trim().toLowerCase();
       if (!q) return this.sidebarItems;
@@ -120,6 +130,36 @@ export default {
 .sidebar-filter {
   padding: 12px;
   border-bottom: 1px solid var(--border);
+}
+
+/* 与顶栏搜索框同一套观感：胶囊圆角、subtle 底色、聚焦时描边转成品牌色。
+   此前是 size="small" 的默认 el-input，32px 高、方角、带内阴影，
+   和侧栏其余部分不像一套东西。 */
+.sidebar-filter :deep(.el-input__wrapper) {
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  box-shadow: none;
+  transition: border-color .2s ease, background .2s ease;
+}
+.sidebar-filter :deep(.el-input__inner) {
+  height: 34px;
+  font-size: 13.5px;
+}
+.sidebar-filter :deep(.el-input__wrapper:hover),
+.sidebar-filter :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--brand);
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+.sidebar-filter :deep(.el-input__prefix),
+.sidebar-filter :deep(.el-input__suffix) { color: var(--text-muted); }
+
+.filter-hint {
+  margin: 8px 2px 0;
+  color: var(--text-muted);
+  font-size: 11.5px;
 }
 
 .sidebar-el-menu {
