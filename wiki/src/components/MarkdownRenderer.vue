@@ -183,6 +183,7 @@ export default {
       this.$nextTick(() => {
         this.enhanceCodeBlocks();
         this.enhanceResizableImages();
+        this.enhanceTables();
         this.setupScrollSpy();
       });
     },
@@ -225,6 +226,18 @@ export default {
       };
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
+    },
+    // 宽表在窄屏上要能横向滚动，否则右侧几列既看不见也够不着
+    enhanceTables() {
+      const root = this.$refs.bodyEl;
+      if (!root) return;
+      root.querySelectorAll("table").forEach((table) => {
+        if (table.parentElement && table.parentElement.classList.contains("table-scroll")) return;
+        const wrap = document.createElement("div");
+        wrap.className = "table-scroll";
+        table.parentNode.insertBefore(wrap, table);
+        wrap.appendChild(table);
+      });
     },
     enhanceCodeBlocks() {
       const root = this.$refs.bodyEl;
@@ -409,22 +422,26 @@ export default {
 }
 .markdown-body blockquote p { margin: 0.3em 0; }
 
-.markdown-body table {
-  /* 让表格自己成为横向滚动容器：此前是 display:table + overflow:hidden，
-     窄屏上宽表会把祖先撑开再被外层裁掉，右侧几列既看不见也滚不到。
-     宽度必须是确定值（100%）而不是 max-content——正文在一个 flex 容器里，
-     内容驱动的宽度会反过来把 .main-content-area 撑开，等于没修。 */
-  display: block;
-  width: 100%;
-  border-collapse: collapse;
+/* 表格由 enhanceTables() 包进 .table-scroll。滚动容器必须是这个 div：
+   给 <table> 自己加 overflow 不管用——正文处在一个 flex 链里，表格的固有宽度
+   仍会把 .main-content-area 从 351px 撑到 640px，于是 width:100% 跟着变大，
+   scrollWidth == clientWidth，看着有 overflow 其实滚不动。 */
+.markdown-body .table-scroll {
+  max-width: 100%;
   margin: 1.4em 0;
   overflow-x: auto;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0;
+}
 .markdown-body th,
 .markdown-body td {
   border: 1px solid var(--border);
+  white-space: nowrap;
   padding: 10px 14px;
   text-align: left;
 }
