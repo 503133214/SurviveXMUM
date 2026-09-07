@@ -441,7 +441,6 @@ export default {
 .markdown-body th,
 .markdown-body td {
   border: 1px solid var(--border);
-  white-space: nowrap;
   padding: 10px 14px;
   text-align: left;
 }
@@ -609,7 +608,11 @@ export default {
 
 @media (max-width: 768px) {
   /* 外层 DocPage 已给出统一留白，这里再叠一层只会把正文挤窄 */
-  .markdown-container { padding-inline: 0; }
+  /* 同时退回普通块级布局：flex 只是为了在桌面端并排放目录侧栏，
+     而移动端的目录（抽屉按钮与侧栏）都是 position:fixed，不参与流内布局。
+     继续用 flex 反而让 .main-content-area 被内容撑出容器（351px 撑到 835px），
+     导致里面所有 max-width:100% 的滚动容器一起失效。 */
+  .markdown-container { padding-inline: 0; display: block; }
   .markdown-body { padding: 20px 14px; border-radius: var(--radius-sm); }
 }
 </style>
