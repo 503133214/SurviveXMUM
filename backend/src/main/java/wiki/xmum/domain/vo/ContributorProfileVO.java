@@ -12,7 +12,12 @@ public class ContributorProfileVO {
     private String displayName;
     private String avatar;
     private Integer count;
+    private Integer createdCount;
+    private Integer editedCount;
+    private Integer commentCount;
     private List<PageRef> pages;
+    /** 已获得的徽章，外加每个家族里尚未达成的下一档（带进度）。 */
+    private List<BadgeVO> badges;
 
     @Data
     @AllArgsConstructor

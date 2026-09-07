@@ -9,4 +9,6 @@ public class ContributorVO {
     private String displayName;
     private String avatar;
     private Integer count;   // 已通过投稿数
+    /** 已获得的徽章（榜单只给已获得的，空间有限）。 */
+    private java.util.List<BadgeVO> badges;
 }

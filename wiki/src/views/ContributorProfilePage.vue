@@ -24,8 +24,23 @@
         <div class="profile-count">
           <strong>{{ profile.count }}</strong>
           <span>篇已通过投稿</span>
+          <small class="count-split">
+            新建 {{ profile.createdCount || 0 }} · 修改 {{ profile.editedCount || 0 }}
+            · 讨论 {{ profile.commentCount || 0 }}
+          </small>
         </div>
       </header>
+
+      <section v-if="badges.length" class="cprofile-badges" v-reveal>
+        <div class="pages-head">
+          <div>
+            <p>BADGES</p>
+            <h2>徽章</h2>
+          </div>
+          <span>已获得 {{ earnedCount }} / {{ badges.length }}</span>
+        </div>
+        <ContributorBadges :badges="badges" variant="grid" />
+      </section>
 
       <section class="cprofile-pages" v-reveal>
         <div class="pages-head">
@@ -68,10 +83,12 @@
 </template>
 
 <script>
+import ContributorBadges from '@/components/ContributorBadges.vue'
 import { getContributorProfile } from '@/net/index.js'
 
 export default {
   name: 'ContributorProfilePage',
+  components: { ContributorBadges },
   props: { id: { type: String, default: '' } },
   data() {
     return { profile: null, loading: true }
@@ -79,6 +96,15 @@ export default {
   watch: {
     id() { this.load() },
   },
+  computed: {
+    badges() {
+      return (this.profile && this.profile.badges) || []
+    },
+    earnedCount() {
+      return this.badges.filter((b) => b.earned).length
+    },
+  },
+
   methods: {
     initial(name) {
       return (name || '?').trim().charAt(0).toUpperCase()
@@ -219,6 +245,9 @@ export default {
   line-height: 1;
 }
 .profile-count span { margin-top: 8px; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+
+.cprofile-badges { margin-top: 46px; }
+.count-split { display: block; margin-top: 6px; color: var(--text-muted); font-size: 11.5px; }
 
 .cprofile-pages { margin-top: 58px; }
 .pages-head {

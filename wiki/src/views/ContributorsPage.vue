@@ -131,6 +131,7 @@
             <div class="podium-copy">
               <strong>{{ contributor.displayName }}</strong>
               <span>{{ contributor.count }} 篇贡献</span>
+              <ContributorBadges :badges="contributor.badges || []" :max="5" />
             </div>
             <span class="card-arrow" aria-hidden="true">→</span>
           </router-link>
@@ -147,7 +148,10 @@
             <el-avatar :size="40" :src="contributor.avatar || undefined">
               {{ initial(contributor.displayName) }}
             </el-avatar>
-            <span class="leader-name">{{ contributor.displayName }}</span>
+            <span class="leader-main">
+              <span class="leader-name">{{ contributor.displayName }}</span>
+              <ContributorBadges :badges="contributor.badges || []" :max="4" />
+            </span>
             <span class="leader-count">{{ contributor.count }} 篇</span>
             <span class="leader-arrow" aria-hidden="true">→</span>
           </router-link>
@@ -164,12 +168,13 @@
 </template>
 
 <script>
+import ContributorBadges from '@/components/ContributorBadges.vue'
 import AnimatedNumber from '@/components/AnimatedNumber.vue'
 import { getContributors, getWall } from '@/net/index.js'
 
 export default {
   name: 'ContributorsPage',
-  components: { AnimatedNumber },
+  components: { AnimatedNumber, ContributorBadges },
   data() {
     return {
       contributors: [],
@@ -598,6 +603,7 @@ a.wall-card:hover .external-mark { color: var(--text-primary); transform: transl
   white-space: nowrap;
 }
 .podium-copy span { margin-top: 5px; color: var(--text-muted); font-size: 12.5px; }
+.podium-copy :deep(.cb-strip) { margin-top: 7px; }
 .card-arrow {
   position: absolute;
   right: 18px;
@@ -635,6 +641,8 @@ a.wall-card:hover .external-mark { color: var(--text-primary); transform: transl
   color: var(--text-primary);
   font-weight: 750;
 }
+/* 名字与徽章共用原来的名字列，网格列数不变 */
+.leader-main { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .leader-name { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .leader-count { color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
 .leader-arrow { color: var(--text-muted); opacity: 0; transition: opacity .2s ease; }

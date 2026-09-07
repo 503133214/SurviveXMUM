@@ -47,7 +47,8 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
             "api/endpoints", Set.of(
                     "eb19a34834d423291af88dcd31d726fe3e5e9615f2d0ab2096db9a6256232781",
                     "5dff0c9da7dd753e54e97dfc210f66eb06deae80f4f31c576846f1bf67d33b3a",
-                    "9f02122425c4fe04d3ad2509e6ffed94cd2d6648c92cdb9b6172babe7bd20883"),
+                    "9f02122425c4fe04d3ad2509e6ffed94cd2d6648c92cdb9b6172babe7bd20883",
+                    "542b9254f5be3f27ae1b68b38c64ad16fac6f7768d4004409007f63a489b0850"),
             "api/development", Set.of("d1d1e74eaa113c6d57e8b8cd6d6d7987969526e431f677955b7f2bd7c19e5eca")
     );
     private static final String ORIGINAL_TEST_PLACEHOLDER = """

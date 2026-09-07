@@ -32,6 +32,7 @@ class ContributorServiceTest {
     @Mock private WikiPageMapper pageMapper;
     @Mock private UserMapper userMapper;
     @Mock private WikiPageVersionMapper versionMapper;
+    @Mock private wiki.xmum.mapper.PageCommentMapper commentMapper;
 
     @Test
     void pageContributorsAggregatePublishedEventsAndSupplementLegacyRevisions() {
@@ -162,7 +163,7 @@ class ContributorServiceTest {
     }
 
     private ContributorService service() {
-        return new ContributorService(revisionMapper, pageMapper, userMapper, versionMapper);
+        return new ContributorService(revisionMapper, pageMapper, userMapper, versionMapper, commentMapper);
     }
 
     private static WikiPage publicPage() {

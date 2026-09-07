@@ -105,6 +105,21 @@ https://surivivexmum.wiki/api
 | `GET` | `/wall` | 无 | `WallEntry[]` |
 | `GET` | `/health` | 无 | `{status, service}` |
 
+贡献榜条目与贡献者主页都带 `badges`：由已通过投稿与讨论现算，没有授予记录表。榜单只返回已获得的徽章；主页额外给出每个家族里尚未达成的下一档，附 `progress` / `target`。同一家族（如投稿量 1 / 10 / 50 篇）只展示已达成的最高一档。主页还返回 `createdCount`、`editedCount`、`commentCount` 三项分解口径。
+
+```json
+// BadgeVO
+{
+  "id": "ten-contributions",
+  "icon": "📗",
+  "name": "十篇达成",
+  "description": "累计 10 篇投稿被采纳",
+  "earned": true,
+  "progress": 10,
+  "target": 10
+}
+```
+
 `GET /contributors/page?path=...` 只接受当前公开且未删除的页面。`path` 为空、页面不存在、未发布或已删除时返回业务 404；页面存在但没有可确认的人类贡献者时返回 HTTP 200 和空数组。路径中包含 `/`、空格或中文时应进行 URL 编码。
 
 返回项使用 `PageContributorVO`；字段形状与贡献榜条目相同，但 `count` 的统计范围不同：

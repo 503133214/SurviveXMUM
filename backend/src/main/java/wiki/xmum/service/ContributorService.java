@@ -6,10 +6,13 @@ import wiki.xmum.common.BizException;
 import wiki.xmum.domain.po.User;
 import wiki.xmum.domain.po.WikiPage;
 import wiki.xmum.domain.po.WikiPageVersion;
+import wiki.xmum.domain.po.PageComment;
 import wiki.xmum.domain.po.WikiRevision;
 import wiki.xmum.domain.vo.ContributorProfileVO;
+import wiki.xmum.domain.vo.BadgeVO;
 import wiki.xmum.domain.vo.ContributorVO;
 import wiki.xmum.domain.vo.PageContributorVO;
+import wiki.xmum.mapper.PageCommentMapper;
 import wiki.xmum.mapper.UserMapper;
 import wiki.xmum.mapper.WikiPageMapper;
 import wiki.xmum.mapper.WikiPageVersionMapper;
@@ -36,13 +39,16 @@ public class ContributorService {
     private final WikiPageMapper pageMapper;
     private final UserMapper userMapper;
     private final WikiPageVersionMapper versionMapper;
+    private final PageCommentMapper commentMapper;
 
     public ContributorService(WikiRevisionMapper revisionMapper, WikiPageMapper pageMapper,
-                              UserMapper userMapper, WikiPageVersionMapper versionMapper) {
+                              UserMapper userMapper, WikiPageVersionMapper versionMapper,
+                              PageCommentMapper commentMapper) {
         this.revisionMapper = revisionMapper;
         this.pageMapper = pageMapper;
         this.userMapper = userMapper;
         this.versionMapper = versionMapper;
+        this.commentMapper = commentMapper;
     }
 
     public List<ContributorVO> leaderboard(int limit) {
@@ -61,6 +67,9 @@ public class ContributorService {
                 : userMapper.selectBatchIds(ids).stream()
                         .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
 
+        // 讨论数只查上榜这几个人，避免为整表算一遍
+        Map<Long, Integer> commentsByUser = commentCounts(ids);
+
         List<ContributorVO> rows = new ArrayList<>();
         for (Map.Entry<Long, Long> e : top) {
             User u = users.get(e.getKey());
@@ -70,9 +79,38 @@ public class ContributorService {
             v.setDisplayName(displayName(u));
             v.setAvatar(u.getAvatar());
             v.setCount(e.getValue().intValue());
+            v.setBadges(BadgeCatalog.evaluate(
+                    statsFrom(approved, u.getId(), commentsByUser.getOrDefault(u.getId(), 0)), false));
             rows.add(v);
         }
         return rows;
+    }
+
+    /** 某人的徽章口径：投稿相关全部取自已通过投稿，讨论数单独传入。 */
+    static ContributorStats statsFrom(List<WikiRevision> allApproved, Long userId, int comments) {
+        List<WikiRevision> mine = allApproved.stream()
+                .filter(r -> java.util.Objects.equals(r.getAuthorId(), userId))
+                .toList();
+        int created = (int) mine.stream().filter(r -> "CREATE".equals(r.getType())).count();
+        int edited = (int) mine.stream().filter(r -> "UPDATE".equals(r.getType())).count();
+        int pages = (int) mine.stream().map(WikiRevision::getTargetPath)
+                .filter(java.util.Objects::nonNull).distinct().count();
+        LocalDateTime first = mine.stream()
+                .map(r -> r.getReviewedAt() == null ? r.getCreatedAt() : r.getReviewedAt())
+                .filter(java.util.Objects::nonNull)
+                .min(LocalDateTime::compareTo).orElse(null);
+        return new ContributorStats(mine.size(), created, edited, pages, comments, first);
+    }
+
+    private Map<Long, Integer> commentCounts(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return Map.of();
+        return commentMapper.selectList(Wrappers.<PageComment>lambdaQuery()
+                        .select(PageComment::getUserId)
+                        .in(PageComment::getUserId, userIds)
+                        .eq(PageComment::getStatus, "VISIBLE"))
+                .stream()
+                .collect(Collectors.groupingBy(PageComment::getUserId,
+                        Collectors.summingInt(c -> 1)));
     }
 
     public ContributorProfileVO profile(Long userId) {
@@ -100,12 +138,19 @@ public class ContributorService {
             }
         }
 
+        ContributorStats stats = statsFrom(approved, userId,
+                commentCounts(List.of(userId)).getOrDefault(userId, 0));
+
         ContributorProfileVO vo = new ContributorProfileVO();
         vo.setUserId(u.getId());
         vo.setDisplayName(displayName(u));
         vo.setAvatar(u.getAvatar());
         vo.setCount(approved.size());
         vo.setPages(pages);
+        vo.setCreatedCount(stats.created());
+        vo.setEditedCount(stats.edited());
+        vo.setCommentCount(stats.comments());
+        vo.setBadges(BadgeCatalog.evaluate(stats, true));
         return vo;
     }
 

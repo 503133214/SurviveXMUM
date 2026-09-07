@@ -183,7 +183,9 @@ export default {
 }
 .tp-chip:hover { border-color: var(--brand); color: var(--brand); transform: translateY(-1px); }
 .tp-chip.active { border-color: var(--brand); background: var(--brand); color: #fff; }
-.tp-chip.active .tp-more {
+.tp-chip.active .tp-chip-count { background: rgba(255, 255, 255, .25); color: #fff; }
+
+.tp-more {
   padding: 7px 13px;
   border: 1px dashed var(--border-strong, var(--border));
   border-radius: 999px;
@@ -194,8 +196,6 @@ export default {
   cursor: pointer;
 }
 .tp-more:hover { border-color: var(--brand); color: var(--brand); }
-
-.tp-chip-count { background: rgba(255, 255, 255, .25); color: #fff; }
 
 /* 热度只影响字号，颜色留给 hover/选中，避免整片花掉 */
 .tp-chip.heat-1 { font-size: 12.5px; }
