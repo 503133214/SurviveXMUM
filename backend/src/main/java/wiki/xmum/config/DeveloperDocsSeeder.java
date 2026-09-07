@@ -42,14 +42,18 @@ public class DeveloperDocsSeeder implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DeveloperDocsSeeder.class);
     private static final String CATEGORY_SLUG = "api";
     private static final Map<String, Set<String>> REPLACEABLE_BUNDLED_HASHES = Map.of(
-            // Built-in content shipped before the page-contributor endpoint was documented,
-            // and before the discussion (comment) endpoints were documented.
+            // 每一项都是“曾经内置过”的正文哈希：线上页面仍逐字节等于其中之一时才允许覆盖，
+            // 管理员手工改过的内容因此永远不会被启动流程冲掉。改这些 .md 前先算好当前哈希再加进来。
+            "api/api-overview", Set.of(
+                    "96518e05202474da58102c97bff65323410152c89953edeefa5545a10c0f711c"),
             "api/endpoints", Set.of(
                     "eb19a34834d423291af88dcd31d726fe3e5e9615f2d0ab2096db9a6256232781",
                     "5dff0c9da7dd753e54e97dfc210f66eb06deae80f4f31c576846f1bf67d33b3a",
                     "9f02122425c4fe04d3ad2509e6ffed94cd2d6648c92cdb9b6172babe7bd20883",
                     "542b9254f5be3f27ae1b68b38c64ad16fac6f7768d4004409007f63a489b0850"),
-            "api/development", Set.of("d1d1e74eaa113c6d57e8b8cd6d6d7987969526e431f677955b7f2bd7c19e5eca")
+            "api/development", Set.of(
+                    "d1d1e74eaa113c6d57e8b8cd6d6d7987969526e431f677955b7f2bd7c19e5eca",
+                    "73f15ea92f156a022e0cb3aa4ab9c766e61b7e77bb8fe484b35cd20b0d8cbe1d")
     );
     private static final String ORIGINAL_TEST_PLACEHOLDER = """
             # test3

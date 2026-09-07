@@ -19,7 +19,7 @@
 ## 环境要求
 
 - Git
-- JDK 17 或更高版本
+- JDK **17 或 21**（不要用更新的 JDK：Lombok 注解处理会失败，编译时报大量“找不到符号 getXxx()”。macOS 上可用 `JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn test` 显式指定）
 - Maven 3.9+
 - Node.js 20+ 与 npm
 - MySQL 8.x
@@ -120,18 +120,44 @@ backend/
     domain/dto/       请求对象
     domain/vo/        对外响应对象
     security/         JWT、角色和当前用户
+    common/           统一响应封装、业务异常与全局异常处理
+    config/           Jackson、MyBatis-Plus、MinIO、内置文档初始化
+    util/             Markdown、JSON、标题与分类标识校验
   src/main/resources/
     db/               建表与幂等迁移
-    wiki-content/     首次初始化的内置 Wiki 文档
+    wiki-content/     内置开发文档（改动规则见下一节）
 
 wiki/
   src/net/            前端 API 封装
-  src/wiki/           manifest、页面、搜索和相邻页门面
+  src/wiki/           manifest、页面、搜索、标签和相邻页门面
   src/components/     通用 UI 与 Markdown 渲染
   src/views/          路由页面
   src/router/         Vue Router 路由与权限守卫
+  src/store/          Pinia（当前登录用户）
+  src/composables/    主题等可复用逻辑
+  src/utils/          纯函数工具（含独立单测）
+  src/directives/     自定义指令
   public/docs/        仅保留历史静态图片，不再保存文章 Markdown
 ```
+
+## 修改内置开发文档
+
+你正在读的这三页（`api/api-overview`、`api/endpoints`、`api/development`）比较特殊：它们的源文件在
+`backend/src/main/resources/wiki-content/api/`，但站点内容以数据库为准，所以由
+`DeveloperDocsSeeder` 在每次启动时同步。
+
+同步是**保守**的：只有当线上页面的正文仍然逐字节等于某个“曾经内置过”的版本时才会被覆盖，
+这样管理员在后台手工改过的内容永远不会被启动流程冲掉。因此：
+
+> 改这三个 `.md` 之前，先记下当前文件的 sha256，并把它加进
+> `DeveloperDocsSeeder.REPLACEABLE_BUNDLED_HASHES` 对应条目。
+
+```bash
+shasum -a 256 backend/src/main/resources/wiki-content/api/endpoints.md   # 先算，再改
+```
+
+只改文件而不登记哈希，线上那一页会被当成“管理员手工版本”而永远停在旧内容上——
+本地看着是新的，线上没变，且不会有任何报错。
 
 ## 内容与发布流程
 
@@ -169,6 +195,24 @@ status = PUBLISHED AND deleted = 0
 
 前端应直接使用页面级接口，不要下载全站贡献榜后逐个请求个人主页，也不要按公开版本历史里的显示名自行去重。
 
+### 贡献者徽章
+
+徽章同样是派生数据，没有授予记录表，规则集中在 `BadgeCatalog`：
+
+- 全部口径来自已通过投稿与可见讨论，改规则只需要改这一个文件，不涉及迁移。
+- 徽章按**家族**组织（投稿量、新建、校对、广度、讨论、资历）。同一家族只返回已达成的最高一档，
+  否则一个老贡献者会同时挂着三枚在说同一件事的徽章。
+- 贡献榜只返回已获得的徽章；个人主页额外返回每个家族里尚未达成的下一档，附 `progress` / `target`，
+  用于展示进度。
+- 新增徽章时注意成本：榜单会为上榜的每个人计算一次，任何新口径都应能从**已经查出来的数据**里算，
+  或者只对上榜用户补一次批量查询，不要引入按人循环的查询。
+
+### 页面讨论
+
+讨论只有两层：`parent_id` 记录“回复了谁”（用于显示 `@`），`root_id` 记录楼层归属并从父评论继承，
+因此回复回复也不会产生第三层。作者自删与管理员隐藏都是软删除；主楼被隐藏或自删后，
+只要楼里还有可见回复，就保留一个**不含作者信息**的占位，避免回复变成孤儿。
+
 ## 数据库变更
 
 1. 新建下一个 `backend/src/main/resources/db/migration-vN.sql`。
@@ -188,13 +232,17 @@ cd backend
 mvn clean test
 ```
 
-前端链接单元测试与生产构建：
+前端（`node --test` 跑 `wiki/test/*.test.js` 里的纯函数单测）与生产构建：
 
 ```bash
 cd wiki
 npm test
 npm run build
 ```
+
+后端的 Service 单测直接 `new` 出被测对象并注入 Mock，因此**给 Service 增加构造参数时必须同步改测试**，
+否则编译不过（`PageAdminServiceTest`、`ContributorServiceTest`、`CommentServiceTest` 都属于这类）。
+生产镜像构建时会 `-DskipTests`，测试只在本地和 CI 跑，不要指望部署环节帮你发现问题。
 
 提交前还建议执行：
 
@@ -230,7 +278,7 @@ git push origin feature/your-feature
 - 界面变化的桌面端/移动端截图
 - 可能的回滚方式
 
-生产部署由维护者执行。外部贡献者不需要、也不应获取生产服务器或生产环境变量。
+生产部署由维护者执行，步骤见仓库根目录的 `DEPLOY.md`。外部贡献者不需要、也不应获取生产服务器或生产环境变量。
 
 ## 常见问题
 
@@ -243,5 +291,8 @@ git push origin feature/your-feature
 | 图片上传后 403 | 检查 bucket 只读策略与 `MINIO_PUBLIC_URL` |
 | 前端路由刷新 404 | 静态服务器需要 SPA fallback 到 `index.html` |
 | API 看似 HTTP 200 但操作失败 | 检查 JSON 响应体里的业务 `code` 和 `message` |
+| 编译报大量“找不到符号 getXxx()” | JDK 太新导致 Lombok 失效，改用 JDK 17 或 21 |
+| 改了内置开发文档但线上没变 | 没有把改动前的 sha256 登记进 `DeveloperDocsSeeder` |
+| 部署后页面空白，刷新就好 | 旧标签页在用被替换掉的旧 chunk；容器 nginx 有自愈脚本，本地调试直接硬刷新 |
 
 更多调用细节见[接口参考](./endpoints.md)。
