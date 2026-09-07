@@ -13,9 +13,9 @@ export const state = reactive({ home: null, generatedAt: null, loaded: false, lo
 // The home doc (root README) path is fixed.
 export const HOME_PATH = 'README'
 
-// Repo + branch used to build "edit this page" links (kept for reference / external link).
+// 仓库地址（顶栏 GitHub 入口用）。曾经还有个 EDIT_BASE 指向 wiki/public/docs 里的
+// Markdown 源文件，内容迁进数据库、目录删除后已无意义，随之移除。
 export const REPO = 'https://github.com/503133214/SurviveXMUM'
-export const EDIT_BASE = `${REPO}/edit/main/wiki/public/docs`
 
 const CACHE_KEY = 'wiki_manifest_v1'
 

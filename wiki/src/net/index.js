@@ -128,9 +128,6 @@ function uploadImage(file,onProgress,success,failure=defaultFailure){
         failure(message, err.response?.status || -1, '/wiki/image')
     })
 }
-function unauthorized(){
-    return !takeAccessToken()
-}
 function login(username,password,success,failure=defaultFailure){
     internalPost("/login",{
         userEmail: username,
@@ -441,7 +438,7 @@ function adminDeleteWall(id, success, failure = defaultFailure) {
     remove(`/admin/wall/${id}`, success, failure)
 }
 
-export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
+export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
     adminReapproveRevision,adminRevokeRevision,adminUpdateRevisionComment,adminPurgeRevision,
