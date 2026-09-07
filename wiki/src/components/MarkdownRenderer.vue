@@ -410,10 +410,16 @@ export default {
 .markdown-body blockquote p { margin: 0.3em 0; }
 
 .markdown-body table {
+  /* display:block + max-content 让表格自己成为横向滚动容器：
+     此前是 display:table + overflow:hidden，窄屏上宽表会把祖先撑开、再被外层裁掉，
+     右侧几列既看不见也滚不到。min-width:100% 保持窄表仍然占满正文宽度。 */
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
-  width: 100%;
   margin: 1.4em 0;
-  overflow: hidden;
+  overflow-x: auto;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
