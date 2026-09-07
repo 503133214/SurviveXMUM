@@ -1,0 +1,13 @@
+wiki/xmum/service/RevisionServiceTest.class
+wiki/xmum/service/PageAdminServiceTest.class
+wiki/xmum/util/TitleUtilTest.class
+wiki/xmum/config/MinioConfigTest.class
+wiki/xmum/service/ContributorServiceTest.class
+wiki/xmum/service/PageVersionAdminServiceTest.class
+wiki/xmum/common/DateRangeFilterTest.class
+wiki/xmum/service/CommentServiceTest.class
+wiki/xmum/config/DeveloperDocsSeederTest.class
+wiki/xmum/service/WikiContentServiceTest.class
+wiki/xmum/service/UserContentServiceTest.class
+wiki/xmum/service/BadgeCatalogTest.class
+wiki/xmum/service/PageVersionServiceTest.class
