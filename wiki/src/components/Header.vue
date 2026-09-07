@@ -123,6 +123,7 @@
         v-if="backendEnabled && hasToken"
         trigger="click"
         popper-class="notif-menu"
+        :popper-options="popperKeepInset"
         @visible-change="onBellVisible"
       >
         <button class="bell-btn" aria-label="通知">
@@ -156,6 +157,7 @@
         trigger="click"
         popper-class="nav-menu"
         :show-timeout="80"
+        :popper-options="popperKeepInset"
         @command="handleMobileNavCommand"
         @visible-change="menuOpen = $event"
       >
@@ -252,6 +254,10 @@ export default {
       isMobileView: false,
       isScrolled: false,
       menuOpen: false,
+      // 弹层默认可以贴到视口边缘；留 12px 让面板不与屏幕边框粘在一起
+      popperKeepInset: {
+        modifiers: [{ name: "preventOverflow", options: { padding: 12 } }],
+      },
       resizeTimeout: null,
       backendEnabled: BACKEND_ENABLED,
       HOME_PATH,
