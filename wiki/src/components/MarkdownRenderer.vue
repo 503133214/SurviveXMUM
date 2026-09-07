@@ -410,13 +410,12 @@ export default {
 .markdown-body blockquote p { margin: 0.3em 0; }
 
 .markdown-body table {
-  /* display:block + max-content 让表格自己成为横向滚动容器：
-     此前是 display:table + overflow:hidden，窄屏上宽表会把祖先撑开、再被外层裁掉，
-     右侧几列既看不见也滚不到。min-width:100% 保持窄表仍然占满正文宽度。 */
+  /* 让表格自己成为横向滚动容器：此前是 display:table + overflow:hidden，
+     窄屏上宽表会把祖先撑开再被外层裁掉，右侧几列既看不见也滚不到。
+     宽度必须是确定值（100%）而不是 max-content——正文在一个 flex 容器里，
+     内容驱动的宽度会反过来把 .main-content-area 撑开，等于没修。 */
   display: block;
-  width: max-content;
-  min-width: 100%;
-  max-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   margin: 1.4em 0;
   overflow-x: auto;
