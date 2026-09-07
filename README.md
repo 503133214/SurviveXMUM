@@ -68,12 +68,10 @@ Art Resources/     Logo 等设计源文件
 
 ## 部署
 
-见 [`DEPLOY.md`](DEPLOY.md)。日常就一条命令：
+构建、缓存策略与反向代理配置见 [`DEPLOY.md`](DEPLOY.md)。
 
-```bash
-ssh root@83.229.122.162
-cd /opt/SurviveXMUM && ./deploy.sh
-```
+线上发布由维护者在服务器上执行 `./deploy.sh`；**服务器地址、登录方式与运维细节
+不在本公开仓库中**，见私有仓库 `SurviveXMUM-server`。
 
 ## 许可证
 

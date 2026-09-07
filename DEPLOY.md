@@ -4,9 +4,12 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 由宿主机 nginx 反向代理。
 
 > 前后端已拆成两个仓库，**各自独立部署、互不依赖**：
-> - 前端（本仓库，公开）：`503133214/SurviveXMUM` → 服务器 `/opt/SurviveXMUM`
-> - 后端（私有）：`503133214/SurviveXMUM-server` → 服务器 `/opt/SurviveXMUM-server`，
->   数据库迁移、环境变量与后端运维见该仓库的 `DEPLOY.md`
+> - 前端（本仓库，公开）：`503133214/SurviveXMUM`
+> - 后端（私有）：`503133214/SurviveXMUM-server`，数据库迁移、环境变量与后端运维见该仓库
+>
+> **本文是公开仓库的一部分，因此不写服务器地址、登录方式与主机上的绝对路径。**
+> 这些放在私有仓库 `SurviveXMUM-server` 的 `DEPLOY.md` 里。下文用 `<部署目录>`
+> 指代服务器上的前端仓库检出位置。
 >
 > 最后更新：2026-09-08。改动 `deploy.sh`、`docker-compose.yml`、`wiki/Dockerfile`
 > 或 `wiki/nginx.conf` 时，请同步更新本文。
@@ -23,7 +26,7 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 └── /wiki/     → MinIO     127.0.0.1:9000     (图片对象存储, 走 https 域名)
 ```
 
-- **部署分支：`dev`**，仓库位于服务器 `/opt/SurviveXMUM`。
+- **部署分支：`dev`**。
 - 前端产物在 **Docker 内构建**（npm 在镜像里跑），本地不需要先 build。
 - 后端是独立容器、独立仓库、独立部署命令；**发前端不需要动后端**，反之亦然。
 - 内容全部来自后端 API，前端镜像里没有任何文章数据。
@@ -48,8 +51,7 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 代码合并到 `dev` 并 push 后，登录服务器执行一条命令：
 
 ```bash
-ssh root@83.229.122.162
-cd /opt/SurviveXMUM
+cd <部署目录>   # 服务器上的前端仓库检出位置
 ./deploy.sh
 ```
 
@@ -74,7 +76,6 @@ cd /opt/SurviveXMUM
 ### 4.1 拉代码
 
 ```bash
-cd /opt
 git clone https://github.com/503133214/SurviveXMUM.git
 cd SurviveXMUM
 git checkout dev
@@ -84,7 +85,7 @@ git checkout dev
 
 ### 4.2 配置宿主机 nginx 反向代理
 
-在站点 vhost（本项目：`/etc/nginx/sites-available/vue-app`）的 HTTPS server 块内加入：
+在站点 vhost 的 HTTPS server 块内加入：
 
 ```nginx
 client_max_body_size 20m;   # 允许图片上传
@@ -119,7 +120,7 @@ nginx -t && systemctl reload nginx
 ### 4.3 起容器
 
 ```bash
-cd /opt/SurviveXMUM && ./deploy.sh
+cd <部署目录> && ./deploy.sh
 ```
 
 ---
@@ -151,7 +152,7 @@ curl -s   https://$D/api/wiki/manifest      # 应为 JSON（说明后端在，�
 容器侧：
 
 ```bash
-cd /opt/SurviveXMUM
+cd <部署目录>
 docker compose ps                     # wiki-frontend 应是 Up 且 CREATED 是刚刚
 docker compose logs frontend --tail 20
 ```
@@ -164,7 +165,7 @@ docker compose logs frontend --tail 20
 ## 7. 常用运维命令
 
 ```bash
-cd /opt/SurviveXMUM
+cd <部署目录>
 
 docker compose ps                  # 容器状态
 docker compose logs -f frontend    # 前端容器日志
@@ -194,7 +195,7 @@ npm run build    # 部署前的 sanity check（真正的构建在 Docker 里）
 ## 9. 回滚
 
 ```bash
-cd /opt/SurviveXMUM
+cd <部署目录>
 git log --oneline -5
 git reset --hard <上一个 commit>
 ./deploy.sh
@@ -219,9 +220,8 @@ git reset --hard <上一个 commit>
 
 ## 11. 关键信息速查
 
-- 服务器：`root@83.229.122.162`（Ubuntu 22.04）
 - 域名：`surivivexmum.wiki`（注意拼写 sur**i**vivexmum）
-- 本仓库路径：`/opt/SurviveXMUM`，分支 `dev`；GitHub：`503133214/SurviveXMUM`（公开）
-- 后端仓库路径：`/opt/SurviveXMUM-server`，分支 `main`；GitHub：`503133214/SurviveXMUM-server`（私有）
-- nginx vhost：`/etc/nginx/sites-available/vue-app`（改前自动备份为 `*.bak.*`）
-- 容器名：`wiki-frontend`（127.0.0.1:8081）；`wiki-backend` 与 `minio` 不归本仓库管
+- 本仓库：`503133214/SurviveXMUM`（公开），部署分支 `dev`
+- 后端仓库：`503133214/SurviveXMUM-server`（私有），部署分支 `main`
+- 容器名：`wiki-frontend`（`127.0.0.1:8081`）；`wiki-backend` 与 `minio` 不归本仓库管
+- 服务器地址、SSH 登录方式、主机上的绝对路径与 nginx vhost 文件名：见私有仓库
