@@ -69,25 +69,25 @@
     </section>
 
     <!-- ===== 最近更新（编辑式列表） ===== -->
-    <section v-if="recent.length" class="block">
+    <section v-if="recentChanges.length" class="block">
       <div class="block-head">
         <h2 v-reveal>最近更新</h2>
-        <router-link class="block-link" :to="`/docs/${HOME_PATH}`" v-reveal>
-          全部文档 →
+        <router-link class="block-link" to="/changes" v-reveal>
+          全部动态 →
         </router-link>
       </div>
 
       <div class="news">
         <a
-          v-for="(p, i) in recent"
-          :key="p.path"
+          v-for="(c, i) in recentChanges"
+          :key="c.id"
           class="news-row"
           v-reveal="{ delay: i * 40 }"
-          @click="go(`/docs/${p.path}`)"
+          @click="go(`/docs/${c.path}`)"
         >
-          <span class="news-date">{{ fmtDate(p.lastUpdated) }}</span>
-          <span class="news-title">{{ p.title }}</span>
-          <span class="news-cat">{{ p.category }}</span>
+          <span class="news-date">{{ fmtDate(c.publishedAt) }}</span>
+          <span class="news-title">{{ c.title }}</span>
+          <span class="news-cat">{{ c.authorName }} {{ c.kind === 'created' ? '新建' : '更新' }}</span>
           <span class="news-go">→</span>
         </a>
       </div>
@@ -116,6 +116,7 @@
 <script>
 import { pages, categories, HOME_PATH, REPO } from "@/wiki";
 import AnimatedNumber from "@/components/AnimatedNumber.vue";
+import { getSiteChanges } from "@/net/index.js";
 
 // 仅在卡片"图片区"使用颜色，其余界面保持黑白编辑风
 const GRADIENTS = [
@@ -131,17 +132,19 @@ export default {
   name: "HomePage",
   components: { AnimatedNumber },
   data() {
-    return { pages, HOME_PATH, REPO };
+    // recentChanges 以前按页面 updated_at 排序，部署时系统同步开发文档会把 api/* 顶到最前面；
+    // 现在取站点动态，只含有人实际发布的内容，并能显示是谁改的。
+    return { pages, HOME_PATH, REPO, recentChanges: [] };
+  },
+  mounted() {
+    // 首页的次要模块：加载失败就不显示，不弹错误提示
+    getSiteChanges({ page: 1, size: 5 }, (data) => {
+      this.recentChanges = (data && data.items) || [];
+    }, () => {});
   },
   computed: {
     cats() {
       return categories();
-    },
-    recent() {
-      return [...this.pages]
-        .filter((p) => p.lastUpdated && p.path !== HOME_PATH)
-        .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
-        .slice(0, 5);
     },
     popular() {
       return [...this.pages]

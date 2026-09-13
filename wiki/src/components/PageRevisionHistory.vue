@@ -202,9 +202,10 @@ export default {
     window.removeEventListener('resize', this.updateViewport)
   },
   methods: {
-    open() {
+    // focusId：从站点动态点「查看改动」进来时直接定位到那一次，而不是默认的最新版本
+    open(focusId = null) {
       this.visible = true
-      this.loadHistory()
+      this.loadHistory(focusId)
     },
     reset() {
       this.historyRequestKey++
@@ -221,7 +222,7 @@ export default {
     updateViewport() {
       this.isMobile = window.innerWidth <= 767
     },
-    loadHistory() {
+    loadHistory(focusId = null) {
       const requestKey = ++this.historyRequestKey
       this.detailRequestKey++
       this.historyLoading = true
@@ -237,7 +238,10 @@ export default {
           if (requestKey !== this.historyRequestKey) return
           this.historyLoading = false
           this.revisions = Array.isArray(data) ? data : []
-          if (this.revisions.length) this.selectRevision(this.revisions[0])
+          // id 是雪花号，后端按字符串下发，比较时统一转字符串
+          const focused = focusId == null ? null
+            : this.revisions.find((r) => String(r.id) === String(focusId))
+          if (this.revisions.length) this.selectRevision(focused || this.revisions[0])
         },
         (message) => {
           if (requestKey !== this.historyRequestKey) return

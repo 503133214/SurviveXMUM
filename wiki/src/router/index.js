@@ -31,6 +31,11 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/changes",
+    name: "Changes",
+    component: () => import("@/views/ChangesPage.vue"),
+  },
+  {
     path: "/tags/:tag?",
     name: "Tags",
     component: () => import("@/views/TagsPage.vue"),

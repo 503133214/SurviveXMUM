@@ -337,6 +337,13 @@ function adminPurgeComment(id, success, failure = defaultFailure) {
     remove(`/admin/comments/${id}`, success, failure)
 }
 
+// ---- 站点动态 ----
+function getSiteChanges(params, success, failure = defaultFailure) {
+    const url = `/wiki/changes?${queryString(params)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '动态加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+
 // ---- 页面公开版本历史 ----
 function getPageRevisionHistory(path, success, failure = defaultFailure) {
     const url = `/wiki/page/revisions?path=${encodeURIComponent(path)}`
@@ -446,7 +453,7 @@ export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,send
     adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
     getNotifications,getUnreadCount,readNotification,readAllNotifications,
     docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
-    getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
+    getSiteChanges,getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
     listComments,postComment,deleteComment,listMyComments,adminListComments,adminSetCommentStatus,adminPurgeComment,
     adminListFeedback,adminReplyFeedback,
     getContributors,getContributorProfile,getPageContributors,

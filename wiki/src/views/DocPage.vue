@@ -325,6 +325,7 @@ export default {
         this.content = raw.trim();
         this.loadContributors(path, contributorsRequestToken);
         this.afterLoad(path);
+        this.openRevisionFromQuery(path);
       } catch (e) {
         if (this.docPath !== path || pageRequestToken !== this.pageRequestToken) return;
         this.errorLoading = true;
@@ -360,6 +361,16 @@ export default {
         this.contributorsError = message || "贡献者信息加载失败";
         this.contributorsLoading = false;
       });
+    },
+    // 从站点动态点「查看改动」过来会带 ?rev=<版本 id>：正文加载完直接打开那一次改动的差异。
+    // 用完即从地址栏移除，免得关掉抽屉后刷新又弹出来。afterLoad 对未登录用户会提前返回，所以单独放。
+    openRevisionFromQuery(path) {
+      const rev = this.$route.query.rev;
+      if (!rev || this.docPath !== path) return;
+      this.$nextTick(() => this.$refs.revisionHistory?.open(String(rev)));
+      const query = { ...this.$route.query };
+      delete query.rev;
+      this.$router.replace({ query, hash: this.$route.hash });
     },
     afterLoad(path) {
       // 仅登录用户：记录浏览历史 + 查询收藏状态

@@ -11,6 +11,7 @@
     <nav v-if="!isMobileView" class="desktop-nav">
       <router-link :to="`/docs/${HOME_PATH}`">文档</router-link>
       <router-link to="/tags">标签</router-link>
+      <router-link to="/changes">动态</router-link>
       <a v-if="!hasToken" :href="REPO" target="_blank" rel="noopener noreferrer">GitHub</a>
 
       <button class="theme-toggle" @click="toggleTheme" :aria-label="isDark ? '切换到亮色' : '切换到暗色'">
@@ -188,6 +189,9 @@
               <el-dropdown-item command="/tags">
                 <el-icon><PriceTag /></el-icon>标签
               </el-dropdown-item>
+              <el-dropdown-item command="/changes">
+                <el-icon><Clock /></el-icon>站点动态
+              </el-dropdown-item>
               <el-dropdown-item command="/contributors">
                 <el-icon><Trophy /></el-icon>贡献榜
               </el-dropdown-item>
@@ -231,7 +235,7 @@
 </template>
 
 <script>
-import { Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag } from "@element-plus/icons-vue";
+import { Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag, Clock } from "@element-plus/icons-vue";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
@@ -244,7 +248,7 @@ const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { GlobalSearch, Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag },
+  components: { GlobalSearch, Menu, Fold, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag, Clock },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
