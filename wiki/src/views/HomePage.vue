@@ -45,26 +45,49 @@
       </div>
     </section>
 
+    <!-- ===== 热门文档 ===== -->
+    <section v-if="popular.length" class="block">
+      <div class="block-head">
+        <h2 v-reveal>🔥 热门文档</h2>
+        <span class="block-sub" v-reveal>大家都在看</span>
+      </div>
+      <div class="pop-list">
+        <a
+          v-for="(p, i) in popular"
+          :key="p.path"
+          class="pop-row"
+          v-reveal="{ delay: i * 40 }"
+          @click="go(`/docs/${p.path}`)"
+        >
+          <span class="pop-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
+          <span class="pop-title">{{ p.title }}</span>
+          <span class="pop-cat">{{ p.category }}</span>
+          <span class="pop-views">{{ p.viewCount }} 次浏览</span>
+          <span class="news-go">→</span>
+        </a>
+      </div>
+    </section>
+
     <!-- ===== 最近更新（编辑式列表） ===== -->
-    <section v-if="recent.length" class="block">
+    <section v-if="recentChanges.length" class="block">
       <div class="block-head">
         <h2 v-reveal>最近更新</h2>
-        <router-link class="block-link" :to="`/docs/${HOME_PATH}`" v-reveal>
-          全部文档 →
+        <router-link class="block-link" to="/changes" v-reveal>
+          全部动态 →
         </router-link>
       </div>
 
       <div class="news">
         <a
-          v-for="(p, i) in recent"
-          :key="p.path"
+          v-for="(c, i) in recentChanges"
+          :key="c.id"
           class="news-row"
           v-reveal="{ delay: i * 40 }"
-          @click="go(`/docs/${p.path}`)"
+          @click="go(`/docs/${c.path}`)"
         >
-          <span class="news-date">{{ fmtDate(p.lastUpdated) }}</span>
-          <span class="news-title">{{ p.title }}</span>
-          <span class="news-cat">{{ p.category }}</span>
+          <span class="news-date">{{ fmtDate(c.publishedAt) }}</span>
+          <span class="news-title">{{ c.title }}</span>
+          <span class="news-cat">{{ c.authorName }} {{ c.kind === 'created' ? '新建' : '更新' }}</span>
           <span class="news-go">→</span>
         </a>
       </div>
@@ -76,6 +99,7 @@
       <p>这份指南由社区共建。你只需要写一个 Markdown 文件。</p>
       <div class="hero-actions">
         <router-link class="btn btn-solid" to="/docs/贡献指南">查看贡献指南</router-link>
+        <router-link class="btn btn-outline" to="/contributors">🏆 贡献榜</router-link>
         <a class="btn btn-outline" :href="REPO" target="_blank" rel="noopener noreferrer">
           前往 GitHub →
         </a>
@@ -84,7 +108,7 @@
 
     <footer class="foot">
       <span>SurviveXMUM</span>
-      <span>Released under the MIT License · © 2023–2025 XMUM Wiki Team</span>
+      <span>Released under the GPL-3.0 License · © 2023–{{ new Date().getFullYear() }} XMUM Wiki Team</span>
     </footer>
   </div>
 </template>
@@ -92,6 +116,7 @@
 <script>
 import { pages, categories, HOME_PATH, REPO } from "@/wiki";
 import AnimatedNumber from "@/components/AnimatedNumber.vue";
+import { getSiteChanges } from "@/net/index.js";
 
 // 仅在卡片"图片区"使用颜色，其余界面保持黑白编辑风
 const GRADIENTS = [
@@ -107,17 +132,25 @@ export default {
   name: "HomePage",
   components: { AnimatedNumber },
   data() {
-    return { pages, HOME_PATH, REPO };
+    // recentChanges 以前按页面 updated_at 排序，部署时系统同步开发文档会把 api/* 顶到最前面；
+    // 现在取站点动态，只含有人实际发布的内容，并能显示是谁改的。
+    return { pages, HOME_PATH, REPO, recentChanges: [] };
+  },
+  mounted() {
+    // 首页的次要模块：加载失败就不显示，不弹错误提示
+    getSiteChanges({ page: 1, size: 5 }, (data) => {
+      this.recentChanges = (data && data.items) || [];
+    }, () => {});
   },
   computed: {
     cats() {
       return categories();
     },
-    recent() {
+    popular() {
       return [...this.pages]
-        .filter((p) => p.lastUpdated && p.path !== HOME_PATH)
-        .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
-        .slice(0, 5);
+        .filter((p) => p.path !== HOME_PATH && (p.viewCount || 0) > 0)
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, 6);
     },
   },
   methods: {
@@ -275,6 +308,50 @@ html.dark .hero-logo { filter: brightness(0) invert(1); }
 .block-head p { color: var(--text-secondary); font-size: 1rem; }
 .block-link { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 .block-link:hover { text-decoration: none; opacity: 0.6; }
+.block-sub { color: var(--text-muted); font-size: 0.95rem; white-space: nowrap; }
+
+/* ===== 热门文档列表 ===== */
+.pop-list { display: flex; flex-direction: column; }
+.pop-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 6px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease, padding-left 0.2s ease;
+}
+.pop-row:hover { background: var(--bg-subtle); padding-left: 12px; text-decoration: none; }
+.pop-rank {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.pop-rank.top { background: var(--accent); color: var(--accent-contrast); }
+.pop-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pop-cat { flex-shrink: 0; color: var(--text-muted); font-size: 0.85rem; }
+.pop-views { flex-shrink: 0; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
+.pop-row .news-go { flex-shrink: 0; color: var(--text-muted); opacity: 0; transition: opacity 0.2s ease; }
+.pop-row:hover .news-go { opacity: 1; }
+@media (max-width: 640px) {
+  .pop-cat { display: none; }
+}
 
 /* ===== Card grid (OpenAI-style: image tile + text below) ===== */
 .grid {
@@ -399,9 +476,33 @@ html.dark .hero-logo { filter: brightness(0) invert(1); }
 }
 
 @media (max-width: 640px) {
-  .hero { padding: 64px 20px 48px; }
+  .hero { padding: 58px 16px 44px; }
+  .hero-logo { width: 72px; margin-bottom: 22px; }
+  .hero-title { font-size: clamp(2.55rem, 14vw, 3.6rem); }
+  .hero-sub { font-size: 1rem; margin-bottom: 28px; }
+  .hero-actions { gap: 10px; }
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding-inline: 18px;
+  }
+  .block { padding: 32px 16px 48px; }
+  .block-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 24px;
+    padding-bottom: 15px;
+  }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .pop-row { gap: 10px; padding: 14px 4px; }
+  .pop-views { font-size: .78rem; }
   .news-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
   .news-date { grid-column: 1 / -1; order: 3; }
   .news-go { display: none; }
+  .news-cat { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cta { padding: 60px 16px 68px; }
+  .cta p { font-size: 1rem; }
+  .foot { padding: 26px 16px; }
 }
 </style>

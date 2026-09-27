@@ -2,17 +2,17 @@
   <div class="diff-view">
     <div class="diff-header">
       <div class="side-title">
-        <strong>当前线上内容</strong>
+        <strong>{{ beforeTitle }}</strong>
         <span class="removed-count">− {{ removedCount }} 行</span>
       </div>
       <div class="side-title">
-        <strong>投稿修改后</strong>
+        <strong>{{ afterTitle }}</strong>
         <span class="added-count">+ {{ addedCount }} 行</span>
       </div>
     </div>
 
     <div class="diff-scroll">
-      <div class="diff-table" role="table" aria-label="投稿前后 Markdown 差异">
+      <div class="diff-table" role="table" :aria-label="ariaLabel">
         <template v-for="row in rows" :key="row.key">
           <button
             v-if="row.type === 'collapsed'"
@@ -57,6 +57,9 @@ export default {
   props: {
     before: { type: String, default: '' },
     after: { type: String, default: '' },
+    beforeTitle: { type: String, default: '当前线上内容' },
+    afterTitle: { type: String, default: '投稿修改后' },
+    ariaLabel: { type: String, default: '投稿前后 Markdown 差异' },
   },
   data() {
     return { expandedBlocks: [] }

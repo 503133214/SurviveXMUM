@@ -35,16 +35,9 @@ wiki/.vite/
 wiki/.vitepress/dist/
 wiki/src/wiki.data.js
 
-# Java / Maven backend
-backend/target/
-backend/.mvn/timing.properties
-backend/.mvn/wrapper/maven-wrapper.jar
-*.class
-
 # Test / coverage output
 coverage/
 wiki/coverage/
-backend/coverage/
 
 # Runtime / temp files
 tmp/

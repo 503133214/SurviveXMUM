@@ -23,6 +23,80 @@
       </div>
     </header>
 
+    <!-- 未完成草稿：有才显示；个人中心是续写最自然的入口 -->
+    <section v-if="drafts.length" class="pf-section">
+      <div class="sec-head">
+        <div>
+          <p class="sec-kicker">DRAFTS</p>
+          <h2>我的草稿 <span class="count">{{ drafts.length }}</span></h2>
+        </div>
+      </div>
+      <ul class="rev-list">
+        <li v-for="d in drafts" :key="d.id" class="rev-item" role="button" tabindex="0"
+            @click="resumeDraft(d)" @keydown.enter="resumeDraft(d)">
+          <div class="rev-mark" :class="d.type === 'CREATE' ? 't-create' : 't-update'">
+            {{ d.type === 'CREATE' ? '新' : '改' }}
+          </div>
+          <div class="rev-main">
+            <span class="rev-title">{{ d.icon ? d.icon + ' ' : '' }}{{ d.title || '（未命名草稿）' }}</span>
+            <div class="rev-meta">
+              <span>{{ d.type === 'CREATE' ? '新文章草稿' : '编辑草稿' }}</span>
+              <template v-if="d.targetPath">
+                <span class="meta-separator" aria-hidden="true"></span>
+                <code class="rev-path">{{ d.targetPath }}</code>
+              </template>
+            </div>
+          </div>
+          <div class="rev-side draft-side">
+            <span class="rev-date">{{ d.updatedAt }}</span>
+            <el-button link type="primary" size="small" @click.stop="resumeDraft(d)">继续写作</el-button>
+            <el-button link type="danger" size="small" @click.stop="removeDraft(d)">删除</el-button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 我的讨论：只列本人发过的，自删的不再出现 -->
+    <section v-if="comments.length" class="pf-section">
+      <div class="sec-head">
+        <div>
+          <p class="sec-kicker">DISCUSSIONS</p>
+          <h2>我的讨论 <span class="count">{{ comments.length }}</span></h2>
+        </div>
+      </div>
+      <ul class="rev-list">
+        <li v-for="c in comments" :key="c.id" class="rev-item" role="button" tabindex="0"
+            @click="openComment(c)" @keydown.enter="openComment(c)">
+          <div class="rev-mark" :class="c.reply ? 't-update' : 't-create'">
+            {{ c.reply ? '复' : '评' }}
+          </div>
+          <div class="rev-main">
+            <span class="rev-title cm-text">{{ c.content }}</span>
+            <div class="rev-meta">
+              <span>{{ c.pageTitle }}</span>
+              <span class="meta-separator" aria-hidden="true"></span>
+              <span>{{ c.reply ? '回复' : '主楼' }}</span>
+              <template v-if="c.status === 'HIDDEN'">
+                <span class="meta-separator" aria-hidden="true"></span>
+                <span class="cm-hidden">
+                  已被管理员隐藏<template v-if="c.hiddenReason">：{{ c.hiddenReason }}</template>
+                </span>
+              </template>
+            </div>
+          </div>
+          <div class="rev-side draft-side">
+            <span class="rev-date">{{ c.createdAt }}</span>
+            <el-button link type="primary" size="small" @click.stop="openComment(c)">查看</el-button>
+            <el-button
+              v-if="c.status === 'VISIBLE'"
+              link type="danger" size="small"
+              @click.stop="removeComment(c)"
+            >删除</el-button>
+          </div>
+        </li>
+      </ul>
+    </section>
+
     <section class="pf-section">
       <div class="sec-head">
         <div>
@@ -96,10 +170,10 @@
 </template>
 
 <script>
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import { getMyRevision, getMyRevisions } from '@/net/index.js'
+import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
@@ -109,6 +183,8 @@ export default {
     return {
       userStore: useUserStore(),
       revisions: [],
+      drafts: [],
+      comments: [],
       loading: true,
       detailVisible: false,
       detailLoading: false,
@@ -118,7 +194,8 @@ export default {
   computed: {
     email() { return this.userStore.userInfo?.userEmail || '' },
     nickname() { return this.userStore.userInfo?.nickname || this.userStore.username || '用户' },
-    isAdmin() { return this.userStore.userInfo?.role === 'ADMIN' },
+    // 用 store 的 isAdmin（含 SUPER_ADMIN），否则超管看不到“管理后台”入口
+    isAdmin() { return this.userStore.isAdmin },
     initial() { return (this.nickname || 'U').charAt(0).toUpperCase() },
   },
   mounted() {
@@ -127,6 +204,8 @@ export default {
       (data) => { this.revisions = data || []; this.loading = false },
       (msg) => { this.loading = false; ElMessage.error(msg || '加载投稿失败') }
     )
+    listDrafts((data) => { this.drafts = data || [] }, () => {})
+    listMyComments((data) => { this.comments = data || [] }, () => {})
   },
   methods: {
     statusText(s) {
@@ -158,6 +237,34 @@ export default {
       const d = new Date(iso)
       return Number.isNaN(d.getTime()) ? '' :
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    },
+    openComment(c) {
+      this.$router.push(`/docs/${c.path}`)
+    },
+    async removeComment(c) {
+      try {
+        await ElMessageBox.confirm('确定删除这条讨论？删除后原帖只会留下一个占位。', '提示', { type: 'warning' })
+      } catch { return }
+      deleteComment(c.id, () => {
+        ElMessage.success('已删除')
+        this.comments = this.comments.filter((x) => x.id !== c.id)
+      }, (m) => ElMessage.error(m || '删除失败'))
+    },
+    resumeDraft(d) {
+      if (d.type === 'UPDATE' && d.targetPath) {
+        this.$router.push(`/edit/${d.targetPath}`) // 进入编辑页后走「发现草稿」恢复流程
+      } else {
+        this.$router.push({ path: '/edit', query: { draft: String(d.id) } })
+      }
+    },
+    async removeDraft(d) {
+      try {
+        await ElMessageBox.confirm(`确定删除草稿「${d.title || '未命名草稿'}」？`, '提示', { type: 'warning' })
+      } catch { return }
+      deleteDraft(d.id, () => {
+        ElMessage.success('已删除')
+        this.drafts = this.drafts.filter((x) => x.id !== d.id)
+      }, (m) => ElMessage.error(m || '删除失败'))
     },
   },
 }
@@ -317,6 +424,9 @@ a.rev-title:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .rev-side { display: grid; grid-template-columns: auto 104px 16px; align-items: center; gap: 14px; }
+.cm-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-hidden { color: var(--el-color-warning, #e6a23c); }
+.rev-side.draft-side { grid-template-columns: auto auto auto; gap: 10px; }
 .status { padding: 4px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
 .s-pending { background: #fff4e0; color: #b3691a; }
 .s-approved { background: #e6f4ec; color: #137a3f; }
@@ -355,6 +465,14 @@ html.dark .detail-reason { background: rgba(192,57,43,.1); color: #f3a097; }
     justify-content: start;
     gap: 10px;
     margin-top: -2px;
+  }
+  /* 草稿/讨论行是「日期 + 两个操作」三格；窄屏下固定三列会互相挤，
+     改成可换行的 flex，放不下就掉到第二行。 */
+  .rev-side.draft-side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
   }
   .row-arrow { display: none; }
 }

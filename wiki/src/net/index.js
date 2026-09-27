@@ -128,9 +128,6 @@ function uploadImage(file,onProgress,success,failure=defaultFailure){
         failure(message, err.response?.status || -1, '/wiki/image')
     })
 }
-function unauthorized(){
-    return !takeAccessToken()
-}
 function login(username,password,success,failure=defaultFailure){
     internalPost("/login",{
         userEmail: username,
@@ -204,8 +201,11 @@ function getMyRevisions(success, failure = defaultFailure) {
 function getMyRevision(id, success, failure = defaultFailure) {
     get(`/wiki/revision/${id}`, success, failure)
 }
-function adminListRevisions(status, success, failure = defaultFailure) {
-    get(`/admin/revisions?status=${encodeURIComponent(status || 'PENDING')}`, success, failure)
+function adminListRevisions(params, success, failure = defaultFailure) {
+    // 兼容旧调用：可传字符串 status，或对象 {status, from, to, keyword}
+    const q = typeof params === 'string' ? { status: params } : { ...(params || {}) }
+    if (!q.status) q.status = 'PENDING'
+    get(`/admin/revisions?${queryString(q)}`, success, failure)
 }
 function adminGetRevision(id, success, failure = defaultFailure) {
     get(`/admin/revision/${id}`, success, failure)
@@ -218,6 +218,19 @@ function adminRejectRevision(id, comment, success, failure = defaultFailure) {
 }
 function adminRevisionCounts(success, failure = defaultFailure) {
     get('/admin/revisions/counts', success, failure)
+}
+// ---- 超管改判（已通过/已驳回的管理）----
+function adminReapproveRevision(id, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/reapprove`, {}, success, failure)
+}
+function adminRevokeRevision(id, comment, success, failure = defaultFailure) {
+    post(`/admin/revision/${id}/revoke`, { comment }, success, failure)
+}
+function adminUpdateRevisionComment(id, comment, success, failure = defaultFailure) {
+    put(`/admin/revision/${id}/comment`, { comment }, success, failure)
+}
+function adminPurgeRevision(id, success, failure = defaultFailure) {
+    remove(`/admin/revision/${id}`, success, failure)
 }
 function adminListUserRevisions(userId, success, failure = defaultFailure) {
     get(`/admin/users/${userId}/revisions`, success, failure)
@@ -256,8 +269,196 @@ function adminRestorePage(id, success, failure = defaultFailure) {
     post(`/admin/page/${id}/restore`, {}, success, failure)
 }
 
-export {get,unauthorized,post,put,remove,accessHeader,login,logout,takeAccessToken,register,resetPassword,sendCode,
+// ---- 站内通知 ----
+function getNotifications(success, failure = defaultFailure) {
+    get('/notifications', success, failure)
+}
+function getUnreadCount(success, failure = defaultFailure) {
+    // 纯后台轮询（Header 每 10s 一次）：网络层错误必须静默，
+    // 否则部署重启后端的十几秒里所有打开的标签页会连环弹错误提示
+    internalGet('/notifications/unread-count', accessHeader(), success, failure, () => {})
+}
+function readNotification(id, success, failure = defaultFailure) {
+    post(`/notifications/${id}/read`, {}, success, failure)
+}
+function readAllNotifications(success, failure = defaultFailure) {
+    post('/notifications/read-all', {}, success, failure)
+}
+
+// ---- 收藏 / 浏览历史（DocPage 用；FavoritesPage 沿用其自带的裸 get/post）----
+function docFavoriteCheck(path, success, failure = defaultFailure) {
+    // 打开文档时的后台查询：网络层错误静默（星标状态查不到就保持未收藏即可）
+    internalGet(`/user/favorites/check?path=${encodeURIComponent(path)}`, accessHeader(), success, failure, () => {})
+}
+function docFavoriteAdd(path, notifyUpdates, success, failure = defaultFailure) {
+    const url = '/user/favorites'
+    internalPost(url, { path, notifyUpdates: !!notifyUpdates }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '收藏操作失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function docFavoriteRemove(id, success, failure = defaultFailure) {
+    const url = `/user/favorites/${id}/remove`
+    internalPost(url, {}, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '收藏操作失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function docFavoriteUpdateNotification(id, notifyUpdates, success, failure = defaultFailure) {
+    const url = `/user/favorites/${id}/notification`
+    internalPut(url, { notifyUpdates }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '关注设置失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function recordHistory(path, success = () => {}, failure = () => {}) {
+    // 纯后台埋点：网络层错误也静默
+    internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
+}
+
+// ---- 文档页讨论区 ----
+function listComments(path, success, failure = defaultFailure) {
+    const url = `/wiki/comments?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '讨论加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function postComment(payload, success, failure = defaultFailure) {
+    const url = '/comments'
+    internalPost(url, payload, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '发表失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function listMyComments(success, failure = defaultFailure) {
+    get('/comments/mine', success, failure)
+}
+function deleteComment(id, success, failure = defaultFailure) {
+    remove(`/comments/${id}`, success, failure)
+}
+function adminListComments(query, success, failure = defaultFailure) {
+    get(`/admin/comments?${queryString(query)}`, success, failure)
+}
+function adminSetCommentStatus(id, payload, success, failure = defaultFailure) {
+    post(`/admin/comments/${id}/status`, payload, success, failure)
+}
+function adminPurgeComment(id, success, failure = defaultFailure) {
+    remove(`/admin/comments/${id}`, success, failure)
+}
+
+// ---- 站点动态 ----
+function getSiteChanges(params, success, failure = defaultFailure) {
+    const url = `/wiki/changes?${queryString(params)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '动态加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+
+// ---- 页面公开版本历史 ----
+function getPageRevisionHistory(path, success, failure = defaultFailure) {
+    const url = `/wiki/page/revisions?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '版本历史加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function getPageRevisionHistoryDetail(id, success, failure = defaultFailure) {
+    const url = `/wiki/page/revisions/${id}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '版本详情加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+function adminPurgePageVersion(id, success, failure = defaultFailure) {
+    remove(`/admin/page-version/${id}`, success, failure)
+}
+
+// ---- 反馈管理（后台）----
+function adminListFeedback(query, success, failure = defaultFailure) {
+    get(`/admin/feedback?${queryString(query)}`, success, failure)
+}
+function adminReplyFeedback(id, payload, success, failure = defaultFailure) {
+    post(`/admin/feedback/${id}/reply`, payload, success, failure)
+}
+
+// ---- 分类管理 / 公告广播 / 审计日志（仅超管）----
+function adminListCategories(success, failure = defaultFailure) {
+    get('/admin/categories', success, failure)
+}
+function adminCreateCategory(payload, success, failure = defaultFailure) {
+    post('/admin/categories', payload, success, failure)
+}
+function adminUpdateCategory(id, payload, success, failure = defaultFailure) {
+    put(`/admin/categories/${id}`, payload, success, failure)
+}
+function adminDeleteCategory(id, success, failure = defaultFailure) {
+    remove(`/admin/categories/${id}`, success, failure)
+}
+function adminBroadcast(payload, success, failure = defaultFailure) {
+    post('/admin/broadcast', payload, success, failure)
+}
+function adminAuditQuery(query, success, failure = defaultFailure) {
+    get(`/admin/audit?${queryString(query)}`, success, failure)
+}
+// ---- 彻底删除（仅超管，不可恢复）----
+function adminPurgePage(id, success, failure = defaultFailure) {
+    remove(`/admin/page/${id}/purge`, success, failure)
+}
+function adminPurgeUser(id, success, failure = defaultFailure) {
+    remove(`/admin/users/${id}/purge`, success, failure)
+}
+function adminDeleteFeedback(id, success, failure = defaultFailure) {
+    remove(`/admin/feedback/${id}`, success, failure)
+}
+
+// ---- 写文章草稿 ----
+// 支持自定义 error（网络层错误）处理：自动保存需完全静默，不能弹全局错误提示
+function saveDraft(payload, success, failure = defaultFailure, error = defaultError) {
+    internalPost('/wiki/drafts', payload, accessHeader(), success, failure, error)
+}
+function listDrafts(success, failure = defaultFailure) {
+    get('/wiki/drafts', success, failure)
+}
+function getDraft(id, success, failure = defaultFailure) {
+    get(`/wiki/drafts/${id}`, success, failure)
+}
+function getDraftByPath(path, success, failure = defaultFailure) {
+    get(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, success, failure)
+}
+function deleteDraft(id, success, failure = defaultFailure) {
+    remove(`/wiki/drafts/${id}`, success, failure)
+}
+
+// ---- 贡献榜 / 贡献者主页（公开）----
+function getContributors(success, failure = defaultFailure) {
+    get('/contributors', success, failure)
+}
+function getContributorProfile(id, success, failure = defaultFailure) {
+    get(`/contributors/${id}`, success, failure)
+}
+function getPageContributors(path, success, failure = defaultFailure) {
+    const url = `/contributors/page?path=${encodeURIComponent(path)}`
+    internalGet(url, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '贡献者信息加载失败，请检查网络后重试', err.response?.status || -1, url))
+}
+
+// ---- 致谢墙（公开读；管理仅超管）----
+function getWall(success, failure = defaultFailure) {
+    get('/wall', success, failure)
+}
+function adminListWall(success, failure = defaultFailure) {
+    get('/admin/wall', success, failure)
+}
+function adminCreateWall(payload, success, failure = defaultFailure) {
+    post('/admin/wall', payload, success, failure)
+}
+function adminUpdateWall(id, payload, success, failure = defaultFailure) {
+    put(`/admin/wall/${id}`, payload, success, failure)
+}
+function adminDeleteWall(id, success, failure = defaultFailure) {
+    remove(`/admin/wall/${id}`, success, failure)
+}
+
+export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
+    adminReapproveRevision,adminRevokeRevision,adminUpdateRevisionComment,adminPurgeRevision,
     adminListUsers,adminCreateUser,adminUpdateUser,adminDeleteUser,adminRestoreUser,
-    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage}
+    adminListPages,adminGetPage,adminCreatePage,adminUpdatePage,adminDeletePage,adminRestorePage,
+    getNotifications,getUnreadCount,readNotification,readAllNotifications,
+    docFavoriteCheck,docFavoriteAdd,docFavoriteRemove,docFavoriteUpdateNotification,recordHistory,
+    getSiteChanges,getPageRevisionHistory,getPageRevisionHistoryDetail,adminPurgePageVersion,
+    listComments,postComment,deleteComment,listMyComments,adminListComments,adminSetCommentStatus,adminPurgeComment,
+    adminListFeedback,adminReplyFeedback,
+    getContributors,getContributorProfile,getPageContributors,
+    getWall,adminListWall,adminCreateWall,adminUpdateWall,adminDeleteWall,
+    saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
+    adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
+    adminBroadcast,adminAuditQuery,
+    adminPurgePage,adminPurgeUser,adminDeleteFeedback}

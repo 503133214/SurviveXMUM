@@ -55,6 +55,7 @@
 <script>
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
+import { resolveDocAssetSrc, resolveDocHref } from "@/utils/docLinks.js";
 
 const MOBILE_BREAKPOINT = 992;
 
@@ -129,22 +130,14 @@ export default {
         return origHeading(tokens, idx, options, env, self);
       };
 
-      // 链接：相对 .md 链接 → /docs 路由
-      const base = this.basePath ? this.basePath.replace(/\/$/, "") + "/" : "";
+      // 链接：规范化相对路径（含历史内容里的 ../..）并固定到 /docs 路由。
       md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
         const token = tokens[idx];
         const hi = token.attrIndex("href");
         if (hi >= 0) {
-          let href = token.attrs[hi][1];
-          if (href && !/^(https?:|\/|#|mailto:)/.test(href)) {
-            const clean = href.replace(/^\.\//, "");
-            if (/\.md$/i.test(clean)) {
-              token.attrs[hi][1] = `/docs/${base}${clean.replace(/\.md$/i, "")}`;
-            } else {
-              token.attrs[hi][1] = `/docs/${base}${clean}`;
-            }
-          }
-          if (/^https?:/.test(href)) {
+          const href = resolveDocHref(token.attrs[hi][1], this.basePath);
+          token.attrs[hi][1] = href;
+          if (/^https?:/i.test(href)) {
             token.attrSet("target", "_blank");
             token.attrSet("rel", "noopener noreferrer");
           }
@@ -165,9 +158,7 @@ export default {
             token.attrSet("width", sz[1]);
             if (sz[2]) token.attrSet("height", sz[2]);
           }
-          if (src && !/^(https?:|\/|data:)/.test(src)) {
-            src = `/docs/${base}${src.replace(/^\.\//, "")}`;
-          }
+          src = resolveDocAssetSrc(src, this.basePath);
           token.attrs[si][1] = src;
         }
         token.attrSet("loading", "lazy");
@@ -192,6 +183,7 @@ export default {
       this.$nextTick(() => {
         this.enhanceCodeBlocks();
         this.enhanceResizableImages();
+        this.enhanceTables();
         this.setupScrollSpy();
       });
     },
@@ -199,7 +191,9 @@ export default {
       if (!this.resizable) return;
       const root = this.$refs.bodyEl;
       if (!root) return;
-      root.querySelectorAll("img").forEach((img) => {
+      // 只处理 markdown 图片（带序号标记）；正文里原生 <img> 没有对应的
+      // Markdown `![]()`，若也挂上手柄会把宽度写到错误的图片上。
+      root.querySelectorAll("img[data-img-index]").forEach((img) => {
         if (img.parentElement && img.parentElement.classList.contains("img-resize-wrap")) return;
         const wrap = document.createElement("span");
         wrap.className = "img-resize-wrap";
@@ -232,6 +226,18 @@ export default {
       };
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
+    },
+    // 宽表在窄屏上要能横向滚动，否则右侧几列既看不见也够不着
+    enhanceTables() {
+      const root = this.$refs.bodyEl;
+      if (!root) return;
+      root.querySelectorAll("table").forEach((table) => {
+        if (table.parentElement && table.parentElement.classList.contains("table-scroll")) return;
+        const wrap = document.createElement("div");
+        wrap.className = "table-scroll";
+        table.parentNode.insertBefore(wrap, table);
+        wrap.appendChild(table);
+      });
     },
     enhanceCodeBlocks() {
       const root = this.$refs.bodyEl;
@@ -416,13 +422,21 @@ export default {
 }
 .markdown-body blockquote p { margin: 0.3em 0; }
 
+/* 表格由 enhanceTables() 包进 .table-scroll。滚动容器必须是这个 div：
+   给 <table> 自己加 overflow 不管用——正文处在一个 flex 链里，表格的固有宽度
+   仍会把 .main-content-area 从 351px 撑到 640px，于是 width:100% 跟着变大，
+   scrollWidth == clientWidth，看着有 overflow 其实滚不动。 */
+.markdown-body .table-scroll {
+  max-width: 100%;
+  margin: 1.4em 0;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;
-  margin: 1.4em 0;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  margin: 0;
 }
 .markdown-body th,
 .markdown-body td {
@@ -593,6 +607,12 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .markdown-body { padding: 22px 18px; border-radius: var(--radius-sm); }
+  /* 外层 DocPage 已给出统一留白，这里再叠一层只会把正文挤窄 */
+  /* 同时退回普通块级布局：flex 只是为了在桌面端并排放目录侧栏，
+     而移动端的目录（抽屉按钮与侧栏）都是 position:fixed，不参与流内布局。
+     继续用 flex 反而让 .main-content-area 被内容撑出容器（351px 撑到 835px），
+     导致里面所有 max-width:100% 的滚动容器一起失效。 */
+  .markdown-container { padding-inline: 0; display: block; }
+  .markdown-body { padding: 20px 14px; border-radius: var(--radius-sm); }
 }
 </style>

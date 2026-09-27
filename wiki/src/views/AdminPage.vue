@@ -17,9 +17,15 @@
     <section class="ac-main">
       <AdminPagesPanel v-if="activeSection === 'pages'" />
       <AdminUsersPanel v-else-if="activeSection === 'users' && isSuperAdmin" />
+      <AdminFeedbackPanel v-else-if="activeSection === 'feedback'" />
+      <AdminCommentsPanel v-else-if="activeSection === 'comments'" />
+      <AdminWallPanel v-else-if="activeSection === 'wall' && isSuperAdmin" />
+      <AdminCategoriesPanel v-else-if="activeSection === 'categories' && isSuperAdmin" />
+      <AdminBroadcastPanel v-else-if="activeSection === 'broadcast' && isSuperAdmin" />
+      <AdminAuditPanel v-else-if="activeSection === 'audit' && isSuperAdmin" />
 
       <div v-else class="admin-page">
-        <header class="ad-head">
+        <header class="rv-head">
           <h1>投稿审核</h1>
       <div class="seg">
         <button v-for="s in tabs" :key="s.key" :class="{ active: status === s.key }" @click="switchStatus(s.key)">
@@ -28,14 +34,38 @@
       </div>
     </header>
 
+    <div class="rv-filter">
+      <el-date-picker
+        v-model="filterDates"
+        type="daterange"
+        unlink-panels
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        :disabled-date="disableFutureDate"
+        @change="onFilterChange"
+      />
+      <el-input
+        v-model="filterKeyword"
+        placeholder="搜索标题 / 路径 / 作者邮箱"
+        clearable
+        class="rv-filter-kw"
+        @keyup.enter="onFilterChange"
+        @clear="onFilterChange"
+      />
+      <el-button @click="onFilterChange">查询</el-button>
+      <el-button v-if="hasFilter" text @click="resetFilter">重置</el-button>
+    </div>
+
     <div v-if="isMobileAdmin" class="mobile-admin-notice" role="status">
       <strong>手机端为只读模式</strong>
       <span>你可以查看投稿内容，但通过和驳回操作需要在电脑端完成。</span>
     </div>
 
-    <div class="ad-body" :class="{ 'list-collapsed': listCollapsed }">
+    <div class="rv-body" :class="{ 'list-collapsed': listCollapsed }">
       <!-- 列表 -->
-      <aside v-show="(!isMobileAdmin || !current) && !listCollapsed" class="ad-list">
+      <aside v-show="(!isMobileAdmin || !current) && !listCollapsed" class="rv-list">
         <div v-if="loadingList" class="muted pad">加载中…</div>
         <el-empty v-else-if="!list.length" :description="`暂无${currentLabel}投稿`" />
         <ul v-else>
@@ -60,7 +90,7 @@
       </aside>
 
       <!-- 详情 -->
-      <main v-show="!isMobileAdmin || current" class="ad-detail">
+      <main v-show="!isMobileAdmin || current" class="rv-detail">
         <div v-if="!current" class="placeholder">
           <el-icon :size="40"><Tickets /></el-icon>
           <p>从左侧选择一条投稿开始审核</p>
@@ -98,6 +128,17 @@
             </div>
             <div v-else class="dt-status">
               <span class="status" :class="`s-${current.status.toLowerCase()}`">{{ statusText(current.status) }}</span>
+              <!-- 超管对已通过/已驳回的改判操作（移动端只读） -->
+              <template v-if="isSuperAdmin && !isMobileAdmin">
+                <template v-if="current.status === 'REJECTED'">
+                  <button class="btn-approve" :disabled="acting" @click="reapprove">改判通过并发布</button>
+                  <button class="btn-ghost-sm" :disabled="acting" @click="editComment">修改驳回原因</button>
+                </template>
+                <template v-else-if="current.status === 'APPROVED'">
+                  <button class="btn-reject" :disabled="acting" @click="revokeApproved">撤销通过</button>
+                </template>
+                <button class="btn-ghost-sm danger" :disabled="acting" @click="purgeRevisionRecord">删除记录</button>
+              </template>
             </div>
           </div>
 
@@ -160,14 +201,22 @@
 <script>
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Tickets, User } from '@element-plus/icons-vue'
+import { Document, Tickets, User, ChatDotRound, ChatLineSquare, Trophy, FolderOpened, Bell, List } from '@element-plus/icons-vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import MarkdownDiff from '@/components/MarkdownDiff.vue'
 import AdminPagesPanel from '@/components/AdminPagesPanel.vue'
 import AdminUsersPanel from '@/components/AdminUsersPanel.vue'
+import AdminFeedbackPanel from '@/components/AdminFeedbackPanel.vue'
+import AdminCommentsPanel from '@/components/AdminCommentsPanel.vue'
+import AdminWallPanel from '@/components/AdminWallPanel.vue'
+import AdminCategoriesPanel from '@/components/AdminCategoriesPanel.vue'
+import AdminBroadcastPanel from '@/components/AdminBroadcastPanel.vue'
+import AdminAuditPanel from '@/components/AdminAuditPanel.vue'
 import { useUserStore } from '@/store/userStore.js'
+import { disableFutureDate } from '@/utils/dateLimits.js'
 import {
   adminListRevisions, adminGetRevision, adminApproveRevision, adminRejectRevision, adminRevisionCounts,
+  adminReapproveRevision, adminRevokeRevision, adminUpdateRevisionComment, adminPurgeRevision,
 } from '@/net/index.js'
 
 export default {
@@ -177,6 +226,12 @@ export default {
     MarkdownDiff: markRaw(MarkdownDiff),
     AdminPagesPanel: markRaw(AdminPagesPanel),
     AdminUsersPanel: markRaw(AdminUsersPanel),
+    AdminFeedbackPanel: markRaw(AdminFeedbackPanel),
+    AdminCommentsPanel: markRaw(AdminCommentsPanel),
+    AdminWallPanel: markRaw(AdminWallPanel),
+    AdminCategoriesPanel: markRaw(AdminCategoriesPanel),
+    AdminBroadcastPanel: markRaw(AdminBroadcastPanel),
+    AdminAuditPanel: markRaw(AdminAuditPanel),
     Tickets,
   },
   data() {
@@ -189,6 +244,8 @@ export default {
         { key: 'REJECTED', label: '已驳回' },
       ],
       counts: {},
+      filterDates: [],
+      filterKeyword: '',
       list: [],
       current: null,
       loadingList: true,
@@ -205,10 +262,21 @@ export default {
       const s = [
         { key: 'review', label: '投稿审核', icon: markRaw(Tickets) },
         { key: 'pages', label: '页面管理', icon: markRaw(Document) },
+        { key: 'feedback', label: '反馈管理', icon: markRaw(ChatDotRound) },
+        { key: 'comments', label: '评论管理', icon: markRaw(ChatLineSquare) },
       ]
-      // 用户管理仅超级管理员可见
-      if (this.isSuperAdmin) s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+      // 以下仅超级管理员可见
+      if (this.isSuperAdmin) {
+        s.push({ key: 'users', label: '用户管理', icon: markRaw(User) })
+        s.push({ key: 'categories', label: '分类管理', icon: markRaw(FolderOpened) })
+        s.push({ key: 'wall', label: '致谢墙', icon: markRaw(Trophy) })
+        s.push({ key: 'broadcast', label: '发布公告', icon: markRaw(Bell) })
+        s.push({ key: 'audit', label: '审计日志', icon: markRaw(List) })
+      }
       return s
+    },
+    hasFilter() {
+      return (Array.isArray(this.filterDates) && this.filterDates.length === 2) || !!this.filterKeyword
     },
     currentLabel() { return this.tabs.find((t) => t.key === this.status)?.label || '' },
     reviewViews() {
@@ -243,6 +311,7 @@ export default {
     this.adminMediaQuery?.removeEventListener('change', this.syncMobileAdmin)
   },
   methods: {
+    disableFutureDate,
     syncMobileAdmin() {
       const wasMobile = this.isMobileAdmin
       this.isMobileAdmin = this.adminMediaQuery?.matches ?? false
@@ -262,10 +331,20 @@ export default {
     loadCounts() {
       adminRevisionCounts((data) => { this.counts = data || {} }, () => {})
     },
+    onFilterChange() {
+      this.current = null
+      this.loadList()
+    },
+    resetFilter() {
+      this.filterDates = []
+      this.filterKeyword = ''
+      this.onFilterChange()
+    },
     loadList() {
       this.loadingList = true
+      const [from, to] = Array.isArray(this.filterDates) ? this.filterDates : []
       adminListRevisions(
-        this.status,
+        { status: this.status, from, to, keyword: this.filterKeyword },
         (data) => {
           this.list = data || []
           this.loadingList = false
@@ -314,6 +393,71 @@ export default {
       this.current = null
       this.loadList()
       this.loadCounts()
+    },
+
+    // ---------- 超管改判 ----------
+    async reapprove() {
+      try {
+        await ElMessageBox.confirm(
+          '将把这篇被驳回的投稿发布上线；若目标页面在驳回后被编辑过，其当前内容会被本投稿覆盖（可先在「当前线上」视图核对）。确认改判通过？',
+          '改判通过', { type: 'warning', confirmButtonText: '通过并发布', cancelButtonText: '取消' })
+      } catch { return }
+      this.acting = true
+      adminReapproveRevision(this.current.id,
+        () => { this.acting = false; ElMessage.success('已改判通过并发布'); this.afterAction() },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async revokeApproved() {
+      let comment = ''
+      try {
+        const { value } = await ElMessageBox.prompt(
+          '将撤销这次通过：能回滚则回滚到上一通过版本，首篇内容则移入回收站。请输入撤销原因（投稿人可见）',
+          '撤销通过', { confirmButtonText: '确认撤销', cancelButtonText: '取消', inputType: 'textarea' })
+        comment = value || ''
+      } catch { return }
+      this.acting = true
+      adminRevokeRevision(this.current.id, comment,
+        (d) => {
+          this.acting = false
+          const msgMap = {
+            ROLLED_BACK: '已撤销：页面已回滚到上一通过版本',
+            PAGE_DELETED: '已撤销：页面已移入回收站（页面管理可恢复）',
+            CONTENT_KEPT: '已撤销：无可回滚快照，页面内容保留，请到页面管理手工调整',
+          }
+          ElMessage.success(msgMap[d && d.pageAction] || '已撤销')
+          this.afterAction()
+        },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async editComment() {
+      let comment = ''
+      try {
+        const { value } = await ElMessageBox.prompt('修改驳回原因（投稿人可见并会收到通知）', '修改驳回原因', {
+          confirmButtonText: '保存', cancelButtonText: '取消', inputType: 'textarea',
+          inputValue: this.current.reviewComment || '',
+        })
+        comment = value || ''
+      } catch { return }
+      this.acting = true
+      const id = this.current.id
+      adminUpdateRevisionComment(id, comment,
+        () => { this.acting = false; ElMessage.success('已更新'); this.openDetail(id); this.loadList() },
+        (m) => { this.acting = false; ElMessage.error(m || '操作失败') })
+    },
+    async purgeRevisionRecord() {
+      const isApproved = this.current.status === 'APPROVED'
+      try {
+        await ElMessageBox.confirm(
+          isApproved
+            ? '将永久删除这条投稿记录，不可恢复！这会减少作者的贡献榜计数，并丢失该页面的一版回滚快照（线上页面内容不受影响）。'
+            : '将永久删除这条投稿记录，不可恢复！',
+          '彻底删除记录',
+          { type: 'error', confirmButtonText: '永久删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' })
+      } catch { return }
+      this.acting = true
+      adminPurgeRevision(this.current.id,
+        () => { this.acting = false; ElMessage.success('记录已删除'); this.afterAction() },
+        (m) => { this.acting = false; ElMessage.error(m || '删除失败') })
     },
   },
 }
@@ -370,8 +514,8 @@ export default {
 .ac-item.active .el-icon { color: var(--text-primary); }
 .ac-main { min-width: 0; }
 .admin-page { width: 100%; }
-.ad-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-.ad-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
+.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.rv-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
 .seg { display: flex; background: var(--bg-subtle); border-radius: 999px; padding: 4px; }
 .seg button {
   border: none; background: transparent; padding: 8px 18px;
@@ -388,6 +532,19 @@ export default {
 .seg button.active .seg-count { background: var(--accent); color: var(--accent-contrast); }
 .dt-review { color: var(--text-secondary); font-size: 12.5px; }
 
+.rv-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.rv-filter .rv-filter-kw { width: 260px; max-width: 100%; }
+@media (max-width: 768px) {
+  .rv-filter { gap: 8px; }
+  .rv-filter .rv-filter-kw { width: 100%; }
+}
+
 .mobile-admin-notice {
   display: none;
   padding: 14px 16px;
@@ -400,26 +557,26 @@ export default {
 .mobile-admin-notice strong { color: var(--text-primary); font-size: 14px; }
 .mobile-admin-notice span { color: var(--text-secondary); font-size: 13px; }
 
-.ad-body { display: grid; grid-template-columns: clamp(280px, 22vw, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
-.ad-body.list-collapsed { grid-template-columns: minmax(0, 1fr); }
-.ad-list {
+.rv-body { display: grid; grid-template-columns: clamp(280px, 22vw, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.rv-body.list-collapsed { grid-template-columns: minmax(0, 1fr); }
+.rv-list {
   border: 1px solid var(--border); border-radius: var(--radius);
   overflow: hidden auto; background: var(--bg-surface);
   max-height: calc(100vh - 180px);
   position: sticky; top: calc(var(--header-height) + 20px);
 }
-.ad-list ul { list-style: none; margin: 0; padding: 0; }
-.ad-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
-.ad-list li:last-child { border-bottom: none; }
-.ad-list li:hover { background: var(--bg-hover); }
-.ad-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
+.rv-list ul { list-style: none; margin: 0; padding: 0; }
+.rv-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
+.rv-list li:last-child { border-bottom: none; }
+.rv-list li:hover { background: var(--bg-hover); }
+.rv-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
 .li-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .li-title { font-weight: 600; color: var(--text-primary); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
 .li-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li-meta span:last-child { flex-shrink: 0; }
 
-.ad-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
+.rv-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
 .placeholder {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   min-height: 64vh; color: var(--text-muted);
@@ -448,6 +605,24 @@ export default {
 .btn-reject { background: transparent; color: #c0392b; border: 1px solid #e3b4ae; }
 .btn-reject:hover:not(:disabled) { background: #fbe9e9; }
 .btn-approve:disabled, .btn-reject:disabled { opacity: .6; cursor: not-allowed; }
+.dt-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dt-status .btn-approve, .dt-status .btn-reject { padding: 7px 14px; font-size: 13px; }
+.btn-ghost-sm {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.btn-ghost-sm:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.btn-ghost-sm.danger { color: #c0392b; border-color: #e3b4ae; }
+.btn-ghost-sm.danger:hover:not(:disabled) { background: #fbe9e9; }
+html.dark .btn-ghost-sm.danger:hover:not(:disabled) { background: rgba(192,57,43,.16); }
+.btn-ghost-sm:disabled { opacity: .6; cursor: not-allowed; }
 
 .rev-type { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
 .t-create { background: #e6f4ec; color: #137a3f; }
@@ -525,7 +700,7 @@ html.dark .rejection-note {
 .pad { padding: 16px; }
 
 @media (max-width: 900px) {
-  .ad-body { grid-template-columns: 1fr; }
+  .rv-body { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 860px) {
@@ -538,14 +713,14 @@ html.dark .rejection-note {
 
 @media (max-width: 768px) {
   .admin-console { padding: 20px 16px 48px; }
-  .ad-head { align-items: flex-start; margin-bottom: 16px; }
-  .ad-head h1 { width: 100%; font-size: 1.25rem; }
+  .rv-head { align-items: flex-start; margin-bottom: 16px; }
+  .rv-head h1 { width: 100%; font-size: 1.25rem; }
   .seg { width: 100%; }
   .seg button { flex: 1; padding-inline: 8px; }
   .mobile-admin-notice { display: flex; flex-direction: column; gap: 3px; }
-  .ad-list { position: static; max-height: none; }
-  .ad-list li { padding: 16px; }
-  .ad-detail { min-height: 0; }
+  .rv-list { position: static; max-height: none; }
+  .rv-list li { padding: 16px; }
+  .rv-detail { min-height: 0; }
   .placeholder { min-height: 240px; }
   .dt-head { padding: 18px 16px; }
   .mobile-detail-back { display: inline-flex; }

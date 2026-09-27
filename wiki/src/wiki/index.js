@@ -13,9 +13,9 @@ export const state = reactive({ home: null, generatedAt: null, loaded: false, lo
 // The home doc (root README) path is fixed.
 export const HOME_PATH = 'README'
 
-// Repo + branch used to build "edit this page" links (kept for reference / external link).
+// 仓库地址（顶栏 GitHub 入口用）。曾经还有个 EDIT_BASE 指向 wiki/public/docs 里的
+// Markdown 源文件，内容迁进数据库、目录删除后已无意义，随之移除。
 export const REPO = 'https://github.com/503133214/SurviveXMUM'
-export const EDIT_BASE = `${REPO}/edit/main/wiki/public/docs`
 
 const CACHE_KEY = 'wiki_manifest_v1'
 
@@ -55,10 +55,12 @@ export async function loadManifest(force = false) {
   }
 }
 
-/** Fetch a single page's full content (markdown) from the backend. */
-export async function fetchPageContent(pathStr) {
+/** Fetch a single page's full content (markdown) from the backend.
+ *  track=true 才计入浏览量（仅 DocPage 阅读时传；编辑页加载正文不计）。 */
+export async function fetchPageContent(pathStr, track = false) {
   const path = pathStr || HOME_PATH
-  const { data } = await axios.get('/wiki/page', { params: { path } })
+  const params = track ? { path, track: 1 } : { path }
+  const { data } = await axios.get('/wiki/page', { params })
   if (data && data.code === 0) return data.data
   throw new Error(data?.message || '页面加载失败')
 }
@@ -114,6 +116,41 @@ function findCategoryBySlug(nodes, slug) {
     }
   }
   return null
+}
+
+/**
+ * 全站标签及其文档数，按热度降序、同热度按标签名排序。
+ * 标签只存在于 manifest 的 pages 里，没有独立接口。
+ */
+export function allTags() {
+  const freq = new Map()
+  for (const page of pages) {
+    for (const raw of page.tags || []) {
+      const tag = (raw || '').trim()
+      if (!tag) continue
+      freq.set(tag, (freq.get(tag) || 0) + 1)
+    }
+  }
+  return [...freq.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'zh'))
+}
+
+/** 某个标签下的全部文档，沿用侧栏的排序口径。标签比较忽略大小写与首尾空格。 */
+export function pagesByTag(tag) {
+  const target = (tag || '').trim().toLowerCase()
+  if (!target) return []
+  return orderedPages().filter((page) =>
+    (page.tags || []).some((t) => (t || '').trim().toLowerCase() === target))
+}
+
+/** 与查询词匹配的标签，用于搜索框里的「按标签浏览」。 */
+export function searchTags(query, limit = 5) {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return []
+  return allTags()
+    .filter(({ tag }) => tag.toLowerCase().includes(q))
+    .slice(0, limit)
 }
 
 /**

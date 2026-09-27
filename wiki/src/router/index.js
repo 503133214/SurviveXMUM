@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { legacyContributionGuideRedirect } from "@/utils/docLinks.js";
 
 const routes = [
   {
@@ -18,6 +19,40 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/favorites",
+    name: "Favorites",
+    component: () => import("@/views/FavoritesPage.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/feedback",
+    name: "Feedback",
+    component: () => import("@/views/FeedbackPage.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/changes",
+    name: "Changes",
+    component: () => import("@/views/ChangesPage.vue"),
+  },
+  {
+    path: "/tags/:tag?",
+    name: "Tags",
+    component: () => import("@/views/TagsPage.vue"),
+    props: (route) => ({ tag: route.params.tag || "" }),
+  },
+  {
+    path: "/contributors",
+    name: "Contributors",
+    component: () => import("@/views/ContributorsPage.vue"),
+  },
+  {
+    path: "/contributors/:id",
+    name: "ContributorProfile",
+    component: () => import("@/views/ContributorProfilePage.vue"),
+    props: true,
+  },
+  {
     path: "/edit/:pathMatch(.*)*",
     name: "Edit",
     component: () => import("@/views/EditPage.vue"),
@@ -35,6 +70,10 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
+    path: "/docs/api",
+    redirect: "/docs/api/api-overview",
+  },
+  {
     path: "/docs/:pathMatch(.*)*",
     name: "DocPage",
     component: () => import("@/views/DocPage.vue"),
@@ -43,6 +82,11 @@ const routes = [
       const pathString = Array.isArray(pathMatch) ? pathMatch.join("/") : pathMatch;
       return { pathMatch: pathString || "" };
     },
+  },
+  {
+    // 兼容历史 Markdown 被浏览器规范化后产生的旧地址与外部书签。
+    path: "/贡献指南",
+    redirect: "/docs/贡献指南",
   },
   {
     path: "/:pathMatch(.*)*",
@@ -74,6 +118,10 @@ function readAuth() {
 let pendingFullPath = null;
 router.beforeEach((to, from, next) => {
   pendingFullPath = to.fullPath;
+  // Direct visits can retain the percent-encoded Unicode path and miss the
+  // static route above, so normalize the old bookmark before showing 404.
+  const legacyGuideRedirect = legacyContributionGuideRedirect(to);
+  if (legacyGuideRedirect) return next(legacyGuideRedirect);
   const { loggedIn, role } = readAuth();
   if (to.meta.requiresAuth && !loggedIn) {
     return next({ path: "/login", query: { redirect: to.fullPath } });

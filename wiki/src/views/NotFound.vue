@@ -22,26 +22,29 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 60px); /* 减去 header 高度（如果有固定 header） */
-  background-color: #fafafa;
+  min-height: calc(100dvh - var(--header-height));
+  background:
+    radial-gradient(circle at 50% 35%, var(--bg-subtle), transparent 50%),
+    var(--bg-page);
   text-align: center;
   padding: 0 16px;
 }
 
 .content-wrapper {
+  width: 100%;
   max-width: 400px;
 }
 
 .title {
   font-size: 2.5rem;
   margin-bottom: 1rem;
-  color: #333333;
+  color: var(--text-primary);
 }
 
 .subtitle {
   font-size: 1.125rem;
   margin-bottom: 2rem;
-  color: #666666;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -49,14 +52,20 @@ export default {
   display: inline-block;
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
-  color: #ffffff;
-  background-color: #0c64c1;
-  border-radius: 4px;
+  color: var(--accent-contrast);
+  background-color: var(--accent);
+  border-radius: 999px;
   text-decoration: none;
   transition: background-color 0.2s ease;
 }
 
 .home-link:hover {
-  background-color: #094a8b;
+  opacity: .82;
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .title { font-size: 2rem; }
+  .subtitle { font-size: 1rem; }
 }
 </style>

@@ -54,6 +54,7 @@
             <h1 class="doc-title">{{ title }}</h1>
             <div class="doc-meta">
               <span v-if="lastUpdated" class="meta-item">更新于 {{ lastUpdated }}</span>
+              <span v-if="!errorLoading && viewCount > 0" class="meta-item">{{ viewCount }} 次浏览</span>
               <router-link
                 v-if="!errorLoading && userStore.isLoggedIn"
                 class="meta-item edit-link"
@@ -64,11 +65,71 @@
                 class="meta-item edit-link"
                 to="/login"
               >登录后可编辑</router-link>
+              <button
+                v-if="!errorLoading && userStore.isLoggedIn"
+                class="meta-item fav-btn"
+                :class="{ active: favorited }"
+                :disabled="favLoading || notifyLoading"
+                @click="toggleFavorite"
+              >
+                <el-icon :size="15"><StarFilled v-if="favorited" /><Star v-else /></el-icon>
+                {{ favorited ? '已收藏' : '收藏' }}
+              </button>
+              <span
+                v-if="!errorLoading && userStore.isLoggedIn"
+                class="meta-item follow-toggle"
+                title="关注后会同时收藏此页；有新版本发布或有人新开讨论时会收到站内通知"
+              >
+                <el-icon :size="15"><Bell /></el-icon>
+                <span>关注更新</span>
+                <el-switch
+                  :model-value="notifyUpdates"
+                  :loading="notifyLoading"
+                  :disabled="favLoading || notifyLoading"
+                  size="small"
+                  aria-label="关注页面更新"
+                  @change="toggleUpdateNotification"
+                />
+              </span>
+              <button
+                v-if="!errorLoading"
+                class="meta-item meta-action"
+                type="button"
+                @click="openRevisionHistory"
+              >
+                <el-icon :size="15"><Clock /></el-icon>
+                版本历史
+              </button>
+              <button
+                v-if="!errorLoading"
+                class="meta-item meta-action"
+                type="button"
+                @click="scrollToComments"
+              >
+                <el-icon :size="15"><ChatLineSquare /></el-icon>
+                {{ commentCount ? `${commentCount} 条讨论` : '参与讨论' }}
+              </button>
             </div>
           </header>
 
+          <nav v-if="pageTags.length && !errorLoading" class="doc-tags" aria-label="本页标签">
+            <router-link
+              v-for="t in pageTags"
+              :key="t"
+              class="doc-tag"
+              :to="`/tags/${encodeURIComponent(t)}`"
+            >#{{ t }}</router-link>
+          </nav>
+
           <MarkdownRenderer v-if="content" :content="content" :base-path="baseDir" />
           <el-empty v-else description="这篇文档还在撰写中，欢迎来贡献内容" />
+
+          <PageContributors
+            v-if="!errorLoading"
+            :contributors="contributors"
+            :loading="contributorsLoading"
+            :error="contributorsError"
+          />
 
           <!-- 上一篇 / 下一篇 -->
           <nav v-if="(prev || next) && !errorLoading" class="doc-pager">
@@ -82,18 +143,35 @@
               <span class="pager-title">{{ next.icon }} {{ next.title }}</span>
             </button>
           </nav>
+
+          <PageComments
+            v-if="!errorLoading"
+            ref="comments"
+            :doc-path="docPath"
+            @count="commentCount = $event"
+          />
           </div>
         </template>
       </div>
     </el-main>
+
+    <PageRevisionHistory
+      ref="revisionHistory"
+      :doc-path="docPath"
+      :page-title="title"
+    />
   </el-container>
 </template>
 
 <script>
 import { markRaw } from "vue";
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue";
+import PageComments from "@/components/PageComments.vue";
+import PageContributors from "@/components/PageContributors.vue";
+import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
-import { Menu } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import { Bell, ChatLineSquare, Clock, Menu, Star, StarFilled } from "@element-plus/icons-vue";
 import {
   tree,
   getPage,
@@ -102,13 +180,32 @@ import {
   fetchPageContent,
   HOME_PATH,
 } from "@/wiki";
+import {
+  docFavoriteCheck,
+  docFavoriteAdd,
+  docFavoriteRemove,
+  docFavoriteUpdateNotification,
+  getPageContributors,
+  recordHistory,
+} from "@/net/index.js";
 import { useUserStore } from "@/store/userStore.js";
 
 const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "DocPage",
-  components: { MarkdownRenderer, Sidebar },
+  components: {
+    MarkdownRenderer,
+    PageComments,
+    PageContributors,
+    PageRevisionHistory,
+    Sidebar,
+    Bell,
+    ChatLineSquare,
+    Clock,
+    Star,
+    StarFilled,
+  },
   props: {
     pathMatch: { type: String, default: "" },
   },
@@ -126,6 +223,20 @@ export default {
       MenuIcon: markRaw(Menu),
       resizeTimeout: null,
       progress: 0,
+      favorited: false,
+      favoriteId: null,
+      favLoading: false,
+      notifyUpdates: false,
+      notifyLoading: false,
+      favoriteStateToken: 0,
+      viewCount: 0,
+      contributors: [],
+      contributorsLoading: false,
+      contributorsError: "",
+      contributorsRequestToken: 0,
+      pageRequestToken: 0,
+      pageTags: [],
+      commentCount: 0,
     };
   },
   computed: {
@@ -171,13 +282,29 @@ export default {
   },
   methods: {
     async fetchMarkdown(path) {
+      const pageRequestToken = ++this.pageRequestToken;
+      // 使上一页面尚未返回的收藏/关注请求失效，避免切页后覆盖新页面状态。
+      this.favoriteStateToken++;
       this.isLoading = true;
       this.errorLoading = false;
       this.content = "";
       this.title = "";
       this.pageLastUpdated = "";
+      this.pageTags = [];
+      this.commentCount = 0;
+      this.favorited = false;
+      this.favoriteId = null;
+      this.favLoading = false;
+      this.notifyUpdates = false;
+      this.notifyLoading = false;
+      this.viewCount = 0;
+      this.contributors = [];
+      this.contributorsLoading = false;
+      this.contributorsError = "";
+      const contributorsRequestToken = ++this.contributorsRequestToken;
       try {
-        const detail = await fetchPageContent(path);
+        const detail = await fetchPageContent(path, true);
+        if (this.docPath !== path || pageRequestToken !== this.pageRequestToken) return;
         let raw = detail.content || "";
 
         // 去掉可能残留的 YAML frontmatter
@@ -193,14 +320,22 @@ export default {
 
         this.title = detail.title || h1Text || path.split("/").pop();
         this.pageLastUpdated = detail.lastUpdated || "";
+        this.viewCount = detail.viewCount || 0;
+        this.pageTags = (detail.tags || []).map((t) => (t || "").trim()).filter(Boolean);
         this.content = raw.trim();
+        this.loadContributors(path, contributorsRequestToken);
+        this.afterLoad(path);
+        this.openRevisionFromQuery(path);
       } catch (e) {
+        if (this.docPath !== path || pageRequestToken !== this.pageRequestToken) return;
         this.errorLoading = true;
         this.title = "页面未找到";
         this.content = `> 无法加载文档 \`${path}\`。\n\n这篇文档可能尚未撰写，或返回[首页](/)继续浏览。`;
       } finally {
-        this.isLoading = false;
-        this.scrollToTopOrHash();
+        if (this.docPath === path && pageRequestToken === this.pageRequestToken) {
+          this.isLoading = false;
+          this.scrollToTopOrHash();
+        }
       }
     },
     scrollToTopOrHash() {
@@ -214,6 +349,122 @@ export default {
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
       });
+    },
+    loadContributors(path, requestToken) {
+      this.contributorsLoading = true;
+      getPageContributors(path, (data) => {
+        if (this.docPath !== path || requestToken !== this.contributorsRequestToken) return;
+        this.contributors = Array.isArray(data) ? data : [];
+        this.contributorsLoading = false;
+      }, (message) => {
+        if (this.docPath !== path || requestToken !== this.contributorsRequestToken) return;
+        this.contributorsError = message || "贡献者信息加载失败";
+        this.contributorsLoading = false;
+      });
+    },
+    // 从站点动态点「查看改动」过来会带 ?rev=<版本 id>：正文加载完直接打开那一次改动的差异。
+    // 用完即从地址栏移除，免得关掉抽屉后刷新又弹出来。afterLoad 对未登录用户会提前返回，所以单独放。
+    openRevisionFromQuery(path) {
+      const rev = this.$route.query.rev;
+      if (!rev || this.docPath !== path) return;
+      this.$nextTick(() => this.$refs.revisionHistory?.open(String(rev)));
+      const query = { ...this.$route.query };
+      delete query.rev;
+      this.$router.replace({ query, hash: this.$route.hash });
+    },
+    afterLoad(path) {
+      // 仅登录用户：记录浏览历史 + 查询收藏状态
+      if (!this.userStore.isLoggedIn) return;
+      recordHistory(path);
+      const requestToken = ++this.favoriteStateToken;
+      docFavoriteCheck(path, (d) => {
+        if (this.docPath !== path || requestToken !== this.favoriteStateToken) return;
+        this.favorited = !!(d && d.favorited);
+        this.favoriteId = d && d.id ? d.id : null;
+        this.notifyUpdates = !!(d && d.notifyUpdates);
+      }, () => {});
+    },
+    scrollToComments() {
+      const el = this.$refs.comments && this.$refs.comments.$el;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    toggleFavorite() {
+      if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
+      if (this.favLoading || this.notifyLoading) return;
+      const targetPath = this.docPath;
+      const requestToken = ++this.favoriteStateToken;
+      this.favLoading = true;
+      if (this.favorited && this.favoriteId) {
+        docFavoriteRemove(this.favoriteId, () => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favorited = false;
+          this.favoriteId = null;
+          this.notifyUpdates = false;
+          this.favLoading = false;
+          ElMessage.success("已取消收藏");
+        }, (m) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favLoading = false;
+          ElMessage.error(m || "操作失败");
+        });
+      } else {
+        docFavoriteAdd(targetPath, false, (d) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favorited = true;
+          this.favoriteId = d && d.id ? d.id : null;
+          this.notifyUpdates = !!(d && d.notifyUpdates);
+          this.favLoading = false;
+          ElMessage.success("已收藏");
+        }, (m) => {
+          if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+          this.favLoading = false;
+          ElMessage.error(m || "操作失败");
+        });
+      }
+    },
+    toggleUpdateNotification(enabled) {
+      if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
+      if (this.notifyLoading || this.favLoading) return;
+      const nextValue = !!enabled;
+      const previousValue = this.notifyUpdates;
+      const targetPath = this.docPath;
+      const requestToken = ++this.favoriteStateToken;
+      this.notifyUpdates = nextValue;
+      this.notifyLoading = true;
+
+      const success = (d) => {
+        if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+        this.notifyUpdates = d && typeof d.notifyUpdates === "boolean"
+          ? d.notifyUpdates
+          : nextValue;
+        if (d && d.id) this.favoriteId = d.id;
+        if (nextValue) this.favorited = true;
+        this.notifyLoading = false;
+        ElMessage.success(nextValue
+          ? "已关注，页面更新后会通知你"
+          : "已取消更新通知");
+      };
+      const failure = (message) => {
+        if (this.docPath !== targetPath || requestToken !== this.favoriteStateToken) return;
+        this.notifyUpdates = previousValue;
+        this.notifyLoading = false;
+        ElMessage.error(message || "操作失败");
+      };
+
+      if (!this.favorited || !this.favoriteId) {
+        if (!nextValue) {
+          this.notifyUpdates = false;
+          this.notifyLoading = false;
+          return;
+        }
+        docFavoriteAdd(targetPath, true, success, failure);
+        return;
+      }
+      docFavoriteUpdateNotification(this.favoriteId, nextValue, success, failure);
+    },
+    openRevisionHistory() {
+      this.$refs.revisionHistory?.open();
     },
     onNavigate(newPage) {
       this.$router.push(`/docs/${newPage}`);
@@ -249,6 +500,32 @@ export default {
 </script>
 
 <style scoped>
+.doc-tags {
+  /* 与 .doc-header 同一套宽度和内边距，标签行才会和标题左对齐 */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 1360px;
+  margin: -4px auto 20px;
+  padding: 0 20px;
+}
+
+.doc-tag {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: border-color .18s ease, color .18s ease;
+}
+
+.doc-tag:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  text-decoration: none;
+}
+
 .doc-page-container {
   min-height: calc(100vh - var(--header-height));
   background-color: var(--bg-page);
@@ -324,6 +601,41 @@ export default {
 .edit-link { color: var(--text-muted); }
 .edit-link:hover { color: var(--brand); text-decoration: none; }
 
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.fav-btn:hover { color: var(--brand); }
+.fav-btn.active { color: #e6a23c; }
+.fav-btn:disabled { opacity: 0.6; cursor: default; }
+
+.follow-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.meta-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.meta-action:hover { color: var(--brand); }
+
 .loading-state {
   max-width: 900px;
   margin: 0 auto;
@@ -377,8 +689,25 @@ export default {
 }
 
 @media (max-width: 767px) {
-  .doc-main-content { padding: 16px 8px 50px; }
+  /* 整列只留一层左右留白。此前 main(8) + markdown-container(12) + 正文卡片(18)
+     三层内边距叠加，375px 屏上正文只剩 297px；面包屑/标题/标签/正文/评论卡
+     还各自落在 5 个不同的左边缘上，滚动时整列是歪的。 */
+  .doc-main-content { padding: 16px 12px 50px; }
   .doc-title { font-size: 1.7rem; }
   .doc-pager { grid-template-columns: 1fr; }
+  .doc-breadcrumb,
+  .doc-header,
+  .doc-tags,
+  .doc-pager { padding-inline: 0; }
+  .doc-meta { gap: 10px 14px; }
+  /* 元信息是一排纯文字按钮，行高只有 21px，手指很难点准 */
+  .doc-meta .meta-item { display: inline-flex; align-items: center; min-height: 32px; }
+  .doc-tag { padding: 5px 11px; }
+  .mobile-menu-toggle {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 14px;
+    width: 46px;
+    height: 46px;
+  }
 }
 </style>

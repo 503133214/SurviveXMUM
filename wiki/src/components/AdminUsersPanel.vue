@@ -60,7 +60,10 @@
       <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
           <el-button link type="info" @click="openHistory(row)">投稿历史</el-button>
-          <el-button v-if="row.deleted" link type="primary" @click="restore(row)">恢复</el-button>
+          <template v-if="row.deleted">
+            <el-button link type="primary" @click="restore(row)">恢复</el-button>
+            <el-button link type="danger" @click="purge(row)">彻底删除</el-button>
+          </template>
           <template v-else>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button
@@ -158,7 +161,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/userStore.js'
 import {
   adminListUsers, adminCreateUser, adminUpdateUser, adminDeleteUser, adminRestoreUser,
-  adminListUserRevisions,
+  adminListUserRevisions, adminPurgeUser,
 } from '@/net/index.js'
 
 const emptyUser = () => ({
@@ -225,7 +228,7 @@ export default {
         this.query,
         (data) => {
           this.list = data.list || []
-          this.total = data.total || 0
+          this.total = Number(data && data.total) || 0
           this.loading = false
         },
         (message) => {
@@ -330,6 +333,20 @@ export default {
         (message) => ElMessage.error(message || '恢复失败')
       )
     },
+    async purge(user) {
+      try {
+        await ElMessageBox.confirm(
+          `将永久删除用户「${user.email}」及其收藏、浏览历史、通知、草稿（投稿记录保留作历史）。此操作不可恢复！`,
+          '彻底删除',
+          { type: 'error', confirmButtonText: '永久删除', cancelButtonText: '取消', confirmButtonClass: 'el-button--danger' }
+        )
+      } catch { return }
+      adminPurgeUser(
+        user.id,
+        () => { ElMessage.success('已彻底删除'); this.load() },
+        (message) => ElMessage.error(message || '操作失败')
+      )
+    },
   },
 }
 </script>
@@ -374,6 +391,14 @@ export default {
 
 @media (max-width: 640px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }
+  .filters > .btn-ghost { width: 100%; margin: 0; }
   .form-row { grid-template-columns: 1fr; gap: 0; }
+}
+@media (max-width: 480px) {
+  .panel-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel-head .btn-solid { width: 100%; }
 }
 </style>
