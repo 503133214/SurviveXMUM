@@ -11,8 +11,8 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 > 这些放在私有仓库 `SurviveXMUM-server` 的 `DEPLOY.md` 里。下文用 `<部署目录>`
 > 指代服务器上的前端仓库检出位置。
 >
-> 最后更新：2026-09-08。改动 `deploy.sh`、`docker-compose.yml`、`wiki/Dockerfile`
-> 或 `wiki/nginx.conf` 时，请同步更新本文。
+> 最后更新：2026-09-30。改动 `deploy.sh`、`ci-deploy.sh`、`docker-compose.yml`、
+> `wiki/Dockerfile`、`wiki/nginx.conf` 或 `.github/workflows/frontend.yml` 时，请同步更新本文。
 
 ---
 
@@ -26,7 +26,8 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 └── /wiki/     → MinIO     127.0.0.1:9000     (图片对象存储, 走 https 域名)
 ```
 
-- **部署分支：`dev`**。
+- **部署分支：`main`，合并即自动部署**（GitHub Actions，见第 3 节）。`dev` 是日常集成分支，
+  通过 PR 合并进 `main` 后上线。
 - 前端产物在 **Docker 内构建**（npm 在镜像里跑），本地不需要先 build。
 - 后端是独立容器、独立仓库、独立部署命令；**发前端不需要动后端**，反之亦然。
 - 内容全部来自后端 API，前端镜像里没有任何文章数据。
@@ -40,7 +41,9 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 | `docker-compose.yml` | 只编排 `frontend` 一个容器 |
 | `wiki/Dockerfile` | Node 20 构建 → nginx 1.27 托管静态文件 |
 | `wiki/nginx.conf` | 前端容器内部 nginx：静态托管 + SPA 回退 + **缓存策略**，见第 5 节 |
-| `deploy.sh` | 一键部署脚本 |
+| `deploy.sh` | 一键部署脚本（`./deploy.sh` 拉当前分支；`./deploy.sh main` 对齐并部署 `origin/main`） |
+| `ci-deploy.sh` | 自动部署的服务器端入口：CI 专用 SSH key 只能执行它 |
+| `.github/workflows/frontend.yml` | CI/CD：每次 push/PR 跑单测与构建；`main` 有新提交时部署 |
 
 前端没有环境变量文件：API 一律走同源 `/api`，由宿主机 nginx 反代。
 
@@ -48,22 +51,66 @@ SurviveXMUM **前端**的线上部署说明。Vue 构建产物由 nginx 容器�
 
 ## 3. 日常部署（已上线，最常用）
 
-代码合并到 `dev` 并 push 后，登录服务器执行一条命令：
+### 3.1 自动部署（默认）
+
+```
+feature 分支 ──PR──▶ dev ──PR──▶ main ──GitHub Actions──▶ 服务器执行 ./deploy.sh main
+```
+
+- 每次 push / PR（`dev`、`main`）都会跑 **Test & build**：`npm ci` → `npm test` → `npm run build`。
+  PR 上能直接看到结果，构建失败的代码不该合并。
+- `main` 上有新提交（合并 PR 或直接 push）时，**Deploy to production** 在构建通过后
+  SSH 到服务器，由 `ci-deploy.sh` 调用 `./deploy.sh main`：对齐 `origin/main` → 重建容器 →
+  清理悬空镜像，最后检查首页返回 200。
+- 在 GitHub 的 **Actions → Frontend CI/CD → Run workflow**（选 `main`）可以手动重新部署。
+- 连续合并时部署会排队依次执行；服务器端 `deploy.sh` 还有一把文件锁，手动部署与自动部署不会同时构建。
+
+### 3.2 手动部署（CI 不可用时）
+
+登录服务器执行：
 
 ```bash
 cd <部署目录>   # 服务器上的前端仓库检出位置
-./deploy.sh
+./deploy.sh main
 ```
 
 `deploy.sh` 会依次：
-`git pull --ff-only` → `docker compose up -d --build --force-recreate` → `docker image prune -f` → `docker compose ps`。
+对齐代码（带分支参数时 `git fetch` + `git checkout -B <分支> origin/<分支>`，不带参数时 `git pull --ff-only`）
+→ `docker compose up -d --build --force-recreate` → `docker image prune -f` → `docker compose ps`。
 
 > - **只影响前端容器**，后端不受影响（后端部署见 `SurviveXMUM-server` 仓库）。
 > - 首次构建约 2–4 分钟，之后有缓存更快。切换瞬间完成，页面几乎无感。
+> - 构建失败时脚本在 `docker compose up` 处中止，**旧容器继续服务**。
 > - `--force-recreate` 是必须的：只有镜像内容变化时 compose 默认可能不重建容器，
 >   表现为「构建成功但 `docker compose ps` 还是几小时前的 Up」。
+> - 服务器检出不要手改代码：带分支参数部署时会强制对齐远端，工作区有改动则中止。
 
 部署完成后做 [第 6 节验证](#6-验证)。
+
+### 3.3 自动部署的配置（换服务器或轮换 key 时）
+
+1. 生成 CI 专用密钥（不设口令）：`ssh-keygen -t ed25519 -N "" -C github-actions-deploy -f deploy_key`
+2. 在服务器部署用户的 `~/.ssh/authorized_keys` 里加一行，**限定这把 key 只能执行 `ci-deploy.sh`**：
+
+   ```
+   command="<部署目录>/ci-deploy.sh",restrict ssh-ed25519 AAAA… github-actions-deploy
+   ```
+
+   `restrict` 关掉 pty 与各种转发。`ci-deploy.sh` 只接受 `deploy`（默认）与 `status`
+   （只读：打印当前版本与容器状态）两个命令。验证：`ssh -i deploy_key <用户>@<服务器> status`。
+3. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 里设置：
+
+   | Secret | 内容 |
+   |---|---|
+   | `DEPLOY_HOST` | 服务器地址 |
+   | `DEPLOY_USER` | SSH 用户 |
+   | `DEPLOY_SSH_KEY` | 第 1 步的**私钥**全文 |
+   | `DEPLOY_KNOWN_HOSTS` | 服务器 host key，`ssh-keyscan -t ed25519 <服务器>` 的输出（先与已知指纹核对） |
+
+   也可以用 `gh secret set DEPLOY_SSH_KEY < deploy_key` 这样的命令设置。
+4. 设置完**删除本地私钥**。轮换 key：换掉 authorized_keys 那一行并更新 `DEPLOY_SSH_KEY`。
+
+> `ci-deploy.sh` 的路径写死在 authorized_keys 里：**重命名或删除这个文件会让自动部署失效**。
 
 ---
 
@@ -78,7 +125,7 @@ cd <部署目录>   # 服务器上的前端仓库检出位置
 ```bash
 git clone https://github.com/503133214/SurviveXMUM.git
 cd SurviveXMUM
-git checkout dev
+git checkout main
 ```
 
 前端没有环境变量文件，拉下来即可构建。
@@ -120,8 +167,10 @@ nginx -t && systemctl reload nginx
 ### 4.3 起容器
 
 ```bash
-cd <部署目录> && ./deploy.sh
+cd <部署目录> && ./deploy.sh main
 ```
+
+然后按 3.3 配置自动部署。
 
 ---
 
@@ -187,19 +236,28 @@ npm run build    # 部署前的 sanity check（真正的构建在 Docker 里）
 ```
 
 - 前端代码始终用同源 `/api`，不要把生产域名写死在组件里。
-- 只改样式/交互时不必起后端，可直接对着线上环境验证。
+- 只改样式/交互时不必起后端：`WIKI_API_TARGET=https://surivivexmum.wiki/api npm run dev`
+  直接读线上内容（代理会去掉 `track=1`，本地浏览不计入线上阅读数）。
 - 后端在 `SurviveXMUM-server` 仓库，本地联调时先把它跑起来。
 
 ---
 
 ## 9. 回滚
 
+**首选：在 GitHub 上 revert。** 对出问题的合并提交点 Revert（或本地 `git revert` 后 push 到 `main`），
+合并后会自动部署回旧版本，而且 `main` 与线上保持一致。
+
+**紧急情况（等不及 CI）**：在服务器上直接切到旧提交部署：
+
 ```bash
 cd <部署目录>
 git log --oneline -5
-git reset --hard <上一个 commit>
-./deploy.sh
+git checkout --detach <上一个 commit>
+./deploy.sh            # 不带分支参数：不拉代码，直接用当前检出构建
 ```
+
+> 这只是临时止血：下一次 `main` 的自动部署会重新对齐到 `origin/main` 的最新提交，
+> 所以之后仍要在 GitHub 上 revert。
 
 前端回滚只换静态产物，不涉及数据，安全且可反复执行。
 
@@ -212,6 +270,7 @@ git reset --hard <上一个 commit>
 | `/api/*` 返回 HTML 而非 JSON | nginx 缺 `/api/` 反代（落到了 SPA fallback），见 4.2；或后端没起来，去 `SurviveXMUM-server` 查 |
 | 前端路由刷新 404 | 静态服务器需要 SPA fallback 到 `index.html` |
 | 构建成功但还是旧版本 | 容器没重建：`docker compose up -d --force-recreate`（`deploy.sh` 已带该参数） |
+| 合并到 `main` 后线上没更新 | 看 GitHub Actions 的 **Deploy to production**：`Permission denied (publickey)` → 检查 `DEPLOY_SSH_KEY` 与 authorized_keys 那一行；`Host key verification failed` → 服务器 host key 变了，核对后更新 `DEPLOY_KNOWN_HOSTS`；构建报错 → 服务器上 `docker compose build` 复现 |
 | **白屏 / 看到旧版本，无痕正常** | 有**两个**互不相干的原因，别只查一个：① 缓存（见第 5 节，确认 `curl -sI https://域名/` 返回 `no-cache`）；② **广告拦截插件**——无痕模式默认禁用扩展，所以「无痕正常」不能证明是缓存问题。曾因 CSS 类名用了 `ad-` 前缀（`ad-head`/`ad-list`…）被 EasyList 通用规则整块隐藏。**前端类名一律不要用 `ad-` 开头。** |
 | 部署后页面空白，刷新就好 | 旧标签页在用被替换掉的旧 chunk；容器 nginx 有自愈脚本，本地调试直接硬刷新 |
 | 图片 403 / 链接是 http+IP | 属于后端与 MinIO 配置，见 `SurviveXMUM-server` 仓库 |
@@ -221,7 +280,7 @@ git reset --hard <上一个 commit>
 ## 11. 关键信息速查
 
 - 域名：`surivivexmum.wiki`（注意拼写 sur**i**vivexmum）
-- 本仓库：`503133214/SurviveXMUM`（公开），部署分支 `dev`
+- 本仓库：`503133214/SurviveXMUM`（公开），部署分支 `main`（合并自动部署），集成分支 `dev`
 - 后端仓库：`503133214/SurviveXMUM-server`（私有），部署分支 `main`
 - 容器名：`wiki-frontend`（`127.0.0.1:8081`）；`wiki-backend` 与 `minio` 不归本仓库管
 - 服务器地址、SSH 登录方式、主机上的绝对路径与 nginx vhost 文件名：见私有仓库

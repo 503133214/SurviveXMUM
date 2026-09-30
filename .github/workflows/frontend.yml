@@ -1,0 +1,90 @@
+# 前端 CI/CD：
+#   - 每次 push / PR：装依赖、跑单测、生产构建（构建失败的代码进不了 main）
+#   - main 上有新提交（合并 PR 或直接 push）或手动触发：通过 SSH 让服务器部署 origin/main
+#
+# 服务器地址等信息放在仓库 Secrets 里，不写进这个公开仓库：
+#   DEPLOY_HOST          服务器地址
+#   DEPLOY_USER          SSH 用户
+#   DEPLOY_SSH_KEY       CI 专用私钥（服务器端被限定只能执行 ci-deploy.sh）
+#   DEPLOY_KNOWN_HOSTS   服务器 host key（ssh-keyscan 的输出），防中间人
+# 配置方法见 DEPLOY.md「自动部署」一节。
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wiki
+    steps:
+      - uses: actions/checkout@v4
+
+      # 与 wiki/Dockerfile 的构建镜像保持同一个 Node 大版本
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: wiki/package-lock.json
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    name: Deploy to production
+    needs: build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://surivivexmum.wiki
+    # 连续合并时按顺序部署，不中途取消正在进行的那次
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    timeout-minutes: 20
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy origin/main on the server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            "$DEPLOY_USER@$DEPLOY_HOST" deploy
+
+      - name: Check the site answers
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://surivivexmum.wiki/ || true)
+            if [ "$code" = "200" ]; then echo "site is up (HTTP 200)"; exit 0; fi
+            echo "attempt $attempt: HTTP $code, retrying in 10s"
+            sleep 10
+          done
+          echo "site did not return 200 after deploy" >&2
+          exit 1
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
