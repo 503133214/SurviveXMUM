@@ -34,7 +34,14 @@ function takeAccessToken(){
     if(!token){
         return null;
     }
-    const authObj=JSON.parse(token);
+    // takeAccessToken 会被 isLoggedIn computed 在渲染期调用,存储值损坏时
+    // 绝不能抛异常,否则整个组件树渲染失败(白屏):静默清理并按未登录处理
+    let authObj=null;
+    try { authObj=JSON.parse(token); } catch { /* 数据损坏 */ }
+    if(!authObj || typeof authObj.token!=='string'){
+        deleteAccessToken();
+        return null
+    }
     if(authObj.expire<=Date.now()){
         deleteAccessToken();
         ElMessage.warning("登录已过期，请重新登录")
