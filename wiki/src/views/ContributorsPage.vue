@@ -1,5 +1,5 @@
 <template>
-  <main class="contrib-page">
+  <div class="contrib-page">
     <section class="community-hero">
       <div class="hero-copy">
         <p class="eyebrow">XMUM WIKI COMMUNITY</p>
@@ -164,7 +164,7 @@
       <p>知识因为分享而留下，社区因为每一个你而完整。</p>
       <router-link to="/docs/贡献指南">加入共建 <span aria-hidden="true">→</span></router-link>
     </footer>
-  </main>
+  </div>
 </template>
 
 <script>

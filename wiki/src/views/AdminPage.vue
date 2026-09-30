@@ -90,7 +90,7 @@
       </aside>
 
       <!-- 详情 -->
-      <main v-show="!isMobileAdmin || current" class="rv-detail">
+      <section v-show="!isMobileAdmin || current" class="rv-detail">
         <div v-if="!current" class="placeholder">
           <el-icon :size="40"><Tickets /></el-icon>
           <p>从左侧选择一条投稿开始审核</p>
@@ -191,7 +191,7 @@
             </div>
           </div>
         </template>
-      </main>
+      </section>
     </div>
       </div>
     </section>

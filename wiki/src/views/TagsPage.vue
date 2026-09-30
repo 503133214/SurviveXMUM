@@ -43,7 +43,9 @@
       <ul v-else class="tp-list">
         <li v-for="page in matched" :key="page.path">
           <router-link class="tp-card" :to="`/docs/${page.path}`">
-            <span class="tp-card-icon">{{ page.icon || '📄' }}</span>
+            <span class="tp-card-icon" aria-hidden="true">
+              <WikiIcon :icon="page.icon" :title="page.title" :category="page.category" :size="18" />
+            </span>
             <span class="tp-card-body">
               <strong>{{ page.title }}</strong>
               <small v-if="page.description">{{ page.description }}</small>
@@ -64,11 +66,13 @@
 
 <script>
 import { allTags, pagesByTag, orderedPages, loadManifest } from '@/wiki'
+import WikiIcon from '@/components/WikiIcon.vue'
 
 const COLLAPSED_LIMIT = 24
 
 export default {
   name: 'TagsPage',
+  components: { WikiIcon },
   props: {
     // 路由 /tags/:tag，无参数时只显示标签云
     tag: { type: String, default: '' },
@@ -255,7 +259,17 @@ export default {
   transform: translateY(-1px);
 }
 
-.tp-card-icon { flex-shrink: 0; font-size: 20px; line-height: 1.4; }
+.tp-card-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-subtle);
+  color: var(--accent);
+}
 .tp-card-body { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .tp-card-body strong { color: var(--text-primary); font-size: 14.5px; }
 .tp-card-body small {

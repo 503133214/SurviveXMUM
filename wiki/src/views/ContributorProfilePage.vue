@@ -1,5 +1,5 @@
 <template>
-  <main class="cprofile">
+  <div class="cprofile">
     <div v-if="loading" class="cp-loading">
       <el-skeleton :rows="6" animated />
     </div>
@@ -79,7 +79,7 @@
         <el-button @click="$router.push('/contributors')">返回贡献榜</el-button>
       </el-empty>
     </div>
-  </main>
+  </div>
 </template>
 
 <script>

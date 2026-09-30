@@ -1,19 +1,31 @@
 <template>
   <div class="not-found-container">
     <div class="content-wrapper">
-      <h1 class="title">404 - 页面未找到</h1>
+      <span class="nf-icon" aria-hidden="true"><MapPinOff :size="30" :stroke-width="1.75" /></span>
+      <p class="nf-code">404</p>
+      <h1 class="title">页面未找到</h1>
       <p class="subtitle">
-        抱歉，你访问的页面不存在。<br />
+        你访问的页面不存在，可能链接写错了，或者页面已经移动。<br />
         Sorry, the page you’re looking for doesn’t exist.
       </p>
-      <router-link to="/" class="home-link">返回首页</router-link>
+      <div class="nf-actions">
+        <button type="button" class="nf-btn primary" @click="openPalette()">
+          <Search :size="16" :stroke-width="2" aria-hidden="true" />搜索文档
+        </button>
+        <router-link to="/" class="nf-btn">返回首页</router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import { MapPinOff, Search } from "lucide-vue-next";
+import { openPalette } from "@/composables/usePalette.js";
+
 export default {
   name: "NotFoundPage", // 多词命名以满足 ESLint 规则
+  components: { MapPinOff, Search },
+  methods: { openPalette },
 };
 </script>
 
@@ -23,49 +35,80 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: calc(100dvh - var(--header-height));
+  padding: 0 16px;
   background:
-    radial-gradient(circle at 50% 35%, var(--bg-subtle), transparent 50%),
+    radial-gradient(circle at 50% 38%, var(--accent-soft), transparent 42%),
     var(--bg-page);
   text-align: center;
-  padding: 0 16px;
 }
 
 .content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
-  max-width: 400px;
+  max-width: 460px;
+}
+
+.nf-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: 18px;
+  background: var(--bg-surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.nf-code {
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
 }
 
 .title {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 12px;
   color: var(--text-primary);
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .subtitle {
-  font-size: 1.125rem;
-  margin-bottom: 2rem;
+  margin-bottom: 28px;
   color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.home-link {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
   font-size: 1rem;
-  color: var(--accent-contrast);
-  background-color: var(--accent);
-  border-radius: 999px;
-  text-decoration: none;
-  transition: background-color 0.2s ease;
+  line-height: 1.7;
 }
 
-.home-link:hover {
-  opacity: .82;
-  text-decoration: none;
+.nf-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
+.nf-btn:hover { border-color: var(--text-muted); color: var(--text-primary); text-decoration: none; }
+.nf-btn:active { transform: scale(0.98); }
+.nf-btn.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.nf-btn.primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); }
 
 @media (max-width: 480px) {
-  .title { font-size: 2rem; }
-  .subtitle { font-size: 1rem; }
+  .title { font-size: 1.8rem; }
 }
 </style>

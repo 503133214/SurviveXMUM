@@ -17,6 +17,7 @@
     "dompurify": "^3.4.11",
     "element-plus": "^2.9.11",
     "github-markdown-css": "^5.8.1",
+    "lucide-vue-next": "^1.0.0",
     "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^9.2.0",
     "markdown-it-toc-done-right": "^4.2.0",

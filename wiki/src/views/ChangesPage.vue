@@ -24,7 +24,7 @@
 
             <div class="cg-main">
               <router-link class="cg-title" :to="`/docs/${item.path}`">
-                <span class="cg-icon" aria-hidden="true">{{ item.icon || categoryIcon(item.categorySlug) }}</span>
+                <WikiIcon class="cg-icon" :icon="item.icon || ''" :title="item.title" :category="item.categorySlug || ''" :size="15" />
                 {{ item.title }}
               </router-link>
 
@@ -76,6 +76,7 @@
 
 <script>
 import { categories, loadManifest } from '@/wiki'
+import WikiIcon from '@/components/WikiIcon.vue'
 import { getSiteChanges } from '@/net/index.js'
 
 const PAGE_SIZE = 20
@@ -87,6 +88,7 @@ const FIELD_LABELS = {
 
 export default {
   name: 'ChangesPage',
+  components: { WikiIcon },
   data() {
     return {
       items: [],
@@ -170,10 +172,6 @@ export default {
     categoryLabel(slug) {
       const c = this.category(slug)
       return c ? c.label : ''
-    },
-    categoryIcon(slug) {
-      const c = this.category(slug)
-      return c && c.icon ? c.icon : '📄'
     },
     timeOf(iso) {
       const d = new Date(iso)
@@ -280,7 +278,7 @@ function dayKey(d) {
   white-space: nowrap;
 }
 .cg-title:hover { text-decoration: underline; }
-.cg-icon { margin-right: 4px; }
+.cg-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
 
 .cg-meta {
   display: flex;

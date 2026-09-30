@@ -103,7 +103,10 @@
           </div>
           <div class="f">
             <label>图标</label>
-            <el-input v-model="form.icon" placeholder="单个 emoji，如 📖" maxlength="4" />
+            <el-input v-model="form.icon" placeholder="单个 emoji，如 📖" maxlength="4">
+              <!-- 站内不直接显示 emoji，而是换成对应的线性图标；这里预览换算结果 -->
+              <template #suffix><WikiIcon :icon="form.icon || ''" :title="form.title || ''" :category="form.categorySlug || ''" :size="16" /></template>
+            </el-input>
           </div>
           <div class="f">
             <label>排序</label>
@@ -158,6 +161,7 @@
 import { markRaw } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import WikiIcon from '@/components/WikiIcon.vue'
 import { categories, loadManifest, state as wikiState } from '@/wiki'
 import { useUserStore } from '@/store/userStore.js'
 import {
@@ -180,7 +184,7 @@ const emptyPage = () => ({
 
 export default {
   name: 'AdminPagesPanel',
-  components: { MarkdownRenderer: markRaw(MarkdownRenderer) },
+  components: { MarkdownRenderer: markRaw(MarkdownRenderer), WikiIcon },
   data() {
     return {
       query: { keyword: '', category: '', includeDeleted: false, page: 1, size: 20 },
