@@ -8,7 +8,7 @@
       :title="`${b.name} · ${b.description}`"
       role="img"
       :aria-label="b.name"
-    >{{ b.icon }}</span>
+    ><component :is="iconOf(b)" :size="14" :stroke-width="2" aria-hidden="true" /></span>
     <span v-if="overflow > 0" class="cb-more" :title="overflowTitle">+{{ overflow }}</span>
   </span>
 
@@ -20,7 +20,7 @@
       class="cb-card"
       :class="{ locked: !b.earned }"
     >
-      <span class="cb-icon" aria-hidden="true">{{ b.icon }}</span>
+      <span class="cb-icon" aria-hidden="true"><component :is="iconOf(b)" :size="20" :stroke-width="1.75" /></span>
       <span class="cb-copy">
         <strong>{{ b.name }}</strong>
         <small>{{ b.description }}</small>
@@ -34,6 +34,9 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
+import { badgeIcon } from '@/utils/icons.js'
+
 export default {
   name: 'ContributorBadges',
   props: {
@@ -56,6 +59,9 @@ export default {
     },
   },
   methods: {
+    iconOf(b) {
+      return markRaw(badgeIcon(b))
+    },
     percent(b) {
       if (!b.target) return 0
       return Math.min(100, Math.round((b.progress / b.target) * 100))
@@ -73,7 +79,13 @@ export default {
 }
 
 .cb-pin {
-  font-size: 13px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
   cursor: default;
 }
 
@@ -103,10 +115,20 @@ export default {
   border-style: dashed;
   background: none;
 }
-.cb-card.locked .cb-icon { filter: grayscale(1); opacity: .45; }
+.cb-card.locked .cb-icon { border-style: dashed; background: none; color: var(--text-muted); opacity: .6; }
 .cb-card.locked strong { color: var(--text-muted); }
 
-.cb-icon { flex-shrink: 0; font-size: 22px; line-height: 1.3; }
+.cb-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--accent-soft-strong);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 
 .cb-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .cb-copy strong { color: var(--text-primary); font-size: 14px; }

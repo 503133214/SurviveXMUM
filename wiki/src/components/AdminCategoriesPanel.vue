@@ -8,7 +8,7 @@
 
     <el-table :data="list" v-loading="loading" style="width: 100%">
       <el-table-column label="图标" width="70">
-        <template #default="{ row }"><span class="acp-icon">{{ row.icon || '📁' }}</span></template>
+        <template #default="{ row }"><span class="acp-icon"><WikiIcon kind="category" :icon="row.icon || ''" :category="row.slug" :title="row.label" :size="18" /></span></template>
       </el-table-column>
       <el-table-column prop="label" label="名称" min-width="120" show-overflow-tooltip />
       <el-table-column prop="slug" label="标识 (slug)" min-width="120" show-overflow-tooltip />
@@ -40,7 +40,10 @@
           <el-input v-model="form.label" maxlength="120" placeholder="留空则与标识相同" />
         </el-form-item>
         <el-form-item label="图标">
-          <el-input v-model="form.icon" maxlength="8" placeholder="单个 emoji，如 📚" style="width: 140px" />
+          <el-input v-model="form.icon" maxlength="8" placeholder="单个 emoji，如 📚" style="width: 140px">
+            <!-- 站内显示的是换算后的线性图标 -->
+            <template #suffix><WikiIcon kind="category" :icon="form.icon || ''" :category="form.slug || ''" :size="16" /></template>
+          </el-input>
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sortOrder" :min="0" :max="9999" />
@@ -59,6 +62,7 @@
 </template>
 
 <script>
+import WikiIcon from '@/components/WikiIcon.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   adminListCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory,
@@ -68,6 +72,7 @@ const empty = () => ({ id: null, slug: '', label: '', icon: '', description: '',
 
 export default {
   name: 'AdminCategoriesPanel',
+  components: { WikiIcon },
   data() {
     return { list: [], loading: false, dialogVisible: false, editing: false, saving: false, form: empty() }
   },
@@ -115,7 +120,7 @@ export default {
 }
 .acp-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
 .acp-note { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; }
-.acp-icon { font-size: 20px; }
+.acp-icon { display: inline-flex; color: var(--accent); }
 .acp-hint { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
 @media (max-width: 640px) {
   .acp-head {

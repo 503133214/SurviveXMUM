@@ -38,7 +38,9 @@
             {{ d.type === 'CREATE' ? '新' : '改' }}
           </div>
           <div class="rev-main">
-            <span class="rev-title">{{ d.icon ? d.icon + ' ' : '' }}{{ d.title || '（未命名草稿）' }}</span>
+            <span class="rev-title">
+              <WikiIcon v-if="d.icon" class="title-icon" :icon="d.icon" :title="d.title || ''" :size="14" />{{ d.title || '（未命名草稿）' }}
+            </span>
             <div class="rev-meta">
               <span>{{ d.type === 'CREATE' ? '新文章草稿' : '编辑草稿' }}</span>
               <template v-if="d.targetPath">
@@ -172,13 +174,14 @@
 <script>
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
+import WikiIcon from '@/components/WikiIcon.vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
   name: 'ProfilePage',
-  components: { ArrowRight, Calendar, EditPen, MarkdownRenderer, Setting },
+  components: { ArrowRight, Calendar, EditPen, MarkdownRenderer, Setting, WikiIcon },
   data() {
     return {
       userStore: useUserStore(),
@@ -271,6 +274,8 @@ export default {
 </script>
 
 <style scoped>
+.title-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
+
 .profile-page { width: 100%; max-width: 1040px; margin: 0 auto; padding: 52px 28px 80px; }
 .pf-head {
   display: flex;

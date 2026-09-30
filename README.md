@@ -41,7 +41,8 @@ npm test         # 纯函数单测
 npm run build
 ```
 
-只改样式或交互时不必起后端。需要联调时，把 `SurviveXMUM-server` 跑起来即可。
+只改样式或交互时不必起后端，直接读线上内容：
+`WIKI_API_TARGET=https://surivivexmum.wiki/api npm run dev`。需要联调时，把 `SurviveXMUM-server` 跑起来即可。
 更多说明见 [`wiki/README.md`](wiki/README.md) 与站内[本地开发](https://surivivexmum.wiki/docs/api/development)页。
 
 ## 目录

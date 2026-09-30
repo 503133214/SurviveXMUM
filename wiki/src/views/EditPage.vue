@@ -30,7 +30,9 @@
             {{ d.type === 'UPDATE' ? '编辑' : '新建' }}
           </span>
           <div class="draft-main" @click="loadDraftItem(d)">
-            <div class="draft-title">{{ d.icon ? d.icon + ' ' : '' }}{{ d.title || '（未命名草稿）' }}</div>
+            <div class="draft-title">
+              <WikiIcon v-if="d.icon" class="title-icon" :icon="d.icon" :title="d.title || ''" :size="14" />{{ d.title || '（未命名草稿）' }}
+            </div>
             <div class="draft-meta">
               <template v-if="d.type === 'UPDATE'">{{ d.targetPath }} · </template>{{ d.updatedAt }}
             </div>
@@ -47,7 +49,7 @@
         <label>分类</label>
         <select v-model="form.categorySlug" class="inp">
           <option value="">（顶级 / 无分类）</option>
-          <option v-for="c in cats" :key="c.slug" :value="c.slug">{{ c.icon }} {{ c.label }}</option>
+          <option v-for="c in cats" :key="c.slug" :value="c.slug">{{ c.label }}</option>
         </select>
       </div>
       <div class="field" v-else>
@@ -65,7 +67,10 @@
               :class="{ 'has-icon': form.icon }"
               :title="form.icon ? '更换或清除图标' : '选择图标（可选）'"
               @click="iconPanelOpen = !iconPanelOpen"
-            >{{ form.icon || '＋' }}</button>
+            >
+              <WikiIcon v-if="form.icon" :icon="form.icon" :title="form.title" :category="form.categorySlug" :size="20" />
+              <Plus v-else :size="18" :stroke-width="2" />
+            </button>
             <div v-if="iconPanelOpen" class="icon-panel">
               <div class="icon-grid">
                 <button
@@ -73,15 +78,15 @@
                   :key="e"
                   type="button"
                   class="icon-cell"
-                  :class="{ selected: form.icon === e }"
+                  :class="{ selected: sameIcon(form.icon, e) }"
                   @click="pickIcon(e)"
-                >{{ e }}</button>
+                ><component :is="iconFor(e)" :size="18" :stroke-width="1.75" /></button>
               </div>
               <div class="icon-panel-foot">
                 <input
                   v-model="customIcon"
                   class="inp icon-custom"
-                  placeholder="或粘贴任意 emoji 后回车"
+                  placeholder="或粘贴 emoji 后回车，自动换成相近图标"
                   @keydown.enter.prevent="pickIcon(customIcon)"
                 />
                 <button v-if="form.icon" type="button" class="icon-clear" @click="pickIcon('')">清除</button>
@@ -197,6 +202,9 @@
 <script>
 import { markRaw, nextTick } from 'vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import WikiIcon from '@/components/WikiIcon.vue'
+import { Plus } from 'lucide-vue-next'
+import { ICON_CHOICES, emojiIcon, normalizeEmoji, resolveIcon } from '@/utils/icons.js'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
@@ -209,19 +217,12 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 const MAX_TAGS = 10
 // 标题拼进页面路径，这些字符会破坏路由（与后端 TitleUtil 一致）
 const ILLEGAL_TITLE = /[/\\#?%]|\.\./
-// 图标选择器的常用 emoji（也可手动输入任意 emoji）
-const ICON_PRESETS = [
-  '📚', '📖', '📝', '🎓', '🏫', '🧭', '🗺️', '🌏',
-  '🏠', '🛏️', '🍜', '🍱', '☕', '🛒', '🧺', '🔧',
-  '🚌', '🚕', '✈️', '🚄', '🛂', '🪪', '💳', '🏦',
-  '🏥', '💊', '🩺', '⚽', '🏀', '🎮', '🎬', '🎵',
-  '📱', '💻', '🌐', '🔌', '📋', '📅', '⏰', '🎯',
-  '💡', '⚠️', '❓', '✅', '⭐', '🌟', '🎉', '❤️',
-]
+// 图标选择器：数据库里存的仍是 emoji（后端与历史内容的约定），
+// 界面上显示成对应的线性图标，见 utils/icons.js
 
 export default {
   name: 'EditPage',
-  components: { MarkdownRenderer: markRaw(MarkdownRenderer), Picture },
+  components: { MarkdownRenderer: markRaw(MarkdownRenderer), Picture, WikiIcon, Plus },
   props: { targetPath: { type: String, default: '' } },
   data() {
     return {
@@ -262,7 +263,7 @@ export default {
       return categories()
     },
     iconPresets() {
-      return ICON_PRESETS
+      return ICON_CHOICES
     },
     // 已发布文档里出现频率最高的标签，点击即添加
     tagSuggestions() {
@@ -335,6 +336,12 @@ export default {
       if (this.iconPanelOpen && this.$refs.iconPicker && !this.$refs.iconPicker.contains(e.target)) {
         this.iconPanelOpen = false
       }
+    },
+    iconFor(e) {
+      return markRaw(emojiIcon(e) || resolveIcon({}))
+    },
+    sameIcon(a, b) {
+      return !!a && normalizeEmoji(a) === normalizeEmoji(b)
     },
     pickIcon(e) {
       this.form.icon = (e || '').trim()
@@ -832,6 +839,8 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
 .title-row .inp { flex: 1; min-width: 0; }
 .icon-picker { position: relative; flex-shrink: 0; }
 .icon-btn {
+  display: grid;
+  place-items: center;
   width: 42px;
   height: 100%;
   min-height: 40px;
@@ -844,7 +853,7 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
-.icon-btn.has-icon { border-style: solid; font-size: 20px; }
+.icon-btn.has-icon { border-style: solid; color: var(--accent); }
 .icon-btn:hover { border-color: var(--accent); color: var(--text-primary); }
 .icon-panel {
   position: absolute;
@@ -869,7 +878,10 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   overscroll-behavior: contain;
 }
 .icon-cell {
-  padding: 5px 0;
+  display: grid;
+  place-items: center;
+  padding: 7px 0;
+  color: var(--text-secondary);
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -877,8 +889,9 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   line-height: 1.3;
   cursor: pointer;
 }
-.icon-cell:hover { background: var(--bg-hover); }
-.icon-cell.selected { background: var(--bg-hover); outline: 2px solid var(--accent); }
+.icon-cell:hover { background: var(--bg-hover); color: var(--text-primary); }
+.icon-cell.selected { background: var(--accent-soft); color: var(--accent); outline: 2px solid var(--accent); }
+.title-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
 .icon-panel-foot { display: flex; gap: 8px; margin-top: 10px; }
 .icon-custom { flex: 1; padding: 6px 10px; font-size: 13px; }
 .icon-clear {

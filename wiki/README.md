@@ -11,7 +11,13 @@ npm run build    # 生产构建（输出到 dist/）
 npm run preview  # 预览生产构建
 ```
 
-开发时前端通过 `/api` 调用后端，`vite.config.js` 已把 `/api` 代理到 `http://localhost:8080`（并去掉 `/api` 前缀）。需要先在本地或服务器跑起后端（见 `../backend/`）。
+开发时前端通过 `/api` 调用后端，`vite.config.js` 已把 `/api` 代理到 `http://localhost:8080`（并去掉 `/api` 前缀）。需要联调时在本地跑起后端（私有仓库 `SurviveXMUM-server`）。
+
+只改界面时可以直接读线上内容，不用起后端（代理会去掉 `track=1`，本地浏览不计入线上阅读数）：
+
+```sh
+WIKI_API_TARGET=https://surivivexmum.wiki/api npm run dev
+```
 
 ## 内容如何维护（重点）
 
@@ -32,18 +38,21 @@ src/
 ├── wiki/index.js          # 内容门面：调用后端 manifest/page，封装查询、面包屑、上一篇/下一篇、搜索
 ├── net/index.js           # 与后端交互的全部接口（鉴权、投稿、审核、用户/页面管理）
 ├── components/
-│   ├── Header.vue         # 顶栏：搜索 + 主题切换 + 用户菜单
-│   ├── GlobalSearch.vue   # 全站搜索（标题/小标题/标签，⌘K 唤起）
+│   ├── Header.vue         # 顶栏：主导航 + 搜索入口 + 主题切换 + 用户菜单
+│   ├── CommandPalette.vue # 全站搜索面板（⌘K 或 / 唤起；标题/小标题/标签，最近浏览）
+│   ├── WikiIcon.vue       # 内容图标：数据里的 emoji → Lucide 线性图标（映射见 utils/icons.js）
 │   ├── WikiSidebar.vue    # 侧边栏（带筛选）
 │   ├── WikiSidebarNode.vue# 侧边栏递归节点
-│   ├── MarkdownRenderer.vue # Markdown 渲染 + 目录 + 代码复制
+│   ├── DocToc.vue         # 文档页右侧「本页目录」（滚动高亮）
+│   ├── MarkdownRenderer.vue # Markdown 渲染 + 标题锚点 + 提示块 + 图片放大 + 代码复制
+│   ├── SiteFooter.vue     # 站点页脚
 │   ├── AdminUsersPanel.vue  # 后台：用户管理（仅超级管理员）
 │   ├── AdminPagesPanel.vue  # 后台：页面管理
 │   └── MarkdownDiff.vue     # 审核：内容差异对比
 ├── views/                 # 页面（Home / Doc / Login / Profile / Edit / Admin …）
 ├── store/userStore.js     # 登录态与角色（isAdmin / isSuperAdmin）
 ├── composables/useTheme.js# 亮 / 暗主题
-└── assets/global.css      # 设计令牌（CSS 变量）
+└── assets/global.css      # 设计令牌（CSS 变量）与 Element Plus 皮肤
 ```
 
 ## 推荐 IDE
