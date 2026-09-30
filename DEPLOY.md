@@ -96,8 +96,8 @@ cd <部署目录>   # 服务器上的前端仓库检出位置
    command="<部署目录>/ci-deploy.sh",restrict ssh-ed25519 AAAA… github-actions-deploy
    ```
 
-   `restrict` 关掉 pty 与各种转发。`ci-deploy.sh` 只接受 `deploy`（默认）与 `status`
-   （只读：打印当前版本与容器状态）两个命令。验证：`ssh -i deploy_key <用户>@<服务器> status`。
+   `restrict` 关掉 pty 与各种转发。`ci-deploy.sh` 只接受 `deploy` 与 `status`
+   （只读：打印当前版本与容器状态）两个命令，不带命令只打印用法。验证：`ssh -i deploy_key <用户>@<服务器> status`。
 3. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 里设置：
 
    | Secret | 内容 |
