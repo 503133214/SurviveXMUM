@@ -7,7 +7,7 @@ const STORAGE_KEY = 'wiki-theme'
 const isDark = ref(false)
 
 // 与 global.css 里两套主题的 --bg-page 保持一致，手机浏览器的地址栏颜色跟着变
-const THEME_COLORS = { light: '#ffffff', dark: '#0a0c12' }
+const THEME_COLORS = { light: '#ffffff', dark: '#1b1b1f' }
 
 function apply(dark) {
   isDark.value = dark
