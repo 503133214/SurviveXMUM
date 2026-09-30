@@ -1,7 +1,6 @@
 <template>
   <div class="changes-page">
     <header class="cg-head">
-      <p class="cg-eyebrow">WIKI 正在生长</p>
       <h1>站点动态</h1>
       <p class="cg-sub">每一次通过审核的投稿、每一次管理员的修订，都按时间记在这里。</p>
     </header>
@@ -197,13 +196,6 @@ function dayKey(d) {
 }
 
 .cg-head { margin-bottom: 28px; }
-.cg-eyebrow {
-  margin: 0 0 6px;
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
 .cg-head h1 {
   margin: 0;
   color: var(--text-primary);

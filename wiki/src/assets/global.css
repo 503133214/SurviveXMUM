@@ -34,11 +34,17 @@ html:root {
   --brand-gradient: linear-gradient(100deg, #3345ce 0%, #7c5cff 55%, #22b8e6 100%);
   --brand-gradient-text: linear-gradient(100deg, #2e40b9 0%, #6d4df2 50%, #0e9ad4 100%);
 
+  /* 顶栏：亮暗两套主题都用同一条实色品牌蓝（参造 ac-wiki / VitePress 的站头） */
+  --header-bg: #4d5ce6;
+  --header-ink: #ffffff;
+  --header-ink-dim: rgba(255, 255, 255, 0.78);
+  --header-line: rgba(255, 255, 255, 0.14);
+
   /* Surfaces */
   --bg-page: #ffffff;
   --bg-surface: #ffffff;
-  --bg-subtle: #f7f8fb;
-  --bg-hover: #eef0f6;
+  --bg-subtle: #f6f6f7;
+  --bg-hover: #ececee;
   --bg-inverse: #0f1321;
 
   /* Text */
@@ -56,25 +62,25 @@ html:root {
   --danger-soft: #fef2f2;
 
   /* Lines & depth (shadows are tinted with the ink colour, not pure black) */
-  --border: #e4e6ec;
-  --border-strong: #d1d4dc;
+  --border: #e3e4e6;
+  --border-strong: #d3d4d8;
   --shadow-xs: 0 1px 2px rgba(15, 19, 33, 0.05);
   --shadow-sm: 0 1px 2px rgba(15, 19, 33, 0.04), 0 2px 6px rgba(15, 19, 33, 0.05);
   --shadow-md: 0 2px 4px rgba(15, 19, 33, 0.04), 0 10px 28px rgba(15, 19, 33, 0.08);
   --shadow-lg: 0 4px 10px rgba(15, 19, 33, 0.05), 0 28px 72px rgba(15, 19, 33, 0.16);
 
   /* Shape & layout */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-  --header-height: 64px;
-  --maxw: 1240px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --header-height: 96px;
+  --maxw: 1080px;
   --measure: 46rem; /* comfortable reading width for the doc body */
 
   /* Glass + motion */
-  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-border: rgba(15, 19, 33, 0.07);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -117,24 +123,31 @@ html.dark {
   --accent: #8ba6fd;
   --accent-hover: #a2b8fd;
   --accent-contrast: #0d142c;
-  --accent-soft: #191e2e;
-  --accent-soft-strong: #222a42;
+  --accent-soft: #23252b;
+  --accent-soft-strong: #2d3038;
   --accent-ring: rgba(139, 166, 253, 0.36);
   --brand-strong: #c9d4ff;
   --brand-blue: #99b3ff;
   --brand-gradient: linear-gradient(100deg, #8ba6fd 0%, #b69cff 55%, #67d4f5 100%);
   --brand-gradient-text: linear-gradient(100deg, #a9bdff 0%, #c8b4ff 50%, #7fdcf7 100%);
 
-  --bg-page: #0a0c12;
-  --bg-surface: #11141b;
-  --bg-subtle: #14171f;
-  --bg-hover: #1e212b;
+  /* 顶栏在暗色下仍是同一条品牌蓝（与 ac-wiki 一致） */
+  --header-bg: #4d5ce6;
+  --header-ink: #ffffff;
+  --header-ink-dim: rgba(255, 255, 255, 0.78);
+  --header-line: rgba(255, 255, 255, 0.14);
+
+  /* 中性石墨色阶（VitePress 暗色观感），替代原先偏蓝的夜色 */
+  --bg-page: #1b1b1f;
+  --bg-surface: #222327;
+  --bg-subtle: #282a2e;
+  --bg-hover: #313338;
   --bg-inverse: #f3f5f9;
 
-  --text-primary: #f3f5f9;
-  --text-body: #d7dae3;
-  --text-secondary: #a6abb7;
-  --text-muted: #7c808b;
+  --text-primary: #f1f2f4;
+  --text-body: #d6d7da;
+  --text-secondary: #a4a7ae;
+  --text-muted: #8b8e96;
 
   --success: #4ade80;
   --success-soft: rgba(74, 222, 128, 0.1);
@@ -143,14 +156,14 @@ html.dark {
   --danger: #f87171;
   --danger-soft: rgba(248, 113, 113, 0.1);
 
-  --border: #242731;
-  --border-strong: #363a46;
+  --border: #2e3035;
+  --border-strong: #3c3f45;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.45), 0 32px 80px rgba(0, 0, 0, 0.6);
 
-  --glass-bg: rgba(10, 12, 18, 0.72);
+  --glass-bg: rgba(34, 35, 39, 0.92);
   --glass-border: rgba(255, 255, 255, 0.07);
 
   --el-color-primary-light-3: #667ab9;
@@ -185,6 +198,13 @@ html.dark {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* 移动端顶栏只有一行，锚点定位的滚动余量同步变小 */
+@media (max-width: 767px) {
+  html:root {
+    --header-height: 56px;
+  }
 }
 
 html {

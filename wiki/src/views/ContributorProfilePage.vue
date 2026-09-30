@@ -17,7 +17,6 @@
           <span class="avatar-orbit" aria-hidden="true"></span>
         </div>
         <div class="cprofile-meta">
-          <p class="profile-kicker">COMMUNITY CONTRIBUTOR</p>
           <h1>{{ profile.displayName }}</h1>
           <p>谢谢你把经验写下来，让后来的人看得见。</p>
         </div>
@@ -206,13 +205,6 @@ export default {
   background: var(--text-primary);
 }
 .cprofile-meta { position: relative; z-index: 1; min-width: 0; }
-.profile-kicker {
-  margin: 0 0 7px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .14em;
-}
 .cprofile-meta h1 {
   margin: 0;
   overflow-wrap: anywhere;
@@ -349,7 +341,6 @@ export default {
     font-size: 22px;
   }
   .cprofile-meta > p:last-child { display: none; }
-  .profile-kicker { font-size: 8px; letter-spacing: .1em; }
   .cprofile-meta h1 { font-size: 1.45rem; }
   .profile-count {
     grid-column: 1 / -1;

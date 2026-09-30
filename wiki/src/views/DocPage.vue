@@ -642,7 +642,7 @@ export default {
   right: 0;
   z-index: 999;
   height: 2px;
-  background: var(--brand-gradient);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: 0 50%;
   transition: transform 0.1s linear;
