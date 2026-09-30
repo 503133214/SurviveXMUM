@@ -38,6 +38,9 @@ jobs:
           cache-dependency-path: wiki/package-lock.json
 
       - run: npm ci
+      # 生产依赖存在 high 及以上漏洞时挂掉构建:依赖漏洞应该在 PR 阶段就被拦下,
+      # 而不是攒到安全排查时才发现。只看生产依赖(devDependencies 的构建链路噪音大)。
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - run: npm run build
 
