@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { legacyContributionGuideRedirect } from "@/utils/docLinks.js";
+import { parseJwtPayload } from "@/utils/jwt.js";
 
 const routes = [
   {
@@ -101,14 +102,15 @@ const router = createRouter({
 });
 
 // 从 localStorage 的 JWT 解析登录态与角色（无需等待 fetchUserInfo）。
+// 角色解析失败时保持登录但不授角色（权限交给后端判定），而不是整段判为未登录。
 function readAuth() {
   const raw = localStorage.getItem("token");
   if (!raw) return { loggedIn: false, role: null };
   try {
     const authObj = JSON.parse(raw);
     if (!(authObj.expire > Date.now())) return { loggedIn: false, role: null };
-    const payload = JSON.parse(atob(authObj.token.split(".")[1]));
-    return { loggedIn: true, role: payload.role || null };
+    const payload = parseJwtPayload(authObj.token);
+    return { loggedIn: true, role: (payload && payload.role) || null };
   } catch {
     return { loggedIn: false, role: null };
   }

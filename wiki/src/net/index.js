@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {ElMessage} from "element-plus";
 import {ref} from "vue";
+import { parseJwtPayload } from '@/utils/jwt.js';
 const authItemName="token";
 // 登录态版本号：写入/清除 token 时自增，供组件（如 Header）即时响应同一标签页内的登录/登出，
 // 无需等待轮询或 storage 事件（storage 事件只在其它标签页触发，同标签页不会触发）。
@@ -14,12 +15,12 @@ const defaultError=(err)=>{
     ElMessage.warning("发生了一些错误，请联系管理员")
 }
 function parseJWTExpire(token) {
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.exp * 1000; // JWT exp 是秒，转换为毫秒
-    } catch (e) {
-        return Date.now() + 24 * 60 * 60 * 1000; // 解析失败则使用默认24小时
+    const payload = parseJwtPayload(token);
+    // 解析失败则回退24小时；真实过期时间始终由后端校验兜底
+    if (!payload || typeof payload.exp !== 'number') {
+        return Date.now() + 24 * 60 * 60 * 1000;
     }
+    return payload.exp * 1000; // JWT exp 是秒，转换为毫秒
 }
 function storeAccessToken(token) {
     const expire = parseJWTExpire(token);
