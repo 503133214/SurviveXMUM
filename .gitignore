@@ -1,51 +1,41 @@
-# macOS
-.DS_Store
+# 依赖与构建产物（前端应用在 wiki/ 下，规则不带路径前缀，任何层级都生效）
+node_modules/
+dist/
+dist-ssr/
+.vite/
+coverage/
+*.tsbuildinfo
 
-# Local AI assistant configuration
-/.claude/
-
-# IDEs / editors
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Environment / local config
+# 本地环境变量：前端不需要 .env，误建的也不要提交
 .env
 .env.*
 !.env.example
-application-local.yml
-application-local.yaml
-application-*.local.yml
-application-*.local.yaml
+*.local
 
-# Logs
-*.log
+# 日志
 logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Node / Vite frontend
-node_modules/
-wiki/node_modules/
-wiki/dist/
-wiki/.vite/
-wiki/.vitepress/dist/
-wiki/src/wiki.data.js
+# 编辑器：只共享扩展推荐，个人设置不入库
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.sw?
 
-# Test / coverage output
-coverage/
-wiki/coverage/
+# 系统与本地 AI 助手配置
+.DS_Store
+/.claude/
 
-# Runtime / temp files
+# 临时文件与打包产物
 tmp/
 temp/
 *.tmp
 *.pid
-
-# Archives / packaged artifacts
 *.zip
 *.tar
 *.tar.gz

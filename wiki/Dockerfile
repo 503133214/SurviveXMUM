@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# 再拷源码构建（npm run build 会先生成 wiki manifest，再 vite build）
+# 再拷源码构建（内容在运行时从 /api 取，构建只打包前端代码）
 COPY . .
 RUN npm run build
 
