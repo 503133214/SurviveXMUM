@@ -163,8 +163,14 @@ export default {
             return
           }
           ElNotification({ title: '成功', message: '欢迎使用 SurviveXMUM Wiki！', type: 'success' })
+          // 登录后回到原页面；只接受单个 / 开头的站内路径，防止 redirect 被指向站外地址
           const redirect = route.query.redirect
-          router.push(typeof redirect === 'string' ? redirect : '/')
+          const safeRedirect = typeof redirect === 'string'
+            && redirect.startsWith('/')
+            && !redirect.startsWith('//')
+            && !redirect.startsWith('/\\')
+            ? redirect : '/'
+          router.push(safeRedirect)
         }
         const onFailure = (message) => { isLoading.value = false; ElMessage.error(message || '操作失败') }
 
