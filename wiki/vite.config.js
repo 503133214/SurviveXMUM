@@ -21,7 +21,6 @@ function stripTracking(p) {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // base: '/SurviveXMUM/', // <--- 部署到子路径时取消注释
   plugins: [
     vue(),
     AutoImport({

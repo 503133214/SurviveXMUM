@@ -4,4 +4,3 @@ dist/
 .vscode/
 coverage/
 *.log
-src/wiki.data.js
