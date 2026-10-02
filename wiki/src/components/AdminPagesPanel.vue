@@ -103,7 +103,7 @@
           </div>
           <div class="f">
             <label>图标</label>
-            <el-input v-model="form.icon" placeholder="单个 emoji，如 📖" maxlength="4">
+            <el-input v-model="form.icon" placeholder="单个 emoji，站内显示为相近的线性图标" maxlength="4">
               <!-- 站内不直接显示 emoji，而是换成对应的线性图标；这里预览换算结果 -->
               <template #suffix><WikiIcon :icon="form.icon || ''" :title="form.title || ''" :category="form.categorySlug || ''" :size="16" /></template>
             </el-input>
@@ -115,10 +115,6 @@
           <div class="f span2">
             <label>简介</label>
             <el-input v-model="form.description" placeholder="一句话描述" />
-          </div>
-          <div class="f span2">
-            <label>标签（逗号分隔）</label>
-            <el-input v-model="form.tagsText" placeholder="校园, 设施" />
           </div>
         </div>
 
@@ -175,7 +171,6 @@ const emptyPage = () => ({
   categorySlug: '',
   icon: '',
   description: '',
-  tagsText: '',
   content: '',
   sortOrder: 999,
   status: 'PUBLISHED',
@@ -262,7 +257,6 @@ export default {
             categorySlug: data.categorySlug || '',
             icon: data.icon || '',
             description: data.description || '',
-            tagsText: (data.tags || []).join(', '),
             content: data.content || '',
             sortOrder: data.sortOrder ?? 999,
             status: data.status || 'PUBLISHED',
@@ -281,7 +275,6 @@ export default {
       if (!this.form.content.trim()) return ElMessage.error('正文不能为空')
 
       this.saving = true
-      const tags = this.form.tagsText.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
       const done = (message) => {
         this.saving = false
         ElMessage.success(message)
@@ -297,7 +290,6 @@ export default {
         categorySlug: this.form.categorySlug || null,
         icon: this.form.icon || null,
         description: this.form.description || null,
-        tags,
         content: this.form.content,
         sortOrder: this.form.sortOrder,
         status: this.form.status,
@@ -358,7 +350,8 @@ export default {
 
 <style scoped>
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.panel-head h2 { margin: 0; color: var(--text-primary); font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; }
+/* 与其他管理面板的标题同一尺寸，切换面板时标题不跳动 */
+.panel-head h2 { margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; }
 .filters { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .tbl { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); }
 .is-deleted { color: var(--text-muted); text-decoration: line-through; }
@@ -368,7 +361,7 @@ export default {
 .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .f { display: flex; flex-direction: column; gap: 5px; }
 .f.span2 { grid-column: 1 / -1; }
-.f label { color: var(--text-body); font-size: 12.5px; font-weight: 600; }
+.f label { color: var(--text-body); font-size: 13px; font-weight: 600; }
 .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; height: 58vh; }
 .pane {
   display: flex;
@@ -382,11 +375,9 @@ export default {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
 }
 .md-input {
   flex: 1;
@@ -395,26 +386,33 @@ export default {
   resize: none;
   background: var(--bg-surface);
   color: var(--text-body);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13.5px;
+  font-family: var(--font-mono);
+  font-size: 14px;
   line-height: 1.7;
 }
+/* 正文框没有自己的边框，焦点提示由所在窗格的边框承担 */
 .md-input:focus { outline: none; }
+.pane:focus-within { border-color: var(--accent); }
 .md-preview { flex: 1; padding: 16px 18px; overflow-y: auto; }
 .muted { color: var(--text-muted); }
 .btn-solid, .btn-ghost {
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 16px;
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all .2s ease;
+  /* 只过渡颜色类属性，尺寸和阴影变化不做动画 */
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
 }
-.btn-solid { border: none; background: var(--accent); color: var(--accent-contrast); }
-.btn-solid:hover:not(:disabled) { opacity: .88; }
-.btn-solid:disabled { cursor: not-allowed; opacity: .6; }
-.btn-ghost { margin-right: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); }
-.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-solid { border: 1px solid transparent; background: var(--accent); color: var(--accent-contrast); }
+.btn-solid:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-ghost { margin-right: 8px; border: 1px solid var(--border-strong); background: var(--bg-surface); color: var(--text-body); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); }
+.btn-solid:disabled, .btn-ghost:disabled { cursor: not-allowed; opacity: 0.55; }
 
 @media (max-width: 860px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }
@@ -428,7 +426,7 @@ export default {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .panel-head .btn-solid { width: 100%; }
+  .panel-head .btn-solid { width: 100%; min-height: 40px; }
   .pane { min-height: 300px; }
 }
 </style>

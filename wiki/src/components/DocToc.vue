@@ -1,9 +1,6 @@
 <template>
   <nav class="doc-toc" :class="{ sheet }" aria-label="本页目录">
-    <p v-if="!sheet" class="toc-head">
-      <TextQuote :size="15" :stroke-width="2" aria-hidden="true" />
-      本页目录
-    </p>
+    <p v-if="!sheet" class="toc-head">本页目录</p>
     <div ref="track" class="toc-track">
       <span
         class="toc-indicator"
@@ -32,14 +29,31 @@
 </template>
 
 <script>
-import { TextQuote, ArrowUp } from "lucide-vue-next";
+import { ArrowUp } from "lucide-vue-next";
+import { scrollBehavior } from "@/utils/motion.js";
 
-// 标题进入这条线（顶栏下方一点）就算「正在读」
-const ACTIVE_OFFSET = 96;
+// 「正在读」判定线比跳转落点再低这么多：scrollIntoView 停下的位置可能带小数、
+// 被浏览器取整，留一点余量，保证刚跳到的标题一定算过线
+const ACTIVE_SLACK = 8;
+
+// 「正在读」判定线（距视口顶部的像素）。不能写死常量：顶栏在桌面是两行 96px、
+// 手机是一行 56px，窄屏正文上方还多一条 46px 的吸顶工具条，写死的数一换布局就错位
+// （曾经的 96 配旧版 64px 顶栏刚好，顶栏改成两行后，点目录跳过去的标题反而不亮）。
+// 标题被跳转（点目录、# 锚点、带 #hash 的搜索结果）后，顶边停在
+//   html 的 scroll-padding-top（顶栏高度 + 16px）+ 标题自己的 scroll-margin-top
+// 即桌面 112 + 8 = 120，手机 72 + 54（让开吸顶工具条）= 126。
+// 判定线取这个落点再加 ACTIVE_SLACK，刚跳到的标题恰好在线上方、成为当前项，
+// 以后顶栏或工具条再改高度也会自动跟上。sample 取任一正文标题即可：
+// h1–h4 的 scroll-margin-top 由同一条规则给出。
+function activeLine(sample) {
+  const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  const margin = sample ? parseFloat(getComputedStyle(sample).scrollMarginTop) || 0 : 0;
+  return padding + margin + ACTIVE_SLACK;
+}
 
 export default {
   name: "DocToc",
-  components: { TextQuote, ArrowUp },
+  components: { ArrowUp },
   props: {
     items: { type: Array, default: () => [] },
     // 移动端底部抽屉里用：去掉标题和回到顶部按钮
@@ -67,10 +81,13 @@ export default {
       cancelAnimationFrame(this.frame);
       this.frame = requestAnimationFrame(() => {
         let current = "";
+        let line = null;
         for (const item of this.items) {
           const el = document.getElementById(item.id);
           if (!el) continue;
-          if (el.getBoundingClientRect().top <= ACTIVE_OFFSET) current = item.id;
+          // 每帧只读一次计算样式：判定线对所有标题都一样
+          if (line === null) line = activeLine(el);
+          if (el.getBoundingClientRect().top <= line) current = item.id;
           else break;
         }
         // 滚到底时最后几节可能永远到不了那条线，直接点亮最后一个
@@ -102,13 +119,14 @@ export default {
     go(id) {
       const el = document.getElementById(id);
       if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // 系统要求减少动效时直接跳过去（JS 里写死 smooth 会绕过 CSS 的 reduce 设置）
+      el.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       history.replaceState(history.state, "", `#${id}`);
       this.activeId = id;
       this.$emit("navigate", id);
     },
     toTop() {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: scrollBehavior() });
     },
   },
   mounted() {
@@ -125,16 +143,13 @@ export default {
 </script>
 
 <style scoped>
-.doc-toc { font-size: 13px; }
+.doc-toc { font-size: var(--fs-sm); }
 
 .toc-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 12px;
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 .toc-track {
@@ -156,9 +171,9 @@ export default {
   z-index: 1;
   width: 2px;
   margin-left: -0.5px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--accent);
-  transition: transform 0.3s var(--ease-out), height 0.3s var(--ease-out), opacity 0.2s ease;
+  transition: transform var(--dur) var(--ease-out), height var(--dur) var(--ease-out), opacity var(--dur) ease;
 }
 
 .toc-list a {
@@ -166,30 +181,34 @@ export default {
   padding: 5px 0 5px 14px;
   color: var(--text-muted);
   line-height: 1.5;
-  transition: color 0.15s ease;
+  transition: color var(--dur) ease;
 }
 .toc-list a:hover { color: var(--text-primary); text-decoration: none; }
+/* 目录项是贴着细轨排的整行，向内画焦点环，避免被目录自己的滚动容器裁掉 */
+.toc-list a:focus-visible { outline-offset: -2px; }
+/* 层级只靠缩进区分，各级字号保持一致，窄栏里读起来更整齐 */
 .toc-list .lv-1 a { padding-left: 26px; }
-.toc-list .lv-2 a { padding-left: 38px; font-size: 12.5px; }
-.toc-list .lv-3 a { padding-left: 50px; font-size: 12.5px; }
+.toc-list .lv-2 a { padding-left: 38px; }
+.toc-list .lv-3 a { padding-left: 50px; }
 .toc-list li.active > a { color: var(--accent); font-weight: 600; }
 
-.sheet .toc-list a { padding-top: 9px; padding-bottom: 9px; font-size: 14.5px; }
+.sheet .toc-list a { padding-top: 9px; padding-bottom: 9px; font-size: var(--fs-ui); }
 
+/* 回到顶部只是一行文字链接式的按钮，不加边框和底色 */
 .toc-top {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 16px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-surface);
-  color: var(--text-secondary);
+  padding: 4px 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--text-muted);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color var(--dur) ease;
 }
-.toc-top:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.toc-top:hover { color: var(--text-primary); }
 </style>

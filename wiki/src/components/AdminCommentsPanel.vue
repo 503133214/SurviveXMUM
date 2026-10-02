@@ -139,15 +139,15 @@ export default {
 </script>
 
 <style scoped>
-.acp-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 16px; color: var(--text-primary); }
+.acp-head h1 { font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; margin: 0 0 16px; color: var(--text-primary); }
 .acp-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .acp-kw { width: 260px; max-width: 100%; }
 .acp-author { display: flex; flex-direction: column; gap: 2px; }
-.acp-author small { color: var(--text-muted); font-size: 11.5px; }
-.acp-link { color: var(--brand); text-decoration: none; }
+.acp-author small { color: var(--text-muted); font-size: 12px; }
+.acp-link { color: var(--accent); text-decoration: none; }
 .acp-link:hover { text-decoration: underline; }
 .acp-content { margin: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
-.acp-reason { margin: 4px 0 0; color: var(--text-muted); font-size: 11.5px; }
+.acp-reason { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
 .acp-pager { display: flex; justify-content: flex-end; margin-top: 14px; }
 @media (max-width: 768px) {
   .acp-kw { width: 100%; }

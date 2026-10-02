@@ -1,7 +1,6 @@
 <template>
   <div class="changes-page">
     <header class="cg-head">
-      <p class="cg-eyebrow">WIKI 正在生长</p>
       <h1>站点动态</h1>
       <p class="cg-sub">每一次通过审核的投稿、每一次管理员的修订，都按时间记在这里。</p>
     </header>
@@ -23,10 +22,7 @@
             <span class="cg-kind" :class="`k-${item.kind}`">{{ kindLabel(item.kind) }}</span>
 
             <div class="cg-main">
-              <router-link class="cg-title" :to="`/docs/${item.path}`">
-                <WikiIcon class="cg-icon" :icon="item.icon || ''" :title="item.title" :category="item.categorySlug || ''" :size="15" />
-                {{ item.title }}
-              </router-link>
+              <router-link class="cg-title" :to="`/docs/${item.path}`">{{ item.title }}</router-link>
 
               <div class="cg-meta">
                 <component
@@ -42,8 +38,8 @@
                 </template>
               </div>
 
-              <div v-if="item.changedFields.length || item.contentDelta !== null || item.kind === 'created'" class="cg-detail">
-                <span v-for="f in item.changedFields" :key="f" class="cg-field">{{ fieldLabel(f) }}</span>
+              <div v-if="hasDetail(item)" class="cg-detail">
+                <span v-for="f in visibleFields(item)" :key="f" class="cg-field">{{ fieldLabel(f) }}</span>
                 <span
                   v-if="item.kind === 'created'"
                   class="cg-delta plus"
@@ -76,19 +72,17 @@
 
 <script>
 import { categories, loadManifest } from '@/wiki'
-import WikiIcon from '@/components/WikiIcon.vue'
 import { getSiteChanges } from '@/net/index.js'
 
 const PAGE_SIZE = 20
 
 const KIND_LABELS = { created: '新建', updated: '更新', restored: '恢复', reverted: '回滚' }
 const FIELD_LABELS = {
-  title: '标题', categorySlug: '分类', icon: '图标', description: '简介', tags: '标签', content: '正文',
+  title: '标题', categorySlug: '分类', icon: '图标', description: '简介', content: '正文',
 }
 
 export default {
   name: 'ChangesPage',
-  components: { WikiIcon },
   data() {
     return {
       items: [],
@@ -163,8 +157,18 @@ export default {
     kindLabel(kind) {
       return KIND_LABELS[kind] || '更新'
     },
+    // 只展示有中文名的字段：后端可能带回前端已不再展示的字段（已下线功能留下的历史记录），
+    // 不把原始英文键名露给读者，也不依赖前后端的部署先后
+    visibleFields(item) {
+      return (item.changedFields || []).filter((f) => FIELD_LABELS[f])
+    },
     fieldLabel(field) {
-      return FIELD_LABELS[field] || field
+      return FIELD_LABELS[field]
+    },
+    // 有东西可写才渲染明细行。contentDelta 为 0 时下面不会输出字数，若这时也没有可展示的
+    // 字段（例如历史上只改了已下线字段的版本），按 !== null 判断会留下一条带上边距的空行
+    hasDetail(item) {
+      return item.kind === 'created' || this.visibleFields(item).length > 0 || !!item.contentDelta
     },
     category(slug) {
       return slug ? categories().find((c) => c.slug === slug) : null
@@ -196,38 +200,33 @@ function dayKey(d) {
   padding: 40px 20px 64px;
 }
 
-.cg-head { margin-bottom: 28px; }
-.cg-eyebrow {
-  margin: 0 0 6px;
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
+.cg-head { margin-bottom: 24px; }
 .cg-head h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.9rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
 }
-.cg-sub { margin: 8px 0 0; color: var(--text-muted); font-size: 13.5px; }
+.cg-sub { margin: 6px 0 0; color: var(--text-secondary); font-size: 14px; }
 
 .cg-state { padding: 32px 0; color: var(--text-muted); text-align: center; }
 
 .cg-group + .cg-group { margin-top: 28px; }
 
+/* 吸顶位置跟随顶栏高度令牌：手机端令牌本身会变成单行顶栏的高度，不用再写死 */
 .cg-date {
   position: sticky;
-  top: var(--header-height, 68px);
+  top: var(--header-height);
   z-index: 1;
   margin: 0 0 10px;
   padding: 6px 0;
   background: var(--bg-page);
   color: var(--text-secondary);
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: .04em;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .cg-list {
@@ -249,20 +248,22 @@ function dayKey(d) {
 }
 .cg-item + .cg-item { border-top: 1px solid var(--border); }
 
-/* 站点是黑白编辑风：用实心 / 描边 / 虚线区分动作，而不是四种颜色 */
+/* 只有「新建」用 success 浅底，与首页「最近更新」里的同名标签一致；
+   其余动作保持中性，用描边 / 虚线区分，不再给每种动作配一种颜色 */
 .cg-kind {
   display: inline-flex;
   justify-content: center;
   margin-top: 1px;
-  padding: 2px 0;
+  padding: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
   white-space: nowrap;
 }
-.cg-kind.k-created { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.cg-kind.k-created { border-color: transparent; background: var(--success-soft); color: var(--success); }
 .cg-kind.k-restored,
 .cg-kind.k-reverted { border-style: dashed; color: var(--text-muted); }
 
@@ -271,14 +272,13 @@ function dayKey(d) {
 .cg-title {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cg-title:hover { text-decoration: underline; }
-.cg-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
 
 .cg-meta {
   display: flex;
@@ -286,7 +286,7 @@ function dayKey(d) {
   align-items: center;
   gap: 4px 8px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 .cg-author { color: var(--text-secondary); text-decoration: none; }
 a.cg-author:hover { color: var(--brand); text-decoration: underline; }
@@ -294,37 +294,36 @@ a.cg-author:hover { color: var(--brand); text-decoration: underline; }
 
 .cg-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
 .cg-field {
-  padding: 1px 7px;
+  padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 20px;
 }
-.cg-delta { font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.cg-delta.plus { color: #1f9254; }
-.cg-delta.minus { color: #c0392b; }
-html.dark .cg-delta.plus { color: #6ee7a8; }
-html.dark .cg-delta.minus { color: #f3a097; }
+/* 增删用状态令牌，暗色主题由 html.dark 下的同名变量自动接管 */
+.cg-delta { font-size: 12px; font-variant-numeric: tabular-nums; }
+.cg-delta.plus { color: var(--success); }
+.cg-delta.minus { color: var(--danger); }
 
 .cg-diff {
   margin-top: 1px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   text-decoration: none;
   white-space: nowrap;
 }
 .cg-diff:hover { color: var(--brand); text-decoration: underline; }
 
 .cg-more { margin-top: 24px; text-align: center; }
-.cg-end { margin: 0; color: var(--text-muted); font-size: 12.5px; }
+.cg-end { margin: 0; color: var(--text-muted); font-size: 13px; }
 
 @media (max-width: 600px) {
   .changes-page { padding: 24px 12px 48px; }
-  .cg-head h1 { font-size: 1.5rem; }
+  .cg-head h1 { font-size: 24px; }
   .cg-item { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; padding: 13px 14px; }
   /* 窄屏把「查看改动」挪到正文列下方，而不是挤掉标题宽度 */
   .cg-diff { grid-column: 2; margin-top: -2px; }
-  .cg-date { top: 56px; }
 }
 </style>

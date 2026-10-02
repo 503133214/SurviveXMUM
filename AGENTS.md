@@ -31,10 +31,14 @@ npm run build
 
 ```
 wiki/src/net/index.js        所有后端接口（axios，baseURL=/api）
-wiki/src/wiki/index.js       内容门面：manifest、页面、搜索、标签、面包屑
+wiki/src/wiki/index.js       内容门面：manifest、页面、搜索、面包屑
 wiki/src/views/              路由页面
 wiki/src/components/         通用组件、Markdown 渲染、搜索面板、侧栏
+  AgentSlot.vue              首页预留的站内问答助手挂载点（接入约定见文件头注释）
 wiki/src/utils/              纯函数（有单测的放这里）
+  shortcut.js                搜索快捷键提示文案（⌘K / Ctrl K）
+  motion.js                  「减少动效」判断，JS 滚动的 behavior 从这里取
+  navGroups.js               首页「内容导航」每个篇章先露哪几篇（阅读最多的三篇，其余点展开）
 wiki/src/assets/global.css   设计令牌与 Element Plus 皮肤
 wiki/test/                   单测
 deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.yml 是 CI/CD
@@ -59,6 +63,11 @@ deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.
 - 页面内容来自用户投稿，**不可信**：Markdown 渲染后必须经 DOMPurify；不要对未消毒内容用 `v-html`。
 - 标题锚点 id 统一用 `wiki/src/utils/slug.js`（正文渲染和搜索跳转共用，两边必须一致）。
 - 能抽成纯函数的逻辑放进 `wiki/src/utils/` 并在 `wiki/test/` 补单测。
+- 搜索快捷键的提示文案统一用 `wiki/src/utils/shortcut.js` 的 `shortcutLabel()`，不要再各写一份平台判断。
+- `scrollIntoView` / `scrollTo` 不要写死 `behavior: 'smooth'`，用 `wiki/src/utils/motion.js` 的
+  `scrollBehavior()`：JS 里显式的 smooth 会绕过 CSS 对 `prefers-reduced-motion` 的处理。
+- 站内问答助手接进 `wiki/src/components/AgentSlot.vue` 的默认插槽，不要另开位置；接口、Markdown 消毒、
+  引用锚点和无障碍的约定写在它的文件头注释里，动手前先读。
 
 ## 样式与界面
 
@@ -68,6 +77,18 @@ deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.
 - **界面里不用 emoji。** UI 图标用 `lucide-vue-next`；内容数据里的 emoji（页面 / 篇章的 `icon`
   字段）一律经 `WikiIcon` 组件显示成线性图标，映射在 `wiki/src/utils/icons.js`。
   出现新的 emoji 时补映射，并更新 `wiki/test/icons.test.js`。
+- 整站是平面、像纸质手册的风格，下面几条是为此定的，别把删掉的装饰加回来：
+  - 字体只用 `global.css` 里的系统字体栈，不引 Google Fonts 等外部字体（中国大陆加载会卡住）。
+  - 字距一律为 0（负字距会把中文挤在一起），字号不小于 12px，不用大写变换。
+  - 圆角只用 `--radius-xs` / `--radius-sm` / `--radius` / `--radius-lg`（2 / 4 / 6 / 8px）；
+    除头像和滚动条滑块外不做胶囊形。
+  - 不用渐变、毛玻璃（`backdrop-filter`）和发光；层次靠 1px 边框和留白，阴影只给浮层
+    （菜单、对话框、搜索面板）。
+  - 动效只做 150ms 以内（`--dur`）的颜色 / 背景 / 透明度过渡：不做悬停上浮或缩放，不做入场动画
+    和循环动画；要求减少动效时也不平滑滚动（见上文 `scrollBehavior()`）。
+  - 文案用平实的中文：不写口号、英文眉标和凑数的统计数字，数字只在能帮人做决定时出现。
+  - `WikiIcon` 只出现在首页导航表、侧栏顶层篇章、编辑器的图标选择和搜索面板的条目里；
+    标题、元信息和普通列表行不加图标。
 - CSS 类名**不要以 `ad-` 开头**：会被广告拦截规则整块隐藏（线上出过事故）。
 - 每处改动都要同时适配桌面与手机（约 390px 宽）、亮 / 暗两套主题；尊重
   `prefers-reduced-motion`；可交互元素要有 `:focus-visible` 样式。

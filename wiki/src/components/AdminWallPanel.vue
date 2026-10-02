@@ -128,7 +128,7 @@ export default {
   gap: 16px;
   margin-bottom: 20px;
 }
-.awp-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
+.awp-head h1 { font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; margin: 0; color: var(--text-primary); }
 .awp-avatar { display: flex; align-items: center; gap: 12px; }
 .awp-hint { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
 .muted { color: var(--text-muted); }
@@ -137,7 +137,6 @@ export default {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .awp-head h1 { font-size: 1.25rem; }
   .awp-avatar {
     align-items: flex-start;
     flex-wrap: wrap;

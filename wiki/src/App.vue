@@ -54,13 +54,13 @@ export default {
   left: 10px;
   z-index: 4000;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--accent-contrast);
   font-size: 14px;
   font-weight: 600;
   transform: translateY(-160%);
-  transition: transform 0.2s var(--ease-out);
+  transition: transform var(--dur) ease;
 }
 .skip-link:focus { transform: none; color: var(--accent-contrast); text-decoration: none; }
 </style>

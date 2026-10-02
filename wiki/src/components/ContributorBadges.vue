@@ -1,5 +1,5 @@
 <template>
-  <!-- 紧凑：榜单里只放表情，名称走 title -->
+  <!-- 紧凑：榜单里只放图标，名称走 title 和 aria-label -->
   <span v-if="variant === 'strip' && earned.length" class="cb-strip">
     <span
       v-for="b in shown"
@@ -20,7 +20,7 @@
       class="cb-card"
       :class="{ locked: !b.earned }"
     >
-      <span class="cb-icon" aria-hidden="true"><component :is="iconOf(b)" :size="20" :stroke-width="1.75" /></span>
+      <span class="cb-icon" aria-hidden="true"><component :is="iconOf(b)" :size="18" :stroke-width="1.75" /></span>
       <span class="cb-copy">
         <strong>{{ b.name }}</strong>
         <small>{{ b.description }}</small>
@@ -74,25 +74,21 @@ export default {
 .cb-strip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   line-height: 1;
 }
 
+/* 图标直接排在名字旁边，不再垫一块着色小方块 */
 .cb-pin {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--accent-soft);
+  display: inline-flex;
   color: var(--accent);
   cursor: default;
 }
 
 .cb-more {
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .cb-grid {
@@ -104,9 +100,9 @@ export default {
 .cb-card {
   display: flex;
   gap: 12px;
-  padding: 14px 15px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--bg-surface);
 }
 
@@ -115,23 +111,19 @@ export default {
   border-style: dashed;
   background: none;
 }
-.cb-card.locked .cb-icon { border-style: dashed; background: none; color: var(--text-muted); opacity: .6; }
+.cb-card.locked .cb-icon { color: var(--text-muted); opacity: .6; }
 .cb-card.locked strong { color: var(--text-muted); }
 
+/* 图标不放进底块里，只靠颜色区分已获得 / 未获得；padding-top 让它对齐标题第一行 */
 .cb-icon {
-  display: grid;
+  display: flex;
   flex-shrink: 0;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--accent-soft-strong);
-  border-radius: 12px;
-  background: var(--accent-soft);
+  padding-top: 2px;
   color: var(--accent);
 }
 
 .cb-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.cb-copy strong { color: var(--text-primary); font-size: 14px; }
+.cb-copy strong { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .cb-copy small { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 .cb-progress { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
@@ -140,19 +132,19 @@ export default {
   overflow: hidden;
   flex: 1;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: var(--bg-hover, var(--border));
 }
 .cb-bar i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: var(--text-muted);
 }
 
 .cb-progress em {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }

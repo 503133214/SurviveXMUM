@@ -16,7 +16,7 @@
               v-model="palette.query"
               class="cp-input"
               type="search"
-              placeholder="搜索文档、小标题或标签…"
+              placeholder="搜索文档或小标题…"
               autocomplete="off"
               spellcheck="false"
               role="combobox"
@@ -30,17 +30,6 @@
           </div>
 
           <div ref="list" id="cp-listbox" class="cp-body" role="listbox" aria-label="搜索结果">
-            <div v-if="matchedTags.length" class="cp-tags">
-              <span class="cp-group-label">标签</span>
-              <button
-                v-for="t in matchedTags"
-                :key="t.tag"
-                type="button"
-                class="cp-tag"
-                @click="goTag(t.tag)"
-              >#{{ t.tag }}<span>{{ t.count }}</span></button>
-            </div>
-
             <template v-for="group in groups" :key="group.label">
               <div class="cp-group-label">{{ group.label }}</div>
               <div
@@ -66,17 +55,16 @@
               </div>
             </template>
 
-            <div v-if="query && !flatItems.length && !matchedTags.length" class="cp-empty">
+            <div v-if="query && !flatItems.length" class="cp-empty">
               <p class="cp-empty-title">没有找到 “{{ query }}”</p>
-              <p>试试更短的关键词，或者去 <a href="/tags" @click.prevent="go('/tags')">按标签浏览</a>。</p>
+              <p>试试更短的关键词，或者换个说法。</p>
             </div>
           </div>
 
           <div class="cp-foot">
             <span><span class="ui-kbd">↑</span><span class="ui-kbd">↓</span> 选择</span>
             <span><span class="ui-kbd">↵</span> 打开</span>
-            <span class="cp-foot-hide-sm"><span class="ui-kbd">esc</span> 关闭</span>
-            <span class="cp-foot-count">共 {{ pages.length }} 篇文档</span>
+            <span><span class="ui-kbd">esc</span> 关闭</span>
           </div>
         </div>
       </div>
@@ -86,14 +74,15 @@
 
 <script>
 import { markRaw } from "vue";
-import { Search, Tags, History, Trophy, SquarePen, SunMoon } from "lucide-vue-next";
+import { Search, History, Trophy, SquarePen, SunMoon } from "lucide-vue-next";
 import WikiIcon from "@/components/WikiIcon.vue";
-import { pages, categories, searchPages, searchTags, getPage, HOME_PATH } from "@/wiki";
+import { pages, categories, searchPages, getPage, HOME_PATH } from "@/wiki";
 import { palette, closePalette, openPalette } from "@/composables/usePalette.js";
 import { readRecent } from "@/utils/recentPages.js";
 import { slugify } from "@/utils/slug.js";
 import { useTheme } from "@/composables/useTheme.js";
 import { useUserStore } from "@/store/userStore.js";
+import { scrollBehavior } from "@/utils/motion.js";
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -119,14 +108,11 @@ export default {
     return { toggleTheme };
   },
   data() {
-    return { palette, pages, activeIndex: 0, recent: [], lastFocus: null };
+    return { palette, activeIndex: 0, recent: [], lastFocus: null };
   },
   computed: {
     query() {
       return (this.palette.query || "").trim();
-    },
-    matchedTags() {
-      return this.query ? searchTags(this.query, 6) : [];
     },
     groups() {
       const groups = this.query ? this.resultGroups() : this.idleGroups();
@@ -198,7 +184,6 @@ export default {
         }));
 
       const actions = [
-        { key: "go:tags", icon: markRaw(Tags), titleHtml: "按标签浏览", to: "/tags" },
         { key: "go:changes", icon: markRaw(History), titleHtml: "站点动态", sub: "最近通过审核的修改", to: "/changes" },
         { key: "go:contributors", icon: markRaw(Trophy), titleHtml: "贡献榜", to: "/contributors" },
         useUserStore().isLoggedIn
@@ -286,13 +271,11 @@ export default {
       try { current = decodeURI(current); } catch { /* 保留原样 */ }
       const sameRoute = current === path;
       this.$router.push(to).catch(() => {});
-      // 同一页面内只换锚点时路由不会重新加载正文，自己滚过去
+      // 同一页面内只换锚点时路由不会重新加载正文，自己滚过去。
+      // behavior 不写死 smooth：系统要求减少动效时要直接跳过去
       if (sameRoute && hash) {
-        this.$nextTick(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        this.$nextTick(() => document.getElementById(hash)?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }));
       }
-    },
-    goTag(tag) {
-      this.go(`/tags/${encodeURIComponent(tag)}`);
     },
     close() {
       closePalette();
@@ -326,6 +309,7 @@ export default {
 </script>
 
 <style scoped>
+/* 遮罩只压暗不模糊：backdrop-filter 在低端手机上掉帧，也不符合扁平的整体风格 */
 .cp-overlay {
   position: fixed;
   inset: 0;
@@ -334,11 +318,8 @@ export default {
   align-items: flex-start;
   justify-content: center;
   padding: max(12vh, 24px) 12px 24px;
-  background: rgba(10, 12, 24, 0.38);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--overlay);
 }
-html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
 
 .cp-panel {
   display: flex;
@@ -347,9 +328,9 @@ html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
   max-height: min(620px, calc(100dvh - 48px));
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--glass-border);
+  box-shadow: var(--shadow-lg);
 }
 
 .cp-input-row {
@@ -359,11 +340,18 @@ html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
   padding: 0 14px 0 18px;
   border-bottom: 1px solid var(--border);
 }
+/* 输入框自己不画焦点环（向外的描边会被面板的圆角裁掉），焦点提示改由整行的
+   下边线承担：边框换成强调色，再叠一条 1px 内阴影，合起来 2px，键盘用户看得出
+   字会打进这里 */
+.cp-input-row:focus-within {
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
 .cp-input-icon { flex-shrink: 0; color: var(--text-muted); }
 .cp-input {
   flex: 1;
   min-width: 0;
-  height: 58px;
+  height: 52px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -373,11 +361,11 @@ html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
 }
 .cp-input::placeholder { color: var(--text-muted); }
 .cp-input::-webkit-search-cancel-button { display: none; }
-.cp-input:focus-visible { outline: none; }
 .cp-esc {
   flex-shrink: 0;
   padding: 4px;
   border: 0;
+  border-radius: var(--radius-sm);
   background: none;
   cursor: pointer;
 }
@@ -393,104 +381,69 @@ html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
 .cp-group-label {
   padding: 12px 10px 6px;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
 }
-
-.cp-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 2px 8px;
-  border-bottom: 1px dashed var(--border);
-}
-.cp-tags .cp-group-label { padding: 6px 8px 6px 8px; }
-.cp-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--text-body);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-.cp-tag span { color: var(--text-muted); font-size: 11px; }
-.cp-tag:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
 .cp-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 7px 10px;
-  border-radius: 10px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   scroll-margin: 8px;
 }
 .cp-item.active { background: var(--accent-soft); }
+/* 图标直接跟在文字前面，不再套描边小方块 */
 .cp-item-icon {
-  display: inline-grid;
+  display: inline-flex;
   flex-shrink: 0;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--text-muted);
   font-size: 16px;
 }
-.cp-item.active .cp-item-icon {
-  border-color: var(--accent-soft-strong);
-  background: var(--bg-surface);
-  color: var(--accent);
-}
+.cp-item.active .cp-item-icon { color: var(--accent); }
 .cp-item-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; }
 .cp-item-title {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cp-item-title :deep(mark) {
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--accent-soft-strong);
-  color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft-strong);
+  color: var(--text-primary);
 }
 .cp-item-sub {
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 回车提示只在当前项上出现，直接显隐，不做滑入 */
 .cp-item-enter {
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 14px;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  font-size: var(--fs-ui);
+  visibility: hidden;
 }
-.cp-item.active .cp-item-enter { opacity: 1; transform: none; }
+.cp-item.active .cp-item-enter { visibility: visible; }
 
 .cp-empty {
   padding: 40px 20px 32px;
   color: var(--text-secondary);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   text-align: center;
 }
-.cp-empty-title { margin-bottom: 6px; color: var(--text-primary); font-size: 15px; font-weight: 600; }
+.cp-empty-title { margin-bottom: 6px; color: var(--text-primary); font-size: var(--fs-read); font-weight: 600; }
 
 .cp-foot {
   display: flex;
@@ -500,24 +453,18 @@ html.dark .cp-overlay { background: rgba(0, 0, 0, 0.6); }
   border-top: 1px solid var(--border);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .cp-foot > span { display: inline-flex; align-items: center; gap: 4px; }
-.cp-foot-count { margin-left: auto; }
 
-/* 进出场 */
-.cp-enter-active, .cp-leave-active { transition: opacity 0.18s ease; }
-.cp-enter-active .cp-panel { transition: transform 0.28s var(--ease-out), opacity 0.2s ease; }
-.cp-leave-active .cp-panel { transition: transform 0.14s ease, opacity 0.14s ease; }
+/* 进出场只淡入淡出，面板本身不位移、不缩放，打开即可输入 */
+.cp-enter-active, .cp-leave-active { transition: opacity var(--dur-fast) ease; }
 .cp-enter-from, .cp-leave-to { opacity: 0; }
-.cp-enter-from .cp-panel { opacity: 0; transform: translateY(-10px) scale(0.98); }
-.cp-leave-to .cp-panel { opacity: 0; transform: scale(0.98); }
 
 @media (max-width: 640px) {
   .cp-overlay { padding: max(8px, env(safe-area-inset-top)) 8px 8px; }
-  .cp-panel { max-height: calc(100dvh - 16px); border-radius: 16px; }
-  .cp-foot-hide-sm { display: none; }
-  .cp-foot > span:first-child,
-  .cp-foot > span:nth-child(2) { display: none; }
+  .cp-panel { max-height: calc(100dvh - 16px); }
+  /* 底栏只有键盘提示，手机上用不到，整条收起 */
+  .cp-foot { display: none; }
 }
 </style>

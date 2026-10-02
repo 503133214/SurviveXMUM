@@ -172,17 +172,15 @@ export default {
   gap: 8px;
   height: 36px;
   padding: 0 8px 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-muted);
   cursor: text;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--dur) ease;
 }
-.sb-filter-box:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-ring);
-}
+/* 焦点提示画在外框上（只换边框色，不加光晕），所以内部输入框自己不再描边 */
+.sb-filter-box:focus-within { border-color: var(--accent); }
 .sb-filter-icon { flex-shrink: 0; }
 .sb-filter-box input {
   flex: 1;
@@ -192,7 +190,7 @@ export default {
   background: transparent;
   color: var(--text-primary);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
 }
 .sb-filter-box input:focus-visible { outline: none; }
 .sb-filter-box input::-webkit-search-cancel-button { display: none; }
@@ -203,13 +201,14 @@ export default {
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 .sb-clear:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sb-hint { margin: 8px 4px 0; color: var(--text-muted); font-size: 12px; }
+.sb-hint { margin: 8px 4px 0; color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 .sb-scroll {
   flex: 1;
@@ -220,5 +219,10 @@ export default {
   scrollbar-gutter: stable;
 }
 .sb-tree { list-style: none; }
-.sb-empty { padding: 24px; color: var(--text-muted); font-size: 13px; text-align: center; }
+.sb-empty { padding: 24px; color: var(--text-muted); font-size: var(--fs-sm); text-align: center; }
+
+/* 手机抽屉里输入框低于 16px 时 iOS 聚焦会自动放大整页 */
+@media (max-width: 767px) {
+  .sb-filter-box input { font-size: 16px; }
+}
 </style>

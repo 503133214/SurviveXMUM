@@ -1,6 +1,6 @@
 <template>
   <div class="auth-page">
-    <div class="auth-card fade-up">
+    <div class="auth-card">
       <div class="auth-head">
         <img src="/svg/Simple_Logo.svg" alt="XMUM Wiki" class="auth-logo" />
         <h1 class="auth-title">{{ formTitle }}</h1>
@@ -9,8 +9,8 @@
 
       <!-- 模式切换 -->
       <div class="seg" v-if="mode !== 'forgot'">
-        <button :class="{ active: mode === 'login' }" @click="switchMode('login')">登录</button>
-        <button :class="{ active: mode === 'register' }" @click="switchMode('register')">注册</button>
+        <button type="button" :class="{ active: mode === 'login' }" :aria-pressed="mode === 'login'" @click="switchMode('login')">登录</button>
+        <button type="button" :class="{ active: mode === 'register' }" :aria-pressed="mode === 'register'" @click="switchMode('register')">注册</button>
       </div>
 
       <el-form
@@ -55,9 +55,10 @@
         </button>
       </el-form>
 
+      <!-- 用 button 而不是无 href 的 <a>：后者拿不到键盘焦点，Tab 键用户点不到 -->
       <div v-if="mode !== 'register'" class="auth-foot">
-        <a v-if="mode === 'login'" @click="switchMode('forgot')">忘记密码？</a>
-        <a v-else @click="switchMode('login')">← 返回登录</a>
+        <button v-if="mode === 'login'" type="button" class="link-btn" @click="switchMode('forgot')">忘记密码？</button>
+        <button v-else type="button" class="link-btn" @click="switchMode('login')">← 返回登录</button>
       </div>
 
       <p class="auth-note" v-if="mode === 'register'">
@@ -110,8 +111,9 @@ export default {
       ],
     }))
 
-    const formTitle = computed(() => ({ login: '欢迎回来', register: '创建账号', forgot: '重置密码' }[mode.value] || '登录'))
-    const submitButtonText = computed(() => ({ login: '登录', register: '注册', forgot: '重置密码' }[mode.value] || '登录'))
+    // 标题直接写当前要做的事，和提交按钮同一套字，不用「欢迎回来」这类客套话
+    const formTitle = computed(() => ({ login: '登录', register: '注册', forgot: '重置密码' }[mode.value] || '登录'))
+    const submitButtonText = formTitle
 
     const isLoading = ref(false)
     const isSendingCode = ref(false)
@@ -162,7 +164,7 @@ export default {
             switchMode('login')
             return
           }
-          ElNotification({ title: '成功', message: '欢迎使用 SurviveXMUM Wiki！', type: 'success' })
+          ElMessage.success(mode.value === 'register' ? '注册成功' : '登录成功')
           // 登录后回到原页面；只接受单个 / 开头的站内路径，防止 redirect 被指向站外地址
           const redirect = route.query.redirect
           const safeRedirect = typeof redirect === 'string'
@@ -201,15 +203,14 @@ export default {
 </script>
 
 <style scoped>
+/* 扁平登录页：纯色底、只用 1px 描边分隔，不做入场动画和阴影 */
 .auth-page {
   display: flex;
   justify-content: center;
   align-items: flex-start;
   min-height: calc(100vh - var(--header-height));
   padding: 64px 20px;
-  background:
-    radial-gradient(60% 50% at 50% 0%, var(--bg-subtle) 0%, transparent 70%),
-    var(--bg-page);
+  background: var(--bg-page);
 }
 .auth-card {
   width: 100%;
@@ -218,43 +219,47 @@ export default {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 40px 36px;
-  box-shadow: var(--shadow-sm);
 }
 .auth-head { text-align: center; margin-bottom: 24px; }
 .auth-logo { height: 44px; width: auto; margin-bottom: 18px; }
 html.dark .auth-logo { filter: brightness(0) invert(1); }
 .auth-title {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
   color: var(--text-primary);
   margin: 0;
 }
-.auth-sub { color: var(--text-muted); font-size: 13.5px; margin: 6px 0 0; }
+.auth-sub { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
 
+/* 登录 / 注册切换：矩形分段控件，选中项只靠底色和 1px 描边区分 */
 .seg {
   display: flex;
   background: var(--bg-subtle);
-  border-radius: 999px;
-  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
   margin-bottom: 22px;
 }
 .seg button {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 9px 0;
-  font-size: 14.5px;
-  font-weight: 600;
+  padding: 7px 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-secondary);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: all 0.2s var(--ease-out);
+  transition: background var(--dur), color var(--dur);
 }
+.seg button:hover:not(.active) { color: var(--text-primary); }
 .seg button.active {
   background: var(--bg-surface);
   color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .auth-form :deep(.el-form-item__label) {
@@ -272,52 +277,59 @@ html.dark .auth-logo { filter: brightness(0) invert(1); }
   background: var(--bg-surface);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 13.5px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--dur), border-color var(--dur), color var(--dur);
 }
 .code-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .code-btn:disabled { color: var(--text-muted); cursor: not-allowed; }
 
 .submit-btn {
   width: 100%;
+  height: 40px;
   margin-top: 6px;
-  padding: 13px 0;
+  padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--accent-contrast);
-  font-size: 15px;
-  font-weight: 700;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.1s ease;
+  transition: background var(--dur);
 }
-.submit-btn:hover:not(:disabled) { opacity: 0.88; }
-.submit-btn:active:not(:disabled) { transform: scale(0.99); }
-.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.submit-btn:hover:not(:disabled) { background: var(--accent-hover); }
+.submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .auth-foot { text-align: center; margin-top: 18px; }
-.auth-foot a {
+.link-btn {
+  padding: 2px 4px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
   color: var(--text-secondary);
-  font-size: 13.5px;
+  font: inherit;
+  font-size: 13px;
   cursor: pointer;
+  transition: color var(--dur);
 }
-.auth-foot a:hover { color: var(--text-primary); text-decoration: underline; }
+.link-btn:hover { color: var(--text-primary); text-decoration: underline; }
 .auth-note {
   margin-top: 16px;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-muted);
   text-align: center;
   line-height: 1.6;
 }
 
 @media (max-width: 480px) {
-  .auth-page { min-height: calc(100dvh - var(--header-height)); padding: 32px 12px 48px; }
-  .auth-card { padding: 30px 18px; border-radius: 20px; }
+  .auth-page { min-height: calc(100dvh - var(--header-height)); padding: 32px 16px 48px; }
+  .auth-card { padding: 30px 18px; }
   .auth-logo { height: 38px; margin-bottom: 14px; }
-  .auth-title { font-size: 1.4rem; }
-  .code-row { gap: 7px; }
-  .code-btn { padding-inline: 11px; font-size: 12.5px; }
+  .code-row { gap: 8px; }
+  .code-btn { padding-inline: 12px; font-size: 13px; }
 }
 </style>

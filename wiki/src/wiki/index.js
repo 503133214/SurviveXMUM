@@ -71,13 +71,14 @@ export function getPage(pathStr) {
   return pages.find((p) => p.path === pathStr) || null
 }
 
-/** Top-level categories only (for the homepage cards). */
+/** 顶层篇章（首页导航表、搜索面板、编辑器分类下拉、管理后台、站点动态筛选等用）。 */
 export function categories() {
   return tree.filter((n) => n.type === 'category')
 }
 
-/** Pages in sidebar reading order, excluding the home doc. */
-export function orderedPages() {
+/** Pages in sidebar reading order, excluding the home doc.
+ *  只有下面的 getAdjacent 用到，所以不导出。 */
+function orderedPages() {
   return pages.filter((p) => p.path !== HOME_PATH)
 }
 
@@ -119,43 +120,8 @@ function findCategoryBySlug(nodes, slug) {
 }
 
 /**
- * 全站标签及其文档数，按热度降序、同热度按标签名排序。
- * 标签只存在于 manifest 的 pages 里，没有独立接口。
- */
-export function allTags() {
-  const freq = new Map()
-  for (const page of pages) {
-    for (const raw of page.tags || []) {
-      const tag = (raw || '').trim()
-      if (!tag) continue
-      freq.set(tag, (freq.get(tag) || 0) + 1)
-    }
-  }
-  return [...freq.entries()]
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'zh'))
-}
-
-/** 某个标签下的全部文档，沿用侧栏的排序口径。标签比较忽略大小写与首尾空格。 */
-export function pagesByTag(tag) {
-  const target = (tag || '').trim().toLowerCase()
-  if (!target) return []
-  return orderedPages().filter((page) =>
-    (page.tags || []).some((t) => (t || '').trim().toLowerCase() === target))
-}
-
-/** 与查询词匹配的标签，用于搜索框里的「按标签浏览」。 */
-export function searchTags(query, limit = 5) {
-  const q = (query || '').trim().toLowerCase()
-  if (!q) return []
-  return allTags()
-    .filter(({ tag }) => tag.toLowerCase().includes(q))
-    .slice(0, limit)
-}
-
-/**
- * Lightweight client-side search across title, category, tags and headings.
- * Returns scored results, best first. No dependencies.
+ * 轻量的前端搜索：在标题、分类、描述和小标题里匹配，按得分从高到低返回。
+ * manifest 已整份在内存里，直接线性扫描即可，不必为此引入搜索库。
  */
 export function searchPages(query, limit = 12) {
   const q = query.trim().toLowerCase()
@@ -166,8 +132,6 @@ export function searchPages(query, limit = 12) {
   for (const page of pages) {
     const title = (page.title || '').toLowerCase()
     const cat = (page.category || '').toLowerCase()
-    const tags = (page.tags || []).join(' ').toLowerCase()
-    const headings = (page.headings || []).join(' ').toLowerCase()
     const desc = (page.description || '').toLowerCase()
 
     let score = 0
@@ -175,7 +139,6 @@ export function searchPages(query, limit = 12) {
     for (const term of terms) {
       if (title === term) score += 100
       else if (title.includes(term)) score += 40
-      if (tags.includes(term)) score += 25
       if (cat.includes(term)) score += 12
       if (desc.includes(term)) score += 8
       const hHit = (page.headings || []).find((h) => h.toLowerCase().includes(term))

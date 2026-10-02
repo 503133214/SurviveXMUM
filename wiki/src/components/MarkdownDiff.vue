@@ -185,23 +185,28 @@ export default {
   min-width: 0;
   padding: 11px 16px;
   color: var(--text-secondary);
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
 }
 .side-title + .side-title { border-left: 1px solid var(--border-strong); }
-.side-title strong { color: var(--text-primary); font-size: 13px; }
-.added-count { color: #18743a; }
-.removed-count { color: #b7352e; }
+.side-title strong { color: var(--text-primary); font-size: var(--fs-sm); }
+/* 增删颜色全部走状态令牌，暗色模式由 global.css 里同名变量自动切换，这里不再单独覆盖 */
+.added-count { color: var(--success); font-variant-numeric: tabular-nums; }
+.removed-count { color: var(--danger); font-variant-numeric: tabular-nums; }
 .diff-scroll { overflow-x: auto; }
 .diff-table {
   min-width: 820px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.65;
 }
 .diff-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+/* 行间分隔线再淡一些；不支持 color-mix() 的浏览器保留上面的普通边框（原因见 MarkdownRenderer 的提示块） */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .diff-row { border-bottom-color: color-mix(in srgb, var(--border) 62%, transparent); }
 }
 .diff-side {
   display: grid;
@@ -210,18 +215,11 @@ export default {
   min-height: 25px;
 }
 .diff-side.right { border-left: 1px solid var(--border-strong); }
-.diff-side.removed { background: #fff0ef; }
-.diff-side.added { background: #edf9f0; }
-.diff-side.empty {
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      var(--bg-subtle),
-      var(--bg-subtle) 5px,
-      var(--bg-surface) 5px,
-      var(--bg-surface) 10px
-    );
-}
+.diff-side.removed { background: var(--diff-del-bg); }
+.diff-side.added { background: var(--diff-add-bg); }
+/* 一侧没有对应行时用平铺的浅灰底：和增删的红绿底、普通行的白底都区分得开，
+   不再用斜纹渐变（界面整体不用渐变） */
+.diff-side.empty { background: var(--bg-subtle); }
 .line-no {
   padding: 2px 8px;
   border-right: 1px solid var(--border);
@@ -234,8 +232,8 @@ export default {
   text-align: center;
   user-select: none;
 }
-.removed .marker { color: #b7352e; }
-.added .marker { color: #18743a; }
+.removed .marker { color: var(--danger); }
+.added .marker { color: var(--success); }
 .diff-side code {
   padding: 2px 12px 2px 3px;
   color: var(--text-body);
@@ -253,11 +251,9 @@ export default {
   font: inherit;
   text-align: center;
   cursor: pointer;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 .collapsed-line:hover { color: var(--text-primary); background: var(--bg-hover); }
-
-html.dark .diff-side.added { background: rgba(34, 128, 68, .16); }
-html.dark .diff-side.removed { background: rgba(181, 53, 46, .16); }
 
 @media (max-width: 768px) {
   .diff-header { min-width: 820px; }

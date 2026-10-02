@@ -32,6 +32,7 @@ import { ElMessage } from "element-plus";
 import { X, Copy, Check, Info, Lightbulb, MessageSquareWarning, TriangleAlert, OctagonAlert } from "lucide-vue-next";
 import { resolveDocAssetSrc, resolveDocHref } from "@/utils/docLinks.js";
 import { slugify } from "@/utils/slug.js";
+import { scrollBehavior } from "@/utils/motion.js";
 
 // 链接默认在新标签打开时补 rel，防止 tabnabbing。
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
@@ -325,7 +326,8 @@ export default {
         const target = document.getElementById(id);
         if (target) {
           e.preventDefault();
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          // 不写死 smooth：系统要求减少动效时直接跳到目标位置
+          target.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
           history.replaceState(history.state, "", href);
         }
         return;
@@ -341,7 +343,7 @@ export default {
     },
     async copySectionLink(id) {
       const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       history.replaceState(history.state, "", `#${id}`);
       try {
         await navigator.clipboard.writeText(window.location.href);
@@ -367,52 +369,54 @@ export default {
 
 .markdown-body {
   color: var(--text-body);
-  font-size: 16px;
-  line-height: 1.85;
+  font-size: var(--fs-read);
+  line-height: var(--lh-read);
   overflow-wrap: break-word;
 }
 .markdown-body > :first-child { margin-top: 0 !important; }
 .markdown-body > :last-child { margin-bottom: 0 !important; }
 
+/* 标题字距保持 0：中文标题收紧字距后笔画会挤在一起；只有 h1 用 700，其余 600 */
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
 .markdown-body h4 {
   position: relative;
   color: var(--text-primary);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
-  /* html 上已有 scroll-padding-top（顶栏高度 + 16px），两者会叠加，这里只补一点 */
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--lh-tight);
+  /* html 上已有 scroll-padding-top（顶栏高度 + 16px），两者会叠加，这里只补一点。
+     DocToc 的「正在读」判定线直接读这两个计算值，改这里不用同步改目录 */
   scroll-margin-top: 8px;
 }
-.markdown-body h1 { margin: 2.2em 0 0.7em; font-size: 1.85rem; }
+.markdown-body h1 { margin: 2.2em 0 0.7em; font-size: 1.75rem; font-weight: 700; }
 .markdown-body h2 {
   margin: 2.4em 0 0.8em;
   padding-top: 1.2em;
   border-top: 1px solid var(--border);
-  font-size: 1.5rem;
+  font-size: 1.375rem;
 }
 .markdown-body > h2:first-child { padding-top: 0; border-top: 0; }
-.markdown-body h3 { margin: 1.9em 0 0.6em; font-size: 1.22rem; }
-.markdown-body h4 { margin: 1.6em 0 0.5em; font-size: 1.05rem; }
+.markdown-body h3 { margin: 1.9em 0 0.6em; font-size: 1.125rem; }
+.markdown-body h4 { margin: 1.6em 0 0.5em; font-size: 1rem; }
 
 .heading-anchor {
   margin-left: 0.4em;
   padding: 0 0.2em;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted) !important;
   font-weight: 500;
   text-decoration: none !important;
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease;
+  transition: opacity var(--dur) ease, color var(--dur) ease;
 }
 .markdown-body :is(h1, h2, h3, h4):hover .heading-anchor,
 .heading-anchor:focus-visible { opacity: 1; }
 .heading-anchor:hover { color: var(--accent) !important; }
 
 .markdown-body p { margin: 1em 0; }
-.markdown-body strong { color: var(--text-primary); font-weight: 650; }
+.markdown-body strong { color: var(--text-primary); font-weight: 600; }
 
 .markdown-body a {
   color: var(--brand-blue);
@@ -421,13 +425,14 @@ export default {
   text-decoration-color: var(--accent-soft-strong);
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
-  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  transition: color var(--dur) ease, text-decoration-color var(--dur) ease;
 }
 .markdown-body a:hover { color: var(--accent-hover); text-decoration-color: currentColor; }
 .markdown-body a[target="_blank"]:not(:has(img))::after {
   content: "↗";
   margin-left: 2px;
-  font-size: 0.8em;
+  /* 表格里正文只有 14px，0.8em 会掉到 12px 以下，设个下限 */
+  font-size: max(var(--fs-xs), 0.8em);
   text-decoration: none;
   opacity: 0.6;
 }
@@ -447,7 +452,7 @@ export default {
   height: auto;
   margin: 1.4em auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--bg-subtle);
 }
 .markdown-container:not(.is-embedded) .markdown-body img { cursor: zoom-in; }
@@ -468,13 +473,13 @@ export default {
   bottom: -7px;
   width: 16px;
   height: 16px;
-  border: 2px solid var(--bg-surface, #fff);
+  border: 2px solid var(--bg-surface);
   border-radius: 50%;
-  background: var(--accent, #2563eb);
+  background: var(--accent);
   box-shadow: var(--shadow-sm);
   cursor: nwse-resize;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur) ease;
   touch-action: none;
 }
 .markdown-body .img-resize-wrap:hover .img-resize-handle,
@@ -484,7 +489,7 @@ export default {
   height: 1px;
   margin: 2.4em 0;
   border: none;
-  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+  background: var(--border);
 }
 
 /* 普通引用 */
@@ -496,30 +501,41 @@ export default {
 }
 .markdown-body blockquote p { margin: 0.5em 0; }
 
-/* 提示块 */
+/* 提示块：默认（NOTE）用中性灰，只有「重要」用强调色，提示/注意/警告用状态色。
+   全站只有一种强调色，不再为 IMPORTANT 单独配紫色。 */
 .markdown-body blockquote.callout {
-  --cl: var(--accent);
-  --cl-bg: var(--accent-soft);
+  --cl: var(--text-secondary);
+  --cl-bg: var(--bg-subtle);
   padding: 14px 18px;
-  border: 1px solid color-mix(in srgb, var(--cl) 22%, transparent);
+  border: 1px solid var(--border);
   border-left: 3px solid var(--cl);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--cl-bg);
   color: var(--text-body);
 }
-.markdown-body .callout-tip { --cl: var(--success); --cl-bg: var(--success-soft); }
-.markdown-body .callout-important { --cl: #7c3aed; --cl-bg: rgba(124, 58, 237, 0.07); }
-html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 156, 255, 0.1); }
-.markdown-body .callout-warning { --cl: var(--warning); --cl-bg: var(--warning-soft); }
-.markdown-body .callout-caution { --cl: var(--danger); --cl-bg: var(--danger-soft); }
+/* 细边框随提示类型淡淡着色。color-mix() 里含 var()，不支持的内置浏览器会让整条声明在计算时失效
+   （不会退回上一条），所以默认用中性边框，只在支持时覆盖；左侧色条不受影响 */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .markdown-body blockquote.callout {
+    border-top-color: color-mix(in srgb, var(--cl) 22%, transparent);
+    border-right-color: color-mix(in srgb, var(--cl) 22%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--cl) 22%, transparent);
+  }
+}
+/* 变体选择器要带上 blockquote，权重才和上面的基础规则持平、靠先后顺序胜出；
+   之前少了元素名，权重低一级，五种提示块全被基础色盖住，看起来都一样。 */
+.markdown-body blockquote.callout-tip { --cl: var(--success); --cl-bg: var(--success-soft); }
+.markdown-body blockquote.callout-important { --cl: var(--accent); --cl-bg: var(--accent-soft); }
+.markdown-body blockquote.callout-warning { --cl: var(--warning); --cl-bg: var(--warning-soft); }
+.markdown-body blockquote.callout-caution { --cl: var(--danger); --cl-bg: var(--danger-soft); }
 .callout-title {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
   color: var(--cl);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-ui);
+  font-weight: 600;
 }
 .callout-icon { display: inline-flex; }
 
@@ -531,13 +547,13 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   margin: 1.6em 0;
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
 }
 .markdown-body table {
   width: 100%;
   margin: 0;
   border-collapse: collapse;
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
   line-height: 1.6;
   font-variant-numeric: tabular-nums;
 }
@@ -553,22 +569,21 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
 .markdown-body th {
   background: var(--bg-subtle);
   color: var(--text-primary);
-  font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 .markdown-body tbody tr:last-child td { border-bottom: 0; }
-.markdown-body tbody tr { transition: background 0.12s ease; }
+.markdown-body tbody tr { transition: background-color var(--dur-fast) ease; }
 .markdown-body tbody tr:hover { background: var(--bg-subtle); }
 
 .markdown-body code {
   padding: 0.15em 0.4em;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle);
   color: var(--brand-strong);
   font-family: var(--font-mono);
-  font-size: 0.86em;
+  font-size: 0.875em;
 }
 .markdown-body pre {
   position: relative;
@@ -576,7 +591,7 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   padding: 16px 18px;
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--bg-subtle);
   font-size: 13.5px;
   line-height: 1.7;
@@ -592,20 +607,21 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   padding: 1px 6px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg-surface);
   font-family: var(--font-mono);
-  font-size: 0.82em;
+  /* 同上：表格里 0.82em 只有 11.5px，不低于 12px */
+  font-size: max(var(--fs-xs), 0.82em);
 }
-.markdown-body mark { padding: 0 2px; border-radius: 3px; background: #fef08a; color: #1c1917; }
+.markdown-body mark { padding: 0 2px; border-radius: var(--radius-xs); background: var(--mark-bg); color: var(--mark-ink); }
 
 .markdown-body details {
   margin: 1em 0;
   padding: 0 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--bg-surface);
-  transition: background 0.15s ease;
+  transition: background-color var(--dur) ease;
 }
 .markdown-body details[open] { padding-bottom: 8px; background: var(--bg-subtle); }
 .markdown-body summary {
@@ -625,7 +641,7 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   border-right: 2px solid var(--text-muted);
   border-bottom: 2px solid var(--text-muted);
   transform: rotate(-45deg);
-  transition: transform 0.2s var(--ease-out);
+  transition: transform var(--dur) var(--ease-out);
 }
 .markdown-body details[open] > summary::before { transform: rotate(45deg); }
 
@@ -638,14 +654,14 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   gap: 5px;
   padding: 4px 9px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: opacity var(--dur) ease, color var(--dur) ease, border-color var(--dur) ease;
 }
 .code-copy-btn span { display: inline-flex; }
 .markdown-body pre:hover .code-copy-btn,
@@ -655,7 +671,8 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
 .code-copy-btn.done { border-color: var(--success); color: var(--success); }
 @media (hover: none) { .code-copy-btn { opacity: 1; } }
 
-/* ---- 图片放大 ---- */
+/* ---- 图片放大 ----
+   遮罩在两套主题下都是深色实底，不做模糊；图片不加投影，深色底已经足够把它托出来。 */
 .md-lightbox {
   position: fixed;
   inset: 0;
@@ -666,19 +683,17 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   justify-content: center;
   gap: 14px;
   padding: 48px 20px;
-  background: rgba(8, 10, 20, 0.86);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--overlay-strong);
   cursor: zoom-out;
 }
 .md-lightbox img {
   max-width: min(1400px, 100%);
   max-height: calc(100dvh - 120px);
-  border-radius: 12px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-sm);
   object-fit: contain;
 }
-.md-lightbox-caption { max-width: 720px; color: rgba(255, 255, 255, 0.8); font-size: 14px; text-align: center; }
+/* 说明文字和关闭按钮只出现在固定的深色遮罩上，与主题无关，所以直接用白色半透明值 */
+.md-lightbox-caption { max-width: 720px; color: rgba(255, 255, 255, 0.8); font-size: var(--fs-ui); text-align: center; }
 .md-lightbox-close {
   position: absolute;
   top: max(16px, env(safe-area-inset-top));
@@ -687,25 +702,26 @@ html.dark .markdown-body .callout-important { --cl: #b69cff; --cl-bg: rgba(182, 
   place-items: center;
   width: 40px;
   height: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
+  transition: background-color var(--dur) ease;
 }
-.lb-enter-active, .lb-leave-active { transition: opacity 0.2s ease; }
-.lb-enter-active img { transition: transform 0.3s var(--ease-out); }
+/* 遮罩接近纯黑，品牌蓝的焦点环在上面几乎看不见，改用按钮自身的白色 */
+.md-lightbox-close:focus-visible { outline-color: currentColor; }
+.md-lightbox-close:hover { background: rgba(255, 255, 255, 0.16); }
+/* 只做淡入淡出，图片本身不缩放 */
+.lb-enter-active, .lb-leave-active { transition: opacity var(--dur) ease; }
 .lb-enter-from, .lb-leave-to { opacity: 0; }
-.lb-enter-from img { transform: scale(0.96); }
 
 /* 编辑器 / 审核预览：保持原先紧凑的正文尺寸 */
 .markdown-container.is-embedded .markdown-body { font-size: 15px; line-height: 1.75; }
 .markdown-container.is-embedded .markdown-body h2 { padding-top: 0; border-top: 0; }
 
+/* 手机上正文保持 16px / 1.8，不再缩小字号；只收紧表格单元格内边距 */
 @media (max-width: 768px) {
-  .markdown-body { font-size: 15.5px; line-height: 1.8; }
-  .markdown-body h2 { font-size: 1.35rem; }
-  .markdown-body h3 { font-size: 1.14rem; }
   .markdown-body th,
   .markdown-body td { padding: 9px 12px; }
 }

@@ -29,14 +29,13 @@
           <span class="draft-type" :class="d.type === 'UPDATE' ? 't-upd' : 't-new'">
             {{ d.type === 'UPDATE' ? '编辑' : '新建' }}
           </span>
-          <div class="draft-main" @click="loadDraftItem(d)">
-            <div class="draft-title">
-              <WikiIcon v-if="d.icon" class="title-icon" :icon="d.icon" :title="d.title || ''" :size="14" />{{ d.title || '（未命名草稿）' }}
-            </div>
-            <div class="draft-meta">
+          <!-- 用 button 而不是可点击的 div：键盘也能 Tab 到并回车打开草稿 -->
+          <button type="button" class="draft-main" @click="loadDraftItem(d)">
+            <span class="draft-title">{{ d.title || '（未命名草稿）' }}</span>
+            <span class="draft-meta">
               <template v-if="d.type === 'UPDATE'">{{ d.targetPath }} · </template>{{ d.updatedAt }}
-            </div>
-          </div>
+            </span>
+          </button>
           <el-button link type="danger" size="small" @click="removeDraftItem(d)">删除</el-button>
         </li>
       </ul>
@@ -94,35 +93,6 @@
             </div>
           </div>
           <input v-model="form.title" class="inp" placeholder="例如：图书馆使用指南" :disabled="isUpdate" />
-        </div>
-      </div>
-
-      <div class="field span2">
-        <label>标签（可选，最多 10 个）</label>
-        <div class="tags-box" @click="focusTagInput">
-          <span v-for="(t, i) in tags" :key="t" class="tag-chip">
-            {{ t }}
-            <button type="button" class="tag-x" aria-label="移除标签" @click.stop="tags.splice(i, 1)">×</button>
-          </span>
-          <input
-            ref="tagInput"
-            v-model="tagInput"
-            class="tag-input"
-            :placeholder="tags.length ? '' : '输入后回车添加，如：校园'"
-            @keydown.enter.prevent="commitTagInput"
-            @keydown="onTagKeydown"
-            @blur="commitTagInput"
-          />
-        </div>
-        <div v-if="tagSuggestions.length" class="tag-suggest">
-          <span class="suggest-label">常用：</span>
-          <button
-            v-for="t in tagSuggestions"
-            :key="t"
-            type="button"
-            class="tag-suggest-item"
-            @click="addTag(t)"
-          >{{ t }}</button>
         </div>
       </div>
 
@@ -208,13 +178,12 @@ import { ICON_CHOICES, emojiIcon, normalizeEmoji, resolveIcon } from '@/utils/ic
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
-import { categories, fetchPageContent, loadManifest, pages, state as wikiState } from '@/wiki'
+import { categories, fetchPageContent, loadManifest, state as wikiState } from '@/wiki'
 import { submitRevision, uploadImage,
   saveDraft, listDrafts, getDraft, getDraftByPath, deleteDraft } from '@/net/index.js'
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
-const MAX_TAGS = 10
 // 标题拼进页面路径，这些字符会破坏路由（与后端 TitleUtil 一致）
 const ILLEGAL_TITLE = /[/\\#?%]|\.\./
 // 图标选择器：数据库里存的仍是 emoji（后端与历史内容的约定），
@@ -232,8 +201,6 @@ export default {
       isDragging: false,
       form: { categorySlug: '', title: '', icon: '', description: '', content: '' },
       baseVersion: null,
-      tags: [],
-      tagInput: '',
       iconPanelOpen: false,
       customIcon: '',
       // 草稿
@@ -249,7 +216,6 @@ export default {
   },
   watch: {
     form: { deep: true, handler() { this.scheduleAutoSave() } },
-    tags: { deep: true, handler() { this.scheduleAutoSave() } },
     // /edit/A → /edit/B（或 草稿箱 切换新建草稿）是同一路由记录，组件被复用、
     // mounted 不会重跑，这里手动重新初始化。
     targetPath() { if (this.$route.name === 'Edit') this.initFromRoute() },
@@ -264,18 +230,6 @@ export default {
     },
     iconPresets() {
       return ICON_CHOICES
-    },
-    // 已发布文档里出现频率最高的标签，点击即添加
-    tagSuggestions() {
-      const freq = new Map()
-      for (const p of pages) {
-        for (const t of p.tags || []) freq.set(t, (freq.get(t) || 0) + 1)
-      }
-      return [...freq.entries()]
-        .filter(([t]) => !this.tags.includes(t))
-        .sort((a, b) => b[1] - a[1])
-        .map(([t]) => t)
-        .slice(0, 12)
     },
     // 与后端 MarkdownUtil.extractSummary 同一规则：正文首个普通段落
     autoSummary() {
@@ -347,29 +301,6 @@ export default {
       this.form.icon = (e || '').trim()
       this.iconPanelOpen = false
       this.customIcon = ''
-    },
-    focusTagInput() {
-      this.$refs.tagInput?.focus()
-    },
-    addTag(raw) {
-      const t = (raw || '').replace(/[,，]/g, '').trim()
-      if (!t) return
-      if (t.length > 30) return ElMessage.warning('单个标签最多 30 字')
-      if (this.tags.includes(t)) return
-      if (this.tags.length >= MAX_TAGS) return ElMessage.warning(`标签最多 ${MAX_TAGS} 个`)
-      this.tags.push(t)
-    },
-    commitTagInput() {
-      this.tagInput.split(/[,，]/).forEach((p) => this.addTag(p))
-      this.tagInput = ''
-    },
-    onTagKeydown(e) {
-      if (e.key === ',' || e.key === '，') {
-        e.preventDefault()
-        this.commitTagInput()
-      } else if (e.key === 'Backspace' && !this.tagInput && this.tags.length) {
-        this.tags.pop()
-      }
     },
     handleFileSelect(event) {
       const file = event.target.files?.[0]
@@ -510,8 +441,6 @@ export default {
     resetFormState() {
       clearTimeout(this.autoSaveTimer)
       this.form = { categorySlug: '', title: '', icon: '', description: '', content: '' }
-      this.tags = []
-      this.tagInput = ''
       this.baseVersion = null
       this.draftId = null
       this.draftSavedAt = ''
@@ -528,7 +457,6 @@ export default {
           this.form.description = d.description || ''
           this.form.content = d.content || ''
           this.baseVersion = d.version ?? 0
-          this.tags = d.tags || []
         } catch (e) {
           ElMessage.error('无法加载原文内容')
         }
@@ -555,7 +483,6 @@ export default {
         title: this.form.title,
         icon: this.form.icon,
         description: this.form.description,
-        tags: this.tags,
         content: this.form.content,
         baseVersion: this.isUpdate ? this.baseVersion : undefined,
       }
@@ -567,7 +494,7 @@ export default {
     },
     hasDraftWorthSaving() {
       return !!(this.form.title.trim() || this.form.content.trim()
-        || this.form.description.trim() || this.tags.length)
+        || this.form.description.trim())
     },
     scheduleAutoSave() {
       clearTimeout(this.autoSaveTimer)
@@ -581,7 +508,6 @@ export default {
     },
     doSaveDraft(silent) {
       if (!silent) {
-        this.commitTagInput()
         if (!this.hasDraftWorthSaving()) return ElMessage.warning('内容为空，无需保存草稿')
         this.draftSaving = true
       }
@@ -624,7 +550,6 @@ export default {
       this.form.icon = d.icon || ''
       this.form.description = d.description || ''
       this.form.content = d.content || ''
-      this.tags = d.tags || []
       this.draftId = d.id
       this.draftSavedAt = d.updatedAt || ''
       // 灌入草稿本身不算“新改动”，避免马上又自动保存一遍
@@ -683,7 +608,6 @@ export default {
       if (!title) return ElMessage.error('请填写标题')
       if (ILLEGAL_TITLE.test(title)) return ElMessage.error('标题不能包含 / \\ # ? % 或 .. 等字符')
       if (!this.form.content.trim()) return ElMessage.error('正文不能为空')
-      this.commitTagInput() // 输入框里未回车的标签一并带上
       this.submitting = true
       const payload = {
         type: this.isUpdate ? 'UPDATE' : 'CREATE',
@@ -693,7 +617,6 @@ export default {
         // 始终发字符串：空串在更新时表示“清空图标”（后端非 null 即覆盖）
         icon: this.form.icon.trim(),
         description: this.form.description.trim() || null,
-        tags: this.tags,
         content: this.form.content,
         baseVersion: this.isUpdate ? this.baseVersion : undefined,
       }
@@ -735,15 +658,21 @@ export default {
   border-bottom: 1px solid var(--border);
 }
 .edit-title {
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
   color: var(--text-primary);
   margin: 0;
 }
 .edit-sub { color: var(--text-secondary); font-size: 14px; margin: 6px 0 0; }
 .edit-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
-.draft-saved-hint { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+.draft-saved-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 /* 草稿箱 */
 .drafts-loading { padding: 20px; color: var(--text-muted); font-size: 14px; }
@@ -756,43 +685,70 @@ export default {
   border-bottom: 1px solid var(--border);
 }
 .draft-list li:last-child { border-bottom: none; }
+/* 类型徽标：颜色只用状态令牌对，亮暗主题由令牌自己切换，不再单独写 html.dark */
 .draft-type {
   flex-shrink: 0;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  border-radius: var(--radius-xs);
 }
-.draft-type.t-new { background: #e6f4ec; color: #137a3f; }
-.draft-type.t-upd { background: #eef1fb; color: #3a52c4; }
-html.dark .draft-type.t-new { background: rgba(19,122,63,.2); color: #6ee7a8; }
-html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
-.draft-main { flex: 1; min-width: 0; cursor: pointer; }
-.draft-main:hover .draft-title { color: var(--brand, var(--accent)); }
+.draft-type.t-new { background: var(--success-soft); color: var(--success); }
+.draft-type.t-upd { background: var(--accent-soft); color: var(--accent); }
+.draft-main {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.draft-main:hover .draft-title { color: var(--accent); }
 .draft-title {
+  display: block;
   font-weight: 600;
   color: var(--text-primary);
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color .15s ease;
+  transition: color var(--dur) ease;
 }
-.draft-meta { margin-top: 2px; color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .btn-solid, .btn-ghost {
-  padding: 10px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 16px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
+  font-weight: 500;
   font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  /* 只过渡颜色类属性，尺寸和阴影变化不做动画 */
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
 }
-.btn-solid { background: var(--accent); color: var(--accent-contrast); border: none; }
-.btn-solid:hover:not(:disabled) { opacity: 0.88; }
-.btn-solid:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
-.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-solid { background: var(--accent); color: var(--accent-contrast); border: 1px solid transparent; }
+.btn-solid:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-ghost { background: var(--bg-surface); color: var(--text-body); border: 1px solid var(--border-strong); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); }
+.btn-solid:disabled, .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .meta-card {
   border: 1px solid var(--border);
@@ -803,11 +759,9 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
 }
 .meta-card-head {
   padding: 10px 18px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
   background: var(--bg-subtle);
   border-bottom: 1px solid var(--border);
 }
@@ -829,8 +783,9 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   color: var(--text-primary);
   font-size: 14px;
   font-family: var(--font-sans);
-  transition: border-color 0.2s ease;
+  transition: border-color var(--dur) ease;
 }
+/* 输入框的焦点提示就是边框变成强调色；全局的 2px 焦点环在输入框上显得太重 */
 .inp:focus { outline: none; border-color: var(--accent); }
 .inp:disabled { background: var(--bg-subtle); color: var(--text-muted); }
 
@@ -851,7 +806,7 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color var(--dur) ease, color var(--dur) ease;
 }
 .icon-btn.has-icon { border-style: solid; color: var(--accent); }
 .icon-btn:hover { border-color: var(--accent); color: var(--text-primary); }
@@ -866,7 +821,7 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+  box-shadow: var(--shadow-md);
 }
 .icon-grid {
   display: grid;
@@ -883,7 +838,7 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   padding: 7px 0;
   color: var(--text-secondary);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-size: 18px;
   line-height: 1.3;
@@ -891,7 +846,6 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
 }
 .icon-cell:hover { background: var(--bg-hover); color: var(--text-primary); }
 .icon-cell.selected { background: var(--accent-soft); color: var(--accent); outline: 2px solid var(--accent); }
-.title-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
 .icon-panel-foot { display: flex; gap: 8px; margin-top: 10px; }
 .icon-custom { flex: 1; padding: 6px 10px; font-size: 13px; }
 .icon-clear {
@@ -904,77 +858,6 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   cursor: pointer;
 }
 .icon-clear:hover { color: var(--text-primary); border-color: var(--border-strong); }
-
-/* ---- 标签 chips ---- */
-.tags-box {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  min-height: 40px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  cursor: text;
-}
-.tags-box:focus-within { border-color: var(--accent); }
-.tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 10px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  color: var(--text-body);
-  font-size: 13px;
-  line-height: 1.4;
-}
-.tag-x {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 2px;
-  cursor: pointer;
-}
-.tag-x:hover { color: var(--text-primary); }
-.tag-input {
-  flex: 1;
-  min-width: 120px;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: var(--font-sans);
-  padding: 4px 2px;
-}
-.tag-suggest {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-.suggest-label { font-size: 12px; color: var(--text-muted); }
-.tag-suggest-item {
-  padding: 2px 10px;
-  border: 1px dashed var(--border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.tag-suggest-item:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-}
 
 .editor-grid {
   display: grid;
@@ -996,43 +879,43 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  /* 两个窗格的标题栏等高（含 30px 工具按钮），拖拽遮罩从这条线下方开始 */
+  min-height: 45px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
 }
-.pane-hint { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-muted); }
+.pane-hint { font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .pane-tools { display: flex; align-items: center; gap: 10px; }
+/* 窗格标题栏里的工具按钮：30px 行内高度 */
 .image-upload-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
   font: inherit;
-  font-weight: 650;
-  letter-spacing: 0;
-  text-transform: none;
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color var(--dur) ease, color var(--dur) ease;
 }
 .image-upload-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--text-muted);
   color: var(--text-primary);
 }
-.image-upload-btn:disabled { cursor: wait; opacity: .6; }
+.image-upload-btn:disabled { cursor: wait; opacity: 0.55; }
 .upload-progress {
   color: var(--text-secondary);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .visually-hidden {
   position: absolute;
@@ -1046,7 +929,7 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
 }
 .drop-overlay {
   position: absolute;
-  inset: 42px 0 0;
+  inset: 45px 0 0;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -1054,9 +937,13 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   justify-content: center;
   gap: 6px;
   border: 2px dashed var(--accent);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  background: var(--bg-surface);
   color: var(--text-primary);
   pointer-events: none;
+}
+/* 支持 color-mix() 时让编辑区微微透出；不支持时用上面的不透明底色，不会变成全透明 */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .drop-overlay { background: color-mix(in srgb, var(--bg-surface) 92%, transparent); }
 }
 .drop-overlay span { color: var(--text-secondary); font-size: 12px; }
 .md-input {
@@ -1064,13 +951,15 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   border: none;
   resize: none;
   padding: 18px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-body);
   background: var(--bg-surface);
 }
+/* 正文框没有自己的边框，焦点提示改由整个编辑窗格的边框承担，避免焦点完全不可见 */
 .md-input:focus { outline: none; }
+.editor-pane:focus-within { border-color: var(--accent); }
 .md-preview { flex: 1; padding: 20px 24px; overflow-y: auto; }
 .preview-empty { color: var(--text-muted); font-size: 14px; }
 
@@ -1088,15 +977,15 @@ html.dark .draft-type.t-upd { background: rgba(58,82,196,.22); color: #aab8ff; }
   .pane { min-height: 320px; }
   .md-input { padding: 14px; }
   .md-preview { padding: 16px 14px; }
-  .pane-head { align-items: flex-start; gap: 8px; }
+  .pane-head { gap: 8px; }
   .pane-tools { gap: 6px; }
   .upload-progress, .pane-hint { display: none; }
-  .image-upload-btn { padding: 4px 7px; }
+  .image-upload-btn { padding: 0 8px; }
   /* 头部改纵向堆叠：否则标题被按钮挤成一列竖排、提交按钮溢出屏幕 */
   .edit-head { flex-direction: column; align-items: stretch; }
   .edit-actions { width: 100%; }
   .edit-actions .btn-solid,
-  .edit-actions .btn-ghost { flex: 1 1 auto; padding: 10px 8px; white-space: nowrap; }
+  .edit-actions .btn-ghost { flex: 1 1 auto; min-height: 40px; padding: 0 8px; white-space: nowrap; }
   .draft-saved-hint { width: 100%; order: -1; }
   .draft-list li { align-items: flex-start; flex-wrap: wrap; }
 }
