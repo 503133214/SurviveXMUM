@@ -38,6 +38,7 @@ wiki/src/components/         通用组件、Markdown 渲染、搜索面板、侧
 wiki/src/utils/              纯函数（有单测的放这里）
   shortcut.js                搜索快捷键提示文案（⌘K / Ctrl K）
   motion.js                  「减少动效」判断，JS 滚动的 behavior 从这里取
+  navGroups.js               首页「内容导航」每个篇章先露哪几篇（阅读最多的三篇，其余点展开）
 wiki/src/assets/global.css   设计令牌与 Element Plus 皮肤
 wiki/test/                   单测
 deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.yml 是 CI/CD
