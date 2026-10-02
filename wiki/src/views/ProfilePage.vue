@@ -13,11 +13,11 @@
       </div>
       <div class="pf-actions">
         <router-link v-if="isAdmin" to="/admin" class="action-link secondary">
-          <el-icon><Setting /></el-icon>
+          <Settings :size="16" :stroke-width="1.75" aria-hidden="true" />
           <span>管理后台</span>
         </router-link>
         <router-link to="/edit" class="action-link primary">
-          <el-icon><EditPen /></el-icon>
+          <PenLine :size="16" :stroke-width="1.75" aria-hidden="true" />
           <span>写文章</span>
         </router-link>
       </div>
@@ -26,34 +26,29 @@
     <!-- 未完成草稿：有才显示；个人中心是续写最自然的入口 -->
     <section v-if="drafts.length" class="pf-section">
       <div class="sec-head">
-        <div>
-          <p class="sec-kicker">DRAFTS</p>
-          <h2>我的草稿 <span class="count">{{ drafts.length }}</span></h2>
-        </div>
+        <h2>我的草稿 <span class="count">{{ drafts.length }}</span></h2>
       </div>
+      <!-- 行本身是 router-link（键盘 Tab 可达、回车打开）；「删除」放在链接外面做兄弟元素，
+           避免按钮嵌在 <a> 里，也不会在删除时顺带触发跳转 -->
       <ul class="rev-list">
-        <li v-for="d in drafts" :key="d.id" class="rev-item" role="button" tabindex="0"
-            @click="resumeDraft(d)" @keydown.enter="resumeDraft(d)">
-          <div class="rev-mark" :class="d.type === 'CREATE' ? 't-create' : 't-update'">
-            {{ d.type === 'CREATE' ? '新' : '改' }}
-          </div>
-          <div class="rev-main">
-            <span class="rev-title">
-              <WikiIcon v-if="d.icon" class="title-icon" :icon="d.icon" :title="d.title || ''" :size="14" />{{ d.title || '（未命名草稿）' }}
+        <li v-for="d in drafts" :key="d.id" class="rev-item">
+          <router-link :to="draftTo(d)" class="rev-row">
+            <span class="rev-mark" :class="d.type === 'CREATE' ? 't-create' : 't-update'">
+              {{ d.type === 'CREATE' ? '新' : '改' }}
             </span>
-            <div class="rev-meta">
-              <span>{{ d.type === 'CREATE' ? '新文章草稿' : '编辑草稿' }}</span>
-              <template v-if="d.targetPath">
-                <span class="meta-separator" aria-hidden="true"></span>
-                <code class="rev-path">{{ d.targetPath }}</code>
-              </template>
-            </div>
-          </div>
-          <div class="rev-side draft-side">
+            <span class="rev-main">
+              <span class="rev-title">{{ d.title || '（未命名草稿）' }}</span>
+              <span class="rev-meta">
+                <span>{{ d.type === 'CREATE' ? '新文章草稿' : '编辑草稿' }}</span>
+                <template v-if="d.targetPath">
+                  <span class="meta-separator" aria-hidden="true"></span>
+                  <code class="rev-path">{{ d.targetPath }}</code>
+                </template>
+              </span>
+            </span>
             <span class="rev-date">{{ d.updatedAt }}</span>
-            <el-button link type="primary" size="small" @click.stop="resumeDraft(d)">继续写作</el-button>
-            <el-button link type="danger" size="small" @click.stop="removeDraft(d)">删除</el-button>
-          </div>
+          </router-link>
+          <el-button class="rev-remove" link type="danger" size="small" @click="removeDraft(d)">删除</el-button>
         </li>
       </ul>
     </section>
@@ -61,88 +56,76 @@
     <!-- 我的讨论：只列本人发过的，自删的不再出现 -->
     <section v-if="comments.length" class="pf-section">
       <div class="sec-head">
-        <div>
-          <p class="sec-kicker">DISCUSSIONS</p>
-          <h2>我的讨论 <span class="count">{{ comments.length }}</span></h2>
-        </div>
+        <h2>我的讨论 <span class="count">{{ comments.length }}</span></h2>
       </div>
       <ul class="rev-list">
-        <li v-for="c in comments" :key="c.id" class="rev-item" role="button" tabindex="0"
-            @click="openComment(c)" @keydown.enter="openComment(c)">
-          <div class="rev-mark" :class="c.reply ? 't-update' : 't-create'">
-            {{ c.reply ? '复' : '评' }}
-          </div>
-          <div class="rev-main">
-            <span class="rev-title cm-text">{{ c.content }}</span>
-            <div class="rev-meta">
-              <span>{{ c.pageTitle }}</span>
-              <span class="meta-separator" aria-hidden="true"></span>
-              <span>{{ c.reply ? '回复' : '主楼' }}</span>
-              <template v-if="c.status === 'HIDDEN'">
+        <li v-for="c in comments" :key="c.id" class="rev-item">
+          <router-link :to="`/docs/${c.path}`" class="rev-row">
+            <span class="rev-mark" :class="c.reply ? 't-update' : 't-create'">
+              {{ c.reply ? '复' : '评' }}
+            </span>
+            <span class="rev-main">
+              <span class="rev-title cm-text">{{ c.content }}</span>
+              <span class="rev-meta">
+                <span>{{ c.pageTitle }}</span>
                 <span class="meta-separator" aria-hidden="true"></span>
-                <span class="cm-hidden">
-                  已被管理员隐藏<template v-if="c.hiddenReason">：{{ c.hiddenReason }}</template>
-                </span>
-              </template>
-            </div>
-          </div>
-          <div class="rev-side draft-side">
+                <span>{{ c.reply ? '回复' : '主楼' }}</span>
+                <template v-if="c.status === 'HIDDEN'">
+                  <span class="meta-separator" aria-hidden="true"></span>
+                  <span class="cm-hidden">
+                    已被管理员隐藏<template v-if="c.hiddenReason">：{{ c.hiddenReason }}</template>
+                  </span>
+                </template>
+              </span>
+            </span>
             <span class="rev-date">{{ c.createdAt }}</span>
-            <el-button link type="primary" size="small" @click.stop="openComment(c)">查看</el-button>
-            <el-button
-              v-if="c.status === 'VISIBLE'"
-              link type="danger" size="small"
-              @click.stop="removeComment(c)"
-            >删除</el-button>
-          </div>
+          </router-link>
+          <el-button
+            v-if="c.status === 'VISIBLE'"
+            class="rev-remove"
+            link type="danger" size="small"
+            @click="removeComment(c)"
+          >删除</el-button>
         </li>
       </ul>
     </section>
 
     <section class="pf-section">
       <div class="sec-head">
-        <div>
-          <p class="sec-kicker">CONTRIBUTIONS</p>
-          <h2>我的投稿 <span class="count">{{ revisions.length }}</span></h2>
-        </div>
+        <h2>我的投稿 <span class="count">{{ revisions.length }}</span></h2>
       </div>
 
       <div v-if="loading" class="loading-state">加载投稿中…</div>
       <el-empty v-else-if="!revisions.length" description="还没有投稿，去写一篇吧" />
 
+      <!-- 已通过的投稿直接链到文章，是 router-link；其余状态在本页弹出详情，是真正的 button。
+           两者都原生支持键盘（链接回车、按钮回车 / 空格），不用再手写 role 和按键监听 -->
       <ul v-else class="rev-list">
-        <li
-          v-for="r in revisions"
-          :key="r.id"
-          class="rev-item"
-          role="button"
-          tabindex="0"
-          @click="openRevision(r)"
-          @keydown.enter="openRevision(r)"
-          @keydown.space.prevent="openRevision(r)"
-        >
-          <div class="rev-mark" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
-            {{ r.type === 'CREATE' ? '新' : '改' }}
-          </div>
-          <div class="rev-main">
-            <span class="rev-title">{{ r.title }}</span>
-            <div class="rev-meta">
-              <span>{{ r.type === 'CREATE' ? '新建文章' : '修改文章' }}</span>
-              <span class="meta-separator" aria-hidden="true"></span>
-              <code class="rev-path">{{ r.targetPath }}</code>
-            </div>
-            <p v-if="r.status === 'REJECTED' && r.reviewComment" class="rev-reason">
-              {{ r.reviewComment }}
-            </p>
-          </div>
-          <div class="rev-side">
-            <span class="status" :class="`s-${r.status.toLowerCase()}`">{{ statusText(r.status) }}</span>
-            <span class="rev-date">
-              <el-icon><Calendar /></el-icon>
-              {{ fmt(r.createdAt) }}
+        <li v-for="r in revisions" :key="r.id" class="rev-item">
+          <component
+            :is="r.status === 'APPROVED' ? 'router-link' : 'button'"
+            v-bind="revisionRowProps(r)"
+            class="rev-row"
+          >
+            <span class="rev-mark" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
+              {{ r.type === 'CREATE' ? '新' : '改' }}
             </span>
-            <el-icon class="row-arrow"><ArrowRight /></el-icon>
-          </div>
+            <span class="rev-main">
+              <span class="rev-title">{{ r.title }}</span>
+              <span class="rev-meta">
+                <span>{{ r.type === 'CREATE' ? '新建文章' : '修改文章' }}</span>
+                <span class="meta-separator" aria-hidden="true"></span>
+                <code class="rev-path">{{ r.targetPath }}</code>
+              </span>
+              <span v-if="r.status === 'REJECTED' && r.reviewComment" class="rev-reason">
+                {{ r.reviewComment }}
+              </span>
+            </span>
+            <span class="rev-side">
+              <span class="status" :class="`s-${r.status.toLowerCase()}`">{{ statusText(r.status) }}</span>
+              <span class="rev-date">{{ fmt(r.createdAt) }}</span>
+            </span>
+          </component>
         </li>
       </ul>
     </section>
@@ -173,15 +156,14 @@
 
 <script>
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowRight, Calendar, EditPen, Setting } from '@element-plus/icons-vue'
-import WikiIcon from '@/components/WikiIcon.vue'
+import { PenLine, Settings } from 'lucide-vue-next'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
   name: 'ProfilePage',
-  components: { ArrowRight, Calendar, EditPen, MarkdownRenderer, Setting, WikiIcon },
+  components: { MarkdownRenderer, PenLine, Settings },
   data() {
     return {
       userStore: useUserStore(),
@@ -214,11 +196,12 @@ export default {
     statusText(s) {
       return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回', REMOVED: '文章已删除' }[s] || s
     },
+    // 已通过的投稿渲染成指向文章的 router-link，其余渲染成打开详情弹窗的按钮
+    revisionRowProps(revision) {
+      if (revision.status === 'APPROVED') return { to: `/docs/${revision.targetPath}` }
+      return { type: 'button', onClick: () => this.openRevision(revision) }
+    },
     openRevision(revision) {
-      if (revision.status === 'APPROVED') {
-        this.$router.push(`/docs/${revision.targetPath}`)
-        return
-      }
       this.detailVisible = true
       this.detailLoading = true
       this.selectedRevision = { ...revision, content: '' }
@@ -241,9 +224,6 @@ export default {
       return Number.isNaN(d.getTime()) ? '' :
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     },
-    openComment(c) {
-      this.$router.push(`/docs/${c.path}`)
-    },
     async removeComment(c) {
       try {
         await ElMessageBox.confirm('确定删除这条讨论？删除后原帖只会留下一个占位。', '提示', { type: 'warning' })
@@ -253,12 +233,11 @@ export default {
         this.comments = this.comments.filter((x) => x.id !== c.id)
       }, (m) => ElMessage.error(m || '删除失败'))
     },
-    resumeDraft(d) {
-      if (d.type === 'UPDATE' && d.targetPath) {
-        this.$router.push(`/edit/${d.targetPath}`) // 进入编辑页后走「发现草稿」恢复流程
-      } else {
-        this.$router.push({ path: '/edit', query: { draft: String(d.id) } })
-      }
+    draftTo(d) {
+      // 改已有文章的草稿回到该文章的编辑页，进入后走「发现草稿」恢复流程；
+      // 新文章草稿没有路径，用 query 指明是哪一份。草稿 id 是雪花 ID，按字符串传
+      if (d.type === 'UPDATE' && d.targetPath) return `/edit/${d.targetPath}`
+      return { path: '/edit', query: { draft: String(d.id) } }
     },
     async removeDraft(d) {
       try {
@@ -274,34 +253,33 @@ export default {
 </script>
 
 <style scoped>
-.title-icon { margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
-
-.profile-page { width: 100%; max-width: 1040px; margin: 0 auto; padding: 52px 28px 80px; }
+.profile-page { width: 100%; max-width: 1040px; margin: 0 auto; padding: 40px 20px 64px; }
 .pf-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  padding: 0 0 36px;
+  padding: 0 0 32px;
   border-bottom: 1px solid var(--border);
 }
 .pf-identity {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   min-width: 0;
 }
+/* 头像用中性底：页头里已经有「写文章」这一个强调色主按钮，不再并排第二块强调色；
+   与贡献者主页的头像同一配色 */
 .pf-avatar {
   display: grid;
   place-items: center;
   width: 56px;
   height: 56px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--text-primary);
-  color: var(--bg-page);
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  color: var(--text-primary);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 600;
   flex-shrink: 0;
 }
 .pf-copy { min-width: 0; }
@@ -310,62 +288,65 @@ export default {
   margin: 0;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 1.45rem;
-  font-weight: 780;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pf-email {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 13.5px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.role-badge {
+/* 徽标统一规格：0 6px 内边距、20px 行高、12px/500、2px 圆角，颜色只取令牌 */
+.role-badge,
+.count,
+.rev-mark,
+.status {
+  display: inline-block;
   flex-shrink: 0;
-  padding: 3px 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 700;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
 }
+.role-badge { background: var(--bg-subtle); color: var(--text-secondary); }
+
 .pf-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .action-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 40px;
+  gap: 6px;
+  height: 36px;
   padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  font-size: 13.5px;
-  font-weight: 700;
-  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color var(--dur), border-color var(--dur), color var(--dur);
 }
 .action-link:hover { text-decoration: none; }
 .action-link.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
-.action-link.primary:hover { opacity: .82; }
-.action-link.secondary { background: var(--bg-surface); color: var(--text-secondary); }
-.action-link.secondary:hover { border-color: var(--border-strong); background: var(--bg-hover); color: var(--text-primary); }
+.action-link.primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); }
+.action-link.secondary { background: var(--bg-surface); color: var(--text-primary); }
+.action-link.secondary:hover { border-color: var(--text-muted); }
 
-.pf-section { padding-top: 34px; }
-.sec-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 16px; }
-.sec-kicker { margin: 0 0 5px; color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: 0; }
-.sec-head h2 { margin: 0; color: var(--text-primary); font-size: 1.15rem; font-weight: 750; }
+.pf-section { padding-top: 32px; }
+.sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sec-head h2 { margin: 0; color: var(--text-primary); font-size: 18px; font-weight: 600; line-height: 1.3; }
 .count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 22px;
-  height: 22px;
   margin-left: 6px;
-  border-radius: 5px;
   background: var(--bg-subtle);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-variant-numeric: tabular-nums;
   vertical-align: 2px;
 }
 .loading-state { padding: 24px 0; color: var(--text-muted); font-size: 13px; }
@@ -375,49 +356,56 @@ export default {
   margin: 0;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   list-style: none;
 }
+/* 行容器只管底色和分隔线；可点的部分是里面的 .rev-row（链接或按钮），
+   「删除」作为兄弟元素排在它右边，悬停整行一起换底色 */
 .rev-item {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 84px;
-  padding: 15px 18px;
   background: var(--bg-surface);
-  cursor: pointer;
-  transition: background-color .16s ease;
+  transition: background-color var(--dur);
 }
 .rev-item + .rev-item { border-top: 1px solid var(--border); }
 .rev-item:hover { background: var(--bg-subtle); }
-.rev-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.rev-mark {
+.rev-row {
   display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 800;
+  flex: 1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.t-create { background: #e6f4ec; color: #137a3f; }
-.t-update { background: #eef1fb; color: #3a52c4; }
-html.dark .t-create { background: rgba(19,122,63,.2); color: #6ee7a8; }
-html.dark .t-update { background: rgba(58,82,196,.22); color: #aab8ff; }
-.rev-main { min-width: 0; }
+.rev-row:hover { text-decoration: none; }
+/* 列表容器 overflow: hidden 会裁掉外扩的焦点框，所以收到行内 */
+.rev-row:focus-visible { outline-offset: -2px; }
+.rev-remove { flex-shrink: 0; margin-right: 16px; }
+/* 类型徽标贴着标题第一行，而不是在整行里垂直居中 */
+.rev-mark { align-self: start; margin-top: 1px; }
+.t-create { background: var(--success-soft); color: var(--success); }
+.t-update { background: var(--accent-soft); color: var(--accent); }
+.rev-main { display: block; min-width: 0; }
 .rev-title {
   display: block;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 14.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-a.rev-title:hover { text-decoration: underline; }
-.rev-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: var(--text-muted); font-size: 12px; }
-.meta-separator { width: 3px; height: 3px; border-radius: 50%; background: var(--border-strong); }
+.rev-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+.meta-separator { flex-shrink: 0; width: 3px; height: 3px; border-radius: 50%; background: var(--border-strong); }
 .rev-path {
   overflow: hidden;
   padding: 0;
@@ -428,63 +416,60 @@ a.rev-title:hover { text-decoration: underline; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rev-side { display: grid; grid-template-columns: auto 104px 16px; align-items: center; gap: 14px; }
+/* 日期列定宽，状态长短不一时各行日期仍右对齐 */
+.rev-side { display: grid; grid-template-columns: auto 80px; align-items: center; gap: 12px; }
 .cm-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cm-hidden { color: var(--el-color-warning, #e6a23c); }
-.rev-side.draft-side { grid-template-columns: auto auto auto; gap: 10px; }
-.status { padding: 4px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
-.s-pending { background: #fff4e0; color: #b3691a; }
-.s-approved { background: #e6f4ec; color: #137a3f; }
-.s-rejected { background: #fbe9e9; color: #c0392b; }
+.cm-hidden { color: var(--warning); }
+.s-pending { background: var(--warning-soft); color: var(--warning); }
+.s-approved { background: var(--success-soft); color: var(--success); }
+.s-rejected { background: var(--danger-soft); color: var(--danger); }
 .s-removed { background: var(--bg-subtle); color: var(--text-muted); }
-html.dark .s-pending { background: rgba(179,105,26,.2); color: #f0b66a; }
-html.dark .s-approved { background: rgba(19,122,63,.2); color: #6ee7a8; }
-html.dark .s-rejected { background: rgba(192,57,43,.2); color: #f3a097; }
-.rev-date { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
-.row-arrow { color: var(--text-muted); }
-.rev-reason { margin: 7px 0 0; color: #c0392b; font-size: 12px; }
-html.dark .rev-reason { color: #f3a097; }
+.rev-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rev-reason { display: block; margin: 6px 0 0; color: var(--danger); font-size: 12px; }
 .revision-detail { min-height: 160px; }
-.detail-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; color: var(--text-muted); }
+.detail-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text-muted); }
 .detail-reason {
   margin-bottom: 20px;
   padding: 12px 14px;
-  border: 1px solid rgba(192,57,43,.25);
-  border-radius: 7px;
-  background: #fff7f7;
-  color: #9f2f24;
+  /* 不再用 color-mix() 调半透明红边：部分内置浏览器不认，含 var() 的值会整条失效。
+     浅红底加红字已经足够标出这块，两套主题都不需要额外描边 */
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 .detail-reason p { margin: 6px 0 0; }
-html.dark .detail-reason { background: rgba(192,57,43,.1); color: #f3a097; }
 
 @media (max-width: 720px) {
-  .profile-page { padding: 28px 16px 56px; }
-  .pf-head { align-items: stretch; flex-direction: column; gap: 22px; padding-bottom: 28px; }
+  .profile-page { padding: 24px 16px 48px; }
+  .pf-head { align-items: stretch; flex-direction: column; gap: 20px; padding-bottom: 24px; }
   .pf-actions { width: 100%; }
-  .action-link { flex: 1; }
+  .action-link { flex: 1; height: 40px; }
   .pf-section { padding-top: 28px; }
-  .rev-item { grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 15px 14px; }
-  .rev-side {
+  /* 窄屏下状态和日期挪到标题下方，标题才有足够宽度 */
+  .rev-row { grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 12px; }
+  .rev-side,
+  .rev-row > .rev-date {
     grid-column: 2;
+  }
+  .rev-side {
     grid-template-columns: auto 1fr;
     justify-content: start;
     gap: 10px;
-    margin-top: -2px;
   }
-  /* 草稿/讨论行是「日期 + 两个操作」三格；窄屏下固定三列会互相挤，
-     改成可换行的 flex，放不下就掉到第二行。 */
-  .rev-side.draft-side {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 12px;
-  }
-  .row-arrow { display: none; }
+  .rev-date { justify-content: flex-start; }
+  .rev-remove { margin-right: 12px; }
 }
 
 @media (max-width: 420px) {
-  .pf-avatar { width: 48px; height: 48px; font-size: 21px; }
-  .pf-name { font-size: 1.2rem; }
+  .pf-avatar { width: 48px; height: 48px; font-size: 20px; }
   .role-badge { display: none; }
   .rev-meta { max-width: 100%; }
 }

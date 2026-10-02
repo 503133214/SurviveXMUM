@@ -65,12 +65,11 @@
           </div>
 
           <div v-else-if="errorLoading" class="doc-state">
-            <span class="doc-state-icon"><FileQuestion :size="28" :stroke-width="1.75" /></span>
             <h1>找不到这篇文档</h1>
             <p>地址 <code>{{ docPath }}</code> 可能写错了，或者这篇文档已被移动、删除。</p>
             <div class="doc-state-actions">
               <button type="button" class="act act-primary" @click="openSearch">
-                <Search :size="15" :stroke-width="2" />搜索文档
+                <Search :size="15" :stroke-width="2" aria-hidden="true" />搜索文档
               </button>
               <router-link class="act" to="/">返回首页</router-link>
             </div>
@@ -80,26 +79,7 @@
             <div :key="docPath" class="doc-loaded">
               <header class="doc-header">
                 <h1 class="doc-title">{{ title }}</h1>
-                <div class="doc-meta">
-                  <span v-if="lastUpdated" class="meta-item">
-                    <CalendarClock :size="14" :stroke-width="2" aria-hidden="true" />更新于 {{ lastUpdated }}
-                  </span>
-                  <span v-if="viewCount > 0" class="meta-item">
-                    <Eye :size="14" :stroke-width="2" aria-hidden="true" />{{ viewCount.toLocaleString('zh-CN') }} 次浏览
-                  </span>
-                  <span v-if="readingMinutes" class="meta-item">
-                    <Timer :size="14" :stroke-width="2" aria-hidden="true" />约 {{ readingMinutes }} 分钟读完
-                  </span>
-                </div>
-
-                <nav v-if="pageTags.length" class="doc-tags" aria-label="本页标签">
-                  <router-link
-                    v-for="t in pageTags"
-                    :key="t"
-                    class="doc-tag"
-                    :to="`/tags/${encodeURIComponent(t)}`"
-                  ><Hash :size="12" :stroke-width="2.25" aria-hidden="true" />{{ t }}</router-link>
-                </nav>
+                <p v-if="metaLine" class="doc-meta">{{ metaLine }}</p>
 
                 <div class="doc-actions" role="toolbar" aria-label="页面操作">
                   <router-link
@@ -169,8 +149,7 @@
                 :base-path="baseDir"
                 @toc="tocItems = $event"
               />
-              <div v-else class="doc-state compact">
-                <span class="doc-state-icon"><PenLine :size="26" :stroke-width="1.75" /></span>
+              <div v-else class="doc-state">
                 <h2>这篇文档还在撰写中</h2>
                 <p>知道这方面的经验？欢迎补充内容。</p>
                 <router-link class="act act-primary" :to="userStore.isLoggedIn ? editUrl : '/login'">参与撰写</router-link>
@@ -256,8 +235,8 @@ import PageRevisionHistory from "@/components/PageRevisionHistory.vue";
 import Sidebar from "@/components/WikiSidebar.vue";
 import { ElMessage } from "element-plus";
 import {
-  ArrowLeft, ArrowRight, Bell, BellRing, CalendarClock, ChevronRight, Eye, FileQuestion, Hash, History,
-  House, Link2, MessageSquareText, PanelLeft, PenLine, Search, SquarePen, Star, TextQuote, Timer,
+  ArrowLeft, ArrowRight, Bell, BellRing, ChevronRight, History,
+  House, Link2, MessageSquareText, PanelLeft, Search, SquarePen, Star, TextQuote,
 } from "lucide-vue-next";
 import {
   tree,
@@ -278,6 +257,7 @@ import {
 import { useUserStore } from "@/store/userStore.js";
 import { openPalette } from "@/composables/usePalette.js";
 import { pushRecent } from "@/utils/recentPages.js";
+import { scrollBehavior } from "@/utils/motion.js";
 
 // ≤ 此宽度：侧栏收进抽屉；≥ TOC_RAIL_MIN：右侧常驻本页目录
 const MOBILE_BREAKPOINT = 1023;
@@ -293,8 +273,8 @@ export default {
     PageContributors,
     PageRevisionHistory,
     Sidebar,
-    ArrowLeft, ArrowRight, Bell, BellRing, CalendarClock, ChevronRight, Eye, FileQuestion, Hash, History,
-    House, Link2, MessageSquareText, PanelLeft, PenLine, Search, SquarePen, Star, TextQuote, Timer,
+    ArrowLeft, ArrowRight, Bell, BellRing, ChevronRight, History,
+    House, Link2, MessageSquareText, PanelLeft, Search, SquarePen, Star, TextQuote,
   },
   props: {
     pathMatch: { type: String, default: "" },
@@ -326,7 +306,6 @@ export default {
       contributorsError: "",
       contributorsRequestToken: 0,
       pageRequestToken: 0,
-      pageTags: [],
       commentCount: 0,
     };
   },
@@ -336,18 +315,6 @@ export default {
     },
     showTocRail() {
       return this.viewportWidth >= TOC_RAIL_MIN;
-    },
-    // 中文按每分钟约 400 字、英文按约 220 词估算
-    readingMinutes() {
-      const text = (this.content || "")
-        .replace(/```[\s\S]*?```/g, " ")
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-        .replace(/<[^>]+>/g, " ");
-      const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
-      const words = (text.replace(/[\u4e00-\u9fff]/g, " ").match(/[A-Za-z0-9]+/g) || []).length;
-      const minutes = cjk / 400 + words / 220;
-      return minutes < 0.5 ? 0 : Math.max(1, Math.round(minutes));
     },
     docPath() {
       return this.pathMatch || HOME_PATH;
@@ -376,6 +343,14 @@ export default {
         ? ""
         : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     },
+    // 页头元信息只留两项纯文本，用「 · 」连接；缺哪项就不拼哪项，避免出现孤立的分隔点。
+    // 不再估算阅读时长：手册类页面长短一眼可见，这个数字帮不了读者做决定。
+    metaLine() {
+      const parts = [];
+      if (this.lastUpdated) parts.push(`更新于 ${this.lastUpdated}`);
+      if (this.viewCount > 0) parts.push(`${this.viewCount.toLocaleString("zh-CN")} 次浏览`);
+      return parts.join(" · ");
+    },
     editUrl() {
       // 站内编辑（登录后投稿，需审核）
       return `/edit/${this.docPath}`;
@@ -399,7 +374,6 @@ export default {
       this.content = "";
       this.title = "";
       this.pageLastUpdated = "";
-      this.pageTags = [];
       this.tocItems = [];
       this.tocSheetVisible = false;
       this.commentCount = 0;
@@ -432,7 +406,6 @@ export default {
         this.title = detail.title || h1Text || path.split("/").pop();
         this.pageLastUpdated = detail.lastUpdated || "";
         this.viewCount = detail.viewCount || 0;
-        this.pageTags = (detail.tags || []).map((t) => (t || "").trim()).filter(Boolean);
         this.content = raw.trim();
         pushRecent({ path, title: this.title, icon: this.pageMeta?.icon || detail.icon || "" });
         this.loadContributors(path, contributorsRequestToken);
@@ -450,6 +423,7 @@ export default {
         }
       }
     },
+    // 滚动一律用 scrollBehavior()：JS 里写死 smooth 会绕过 CSS 的减少动效设置
     scrollToTopOrHash() {
       this.$nextTick(() => {
         if (this.$route.hash) {
@@ -458,11 +432,11 @@ export default {
           try { decoded = decodeURIComponent(raw); } catch { /* 原样使用 */ }
           const el = document.getElementById(decoded) || document.getElementById(raw);
           if (el) {
-            el.scrollIntoView({ behavior: "smooth" });
+            el.scrollIntoView({ behavior: scrollBehavior() });
             return;
           }
         }
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: scrollBehavior() });
       });
     },
     openSearch() {
@@ -514,7 +488,7 @@ export default {
     scrollToComments() {
       const el = this.$refs.comments && this.$refs.comments.$el;
       if (!el) return;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     },
     toggleFavorite() {
       if (!this.userStore.isLoggedIn) { this.$router.push("/login"); return; }
@@ -642,7 +616,7 @@ export default {
   right: 0;
   z-index: 999;
   height: 2px;
-  background: var(--brand-gradient);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: 0 50%;
   transition: transform 0.1s linear;
@@ -674,7 +648,6 @@ export default {
 .doc-grid.has-toc { grid-template-columns: minmax(0, var(--measure)) 220px; }
 
 .doc-article { min-width: 0; }
-.doc-loaded { animation: fade-up 0.45s var(--ease-out) both; }
 
 .doc-aside { min-width: 0; }
 .doc-aside-inner {
@@ -694,7 +667,7 @@ export default {
 }
 .doc-breadcrumb a { color: var(--text-secondary); }
 .doc-breadcrumb a:hover { color: var(--accent); text-decoration: none; }
-.doc-breadcrumb .crumb-home { display: inline-flex; padding: 2px; border-radius: 4px; }
+.doc-breadcrumb .crumb-home { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); }
 .doc-breadcrumb .sep { color: var(--border-strong); }
 .doc-breadcrumb .crumb { color: var(--text-secondary); }
 .doc-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; }
@@ -705,44 +678,21 @@ export default {
   padding-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
+/* 中文标题不加负字距：CJK 字形本身就排得满，压缩后会挤在一起 */
 .doc-title {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: var(--text-primary);
-  font-size: clamp(2rem, 3.6vw, 2.6rem);
-  font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: -0.035em;
+  font-size: clamp(26px, 3vw, 30px);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
 }
 .doc-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
+  margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
-.meta-item { display: inline-flex; align-items: center; gap: 6px; }
-
-.doc-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-.doc-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 10px 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-.doc-tag svg { color: var(--text-muted); }
-.doc-tag:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); text-decoration: none; }
-.doc-tag:hover svg { color: var(--accent); }
 
 /* 操作条 */
 .doc-actions {
@@ -756,29 +706,28 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background-color var(--dur) ease, border-color var(--dur) ease, color var(--dur) ease;
 }
 .act:hover { border-color: var(--border-strong); color: var(--text-primary); text-decoration: none; }
-.act:active { transform: scale(0.97); }
 .act:disabled { opacity: 0.55; cursor: default; }
+/* 阅读页上不放实心主按钮：「编辑此页」只用强调色文字 + 描边，和正文争注意力的程度降到最低 */
 .act-primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 600;
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--accent);
 }
-.act-primary:hover { border-color: var(--accent-hover); background: var(--accent-hover); color: var(--accent-contrast); }
+.act-primary:hover { border-color: var(--border-strong); background: var(--accent-soft); color: var(--accent); }
 .act.on { border-color: var(--accent-soft-strong); background: var(--accent-soft); color: var(--accent); }
 .act-quiet { border-color: transparent; background: transparent; }
 .act-quiet:hover { border-color: transparent; background: var(--bg-hover); }
@@ -786,14 +735,13 @@ export default {
 
 /* 加载骨架 */
 .loading-state { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+/* 静态色块即可表达「正在加载」，不做闪烁动画 */
 .sk {
   height: 14px;
-  border-radius: 7px;
-  background: linear-gradient(100deg, var(--bg-subtle) 30%, var(--bg-hover) 50%, var(--bg-subtle) 70%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  border-radius: var(--radius-xs);
+  background: var(--bg-subtle);
 }
-.sk-title { width: 58%; height: 38px; border-radius: 10px; }
+.sk-title { width: 58%; height: 36px; border-radius: var(--radius-sm); }
 .sk-meta { width: 36%; height: 12px; margin-bottom: 26px; }
 
 /* 空状态 / 出错 */
@@ -801,28 +749,23 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 64px 20px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-lg);
+  padding: 48px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   text-align: center;
 }
-.doc-state.compact { padding: 44px 20px; }
-.doc-state-icon {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 16px;
-  border: 1px solid var(--accent-soft-strong);
-  border-radius: 16px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
 .doc-state h1,
-.doc-state h2 { margin-bottom: 8px; color: var(--text-primary); font-size: 1.3rem; font-weight: 700; }
-.doc-state p { max-width: 420px; margin-bottom: 20px; color: var(--text-secondary); font-size: 14.5px; }
-.doc-state code { padding: 1px 6px; border-radius: 6px; background: var(--bg-hover); font-family: var(--font-mono); font-size: 0.9em; }
-.doc-state-actions { display: flex; gap: 8px; }
+.doc-state h2 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
+}
+.doc-state p { max-width: 420px; margin-bottom: 20px; color: var(--text-secondary); font-size: var(--fs-ui); }
+.doc-state code { padding: 1px 6px; border-radius: var(--radius-xs); background: var(--bg-hover); font-family: var(--font-mono); font-size: 0.9em; }
+.doc-state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 /* 上一篇/下一篇 */
 .doc-pager {
@@ -831,6 +774,7 @@ export default {
   gap: 12px;
   margin-top: 28px;
 }
+/* 悬停只换边框色：卡片不浮起、不加阴影 */
 .pager-card {
   display: flex;
   flex-direction: column;
@@ -839,23 +783,20 @@ export default {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-surface);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.25s var(--ease-out);
+  transition: border-color var(--dur) ease;
 }
-.pager-card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
-  transform: translateY(-2px);
-}
+.pager-card:hover { border-color: var(--accent); text-decoration: none; }
 .pager-card.align-right { align-items: flex-end; text-align: right; }
-.pager-dir { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 12.5px; }
-.pager-title { color: var(--text-primary); font-size: 15px; font-weight: 650; line-height: 1.4; }
+.pager-dir { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: var(--fs-sm); }
+.pager-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition: color var(--dur) ease;
+}
 .pager-card:hover .pager-title { color: var(--accent); }
-.pager-cat { color: var(--text-muted); font-size: 12px; }
-
-/* 评论、贡献者卡片跟正文同宽 */
-.doc-article :deep(.page-contributors),
-.doc-article :deep(.page-comments) { max-width: none; border-radius: var(--radius-lg); }
+.pager-cat { color: var(--text-muted); font-size: var(--fs-xs); }
 
 /* ---- 移动端吸顶工具条 ---- */
 .doc-mobilebar {
@@ -868,9 +809,8 @@ export default {
   height: 46px;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
-  background: var(--glass-bg);
-  backdrop-filter: saturate(180%) blur(18px);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  /* 实色底：不做毛玻璃，正文滚过时也不会透出来 */
+  background: var(--bg-page);
 }
 .mb-btn {
   display: inline-flex;
@@ -880,13 +820,14 @@ export default {
   height: 34px;
   padding: 0 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   cursor: pointer;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 .mb-btn:active,
 .mb-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
@@ -895,16 +836,16 @@ export default {
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  /* 淡入属于反馈，按 150ms 走；--dur-slow 只留给侧栏折叠 */
+  transition: opacity var(--dur) ease;
 }
-.mb-title.shown { opacity: 1; transform: none; }
+.mb-title.shown { opacity: 1; }
 
 @media (max-width: 1280px) {
   .doc-page { grid-template-columns: 260px minmax(0, 1fr); }
@@ -919,15 +860,20 @@ export default {
   .doc-article :deep(:is(h1, h2, h3, h4)) { scroll-margin-top: 54px; }
 }
 
+/* 右侧常驻本页目录时，目录里的当前项已经标出读到哪里，进度条就多余了 */
+@media (min-width: 1200px) {
+  .reading-progress { display: none; }
+}
+
 @media (max-width: 640px) {
   .doc-grid { padding: 20px 16px 48px; }
-  .doc-title { font-size: 1.8rem; }
+  .doc-title { font-size: 26px; }
   .doc-header { margin-bottom: 28px; padding-bottom: 20px; }
   .doc-actions { gap: 6px; }
   .act-sep { display: none; }
-  .act { height: 34px; }
+  /* 手机上按钮加高到 36px，便于手指点按 */
+  .act { height: 36px; }
   .doc-pager { grid-template-columns: 1fr; }
-  .doc-tag { padding: 4px 11px 4px 9px; }
 }
 </style>
 

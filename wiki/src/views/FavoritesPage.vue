@@ -16,23 +16,21 @@
           <el-button type="primary" @click="$router.push('/docs/README')">去浏览文档</el-button>
         </el-empty>
 
-        <div v-else class="card-grid">
-          <article
-            v-for="item in favorites"
-            :key="item.id"
-            class="grid-card"
-            @click="$router.push(item.path)"
-          >
-            <h3 class="gc-title">{{ item.title }}</h3>
-            <p class="gc-desc">{{ item.description || '暂无简介' }}</p>
-            <div class="gc-foot">
-              <span class="gc-time">收藏于 {{ item.createTime }}</span>
-              <el-button type="danger" link size="small" @click.stop="removeFavorite(item.id)">
-                取消收藏
-              </el-button>
-            </div>
-          </article>
-        </div>
+        <!-- 每行是真正的 router-link，键盘 Tab 可达；取消收藏放在链接外，避免按钮嵌在 <a> 里 -->
+        <ul v-else class="fav-list">
+          <li v-for="item in favorites" :key="item.id" class="fav-item">
+            <router-link :to="item.path" class="fav-row">
+              <span class="fav-main">
+                <span class="fav-title">{{ item.title }}</span>
+                <span class="fav-desc">{{ item.description || '暂无简介' }}</span>
+              </span>
+              <span class="fav-time">收藏于 {{ item.createTime }}</span>
+            </router-link>
+            <el-button class="fav-remove" type="danger" link size="small" @click.stop="removeFavorite(item.id)">
+              取消收藏
+            </el-button>
+          </li>
+        </ul>
       </el-tab-pane>
 
       <!-- 浏览历史 -->
@@ -50,20 +48,17 @@
             <span class="hist-hint">仅保留最近 50 条</span>
             <el-button type="danger" link @click="clearHistory">清空历史记录</el-button>
           </div>
-          <div class="card-grid">
-            <article
-              v-for="item in history"
-              :key="item.id"
-              class="grid-card"
-              @click="$router.push(item.path)"
-            >
-              <h3 class="gc-title">{{ item.title }}</h3>
-              <p class="gc-desc">{{ item.description || '暂无简介' }}</p>
-              <div class="gc-foot">
-                <span class="gc-time">浏览于 {{ item.visitTime }}</span>
-              </div>
-            </article>
-          </div>
+          <ul class="fav-list">
+            <li v-for="item in history" :key="item.id" class="fav-item">
+              <router-link :to="item.path" class="fav-row">
+                <span class="fav-main">
+                  <span class="fav-title">{{ item.title }}</span>
+                  <span class="fav-desc">{{ item.description || '暂无简介' }}</span>
+                </span>
+                <span class="fav-time">浏览于 {{ item.visitTime }}</span>
+              </router-link>
+            </li>
+          </ul>
         </template>
       </el-tab-pane>
     </el-tabs>
@@ -141,113 +136,131 @@ export default {
 <style scoped>
 .fav-page {
   width: 100%;
-  max-width: 1200px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 40px 20px 64px;
 }
 
 .fav-header {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 .fav-header h1 {
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 .fav-sub {
   margin: 6px 0 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .fav-tabs :deep(.el-tabs__item) {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
+/* 数量是中性小徽标：灰底、2px 圆角，不用胶囊 */
 .tab-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
+  display: inline-block;
   margin-left: 6px;
   padding: 0 6px;
-  border-radius: 999px;
-  background: var(--bg-hover);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-xs);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .hist-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .hist-hint { color: var(--text-muted); font-size: 13px; }
 
-/* 响应式网格：宽屏多列铺满，窄屏自动单列 */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-
-.grid-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 132px;
-  padding: 18px 20px;
+/* 收藏 / 历史本质是列表：一个描边容器，行间 1px 分隔，悬停只换底色 */
+.fav-list {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  list-style: none;
+}
+.fav-item {
+  display: flex;
+  align-items: center;
   background: var(--bg-surface);
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition: background var(--dur);
 }
-.grid-card:hover {
-  border-color: var(--brand);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.fav-item + .fav-item { border-top: 1px solid var(--border); }
+.fav-item:hover { background: var(--bg-subtle); }
+
+.fav-row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 16px;
+  color: inherit;
 }
-.gc-title {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
+.fav-row:hover { text-decoration: none; }
+/* 容器 overflow: hidden 会裁掉外扩的焦点框，所以行内收 */
+.fav-row:focus-visible { outline-offset: -2px; }
+
+.fav-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.fav-title {
   overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.gc-desc {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 13.5px;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.fav-desc {
   overflow: hidden;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.gc-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 14px;
+.fav-time {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.gc-time { color: var(--text-muted); font-size: 12px; }
+.fav-remove {
+  flex-shrink: 0;
+  margin-right: 16px;
+}
 
-@media (max-width: 767px) {
-  .fav-page { padding: 20px 14px 48px; }
-  .fav-header h1 { font-size: 1.5rem; }
-  .card-grid { grid-template-columns: 1fr; gap: 12px; }
+@media (max-width: 640px) {
+  .fav-page { padding: 24px 16px 48px; }
+  .fav-header h1 { font-size: 24px; }
   .hist-bar { align-items: flex-start; gap: 10px; }
-  .grid-card { min-height: 122px; padding: 16px; }
-  .gc-foot { align-items: flex-end; }
-  .gc-time { line-height: 1.45; }
+  /* 手机上时间换到简介下方，标题才有足够宽度 */
+  .fav-row { flex-direction: column; align-items: stretch; gap: 4px; }
+  .fav-time { text-align: left; }
+  .fav-remove { margin-right: 12px; }
 }
 
 @media (max-width: 360px) {

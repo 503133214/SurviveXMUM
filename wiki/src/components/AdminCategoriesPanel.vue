@@ -40,7 +40,7 @@
           <el-input v-model="form.label" maxlength="120" placeholder="留空则与标识相同" />
         </el-form-item>
         <el-form-item label="图标">
-          <el-input v-model="form.icon" maxlength="8" placeholder="单个 emoji，如 📚" style="width: 140px">
+          <el-input v-model="form.icon" maxlength="8" placeholder="粘贴一个 emoji" style="width: 140px">
             <!-- 站内显示的是换算后的线性图标 -->
             <template #suffix><WikiIcon kind="category" :icon="form.icon || ''" :category="form.slug || ''" :size="16" /></template>
           </el-input>
@@ -118,16 +118,15 @@ export default {
 .acp-head {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px;
 }
-.acp-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
+.acp-head h1 { font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; margin: 0; color: var(--text-primary); }
 .acp-note { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; }
-.acp-icon { display: inline-flex; color: var(--accent); }
+.acp-icon { display: inline-flex; color: var(--text-secondary); }
 .acp-hint { margin-left: 10px; color: var(--text-muted); font-size: 12px; }
 @media (max-width: 640px) {
   .acp-head {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .acp-head h1 { font-size: 1.25rem; }
   .acp-note {
     line-height: 1.6;
     overflow-wrap: anywhere;

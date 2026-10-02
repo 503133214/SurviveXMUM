@@ -2,7 +2,6 @@
   <section class="page-comments" aria-labelledby="page-comments-title">
     <div class="pc-heading">
       <div>
-        <p class="pc-eyebrow">读者讨论</p>
         <h2 id="page-comments-title">
           讨论区
           <span v-if="total" class="pc-total">{{ total }} 条</span>
@@ -33,7 +32,7 @@
       后即可参与讨论。
     </p>
 
-    <el-skeleton v-if="loading" :rows="3" animated />
+    <el-skeleton v-if="loading" :rows="3" />
     <p v-else-if="error" class="pc-status">{{ error }}</p>
     <p v-else-if="!threads.length" class="pc-status">还没有人讨论这一页，来做第一个吧。</p>
 
@@ -284,24 +283,14 @@ export default {
 </script>
 
 <style scoped>
+/* 与贡献者区块一致：不装卡片，只用顶部分隔线和上方内容隔开 */
 .page-comments {
-  max-width: 1360px;
-  margin: 20px auto 0;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-surface);
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
 }
 
 .pc-heading { margin-bottom: 16px; }
-
-.pc-eyebrow {
-  margin: 0 0 4px;
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
 
 .pc-heading h2 {
   display: flex;
@@ -309,12 +298,14 @@ export default {
   gap: 8px;
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.08rem;
-  line-height: 1.3;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
 }
 
-.pc-total { color: var(--text-muted); font-size: 12px; font-weight: 500; }
-.pc-note { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; }
+.pc-total { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pc-note { margin: 4px 0 0; color: var(--text-muted); font-size: var(--fs-sm); }
 
 .pc-composer { margin-bottom: 18px; }
 .pc-composer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
@@ -322,14 +313,14 @@ export default {
 .pc-guest {
   margin: 0 0 18px;
   padding: 12px 14px;
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
-.pc-guest a { color: var(--brand); font-weight: 600; }
+.pc-guest a { color: var(--accent); font-weight: 500; }
 
-.pc-status { margin: 0; color: var(--text-muted); font-size: 13px; }
+.pc-status { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
 
 .pc-list, .pc-replies { margin: 0; padding: 0; list-style: none; }
 
@@ -353,14 +344,15 @@ export default {
 
 .pc-name {
   color: var(--text-primary);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   text-decoration: none;
+  transition: color var(--dur) ease;
 }
-a.pc-name:hover { color: var(--brand); }
+a.pc-name:hover { color: var(--accent); }
 
-.pc-replyto { color: var(--text-muted); font-size: 12px; }
-.pc-time { color: var(--text-muted); font-size: 11.5px; }
+.pc-replyto { color: var(--text-muted); font-size: var(--fs-xs); }
+.pc-time { color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 .pc-text {
   margin: 0;
@@ -379,11 +371,12 @@ a.pc-name:hover { color: var(--brand); }
   background: none;
   color: var(--text-muted);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   cursor: pointer;
+  transition: color var(--dur) ease;
 }
-.pc-actions button:hover { color: var(--brand); }
-.pc-actions button.danger:hover { color: var(--el-color-danger, #f56c6c); }
+.pc-actions button:hover { color: var(--accent); }
+.pc-actions button.danger:hover { color: var(--danger); }
 
 .pc-replies {
   margin: 12px 0 0 45px;
@@ -395,7 +388,6 @@ a.pc-name:hover { color: var(--brand); }
 .pc-reply-form { margin: 12px 0 0 45px; }
 
 @media (max-width: 600px) {
-  .page-comments { padding: 20px 14px; }
   .pc-note { display: none; }
   .pc-replies, .pc-reply-form { margin-left: 12px; }
 }

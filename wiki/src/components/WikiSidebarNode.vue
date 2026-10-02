@@ -8,8 +8,9 @@
       :title="node.label"
       @click="$emit('toggle', node.slug)"
     >
-      <span class="sb-icon" aria-hidden="true">
-        <WikiIcon kind="category" :icon="node.icon" :category="node.slug" :title="node.label" :size="depth ? 15 : 16" />
+      <!-- 只有顶层篇章带图标，子分类和文档行都是纯文字，侧栏读起来像目录而不是图标墙 -->
+      <span v-if="depth === 0" class="sb-icon" aria-hidden="true">
+        <WikiIcon kind="category" :icon="node.icon" :category="node.slug" :title="node.label" :size="16" />
       </span>
       <span class="sb-label">{{ node.label }}</span>
       <span class="sb-count">{{ pageCount }}</span>
@@ -24,7 +25,6 @@
           :depth="depth + 1"
           :current-path="currentPath"
           :open-slugs="openSlugs"
-          :parent-category="node.slug"
           @toggle="$emit('toggle', $event)"
           @navigate="$emit('navigate', $event)"
         />
@@ -42,9 +42,6 @@
       :title="node.title"
       @click="onClick"
     >
-      <span class="sb-icon" aria-hidden="true">
-        <WikiIcon :icon="node.icon" :title="node.title" :category="node.category || parentCategory" :size="15" />
-      </span>
       <span class="sb-label">{{ node.title }}</span>
       <span v-if="node.draft" class="sb-draft">草稿</span>
     </a>
@@ -70,8 +67,6 @@ export default {
     depth: { type: Number, default: 0 },
     currentPath: { type: String, default: "" },
     openSlugs: { type: Array, default: () => [] },
-    // 页面没有自己的图标时退回所在篇章的图标
-    parentCategory: { type: String, default: "" },
   },
   emits: ["navigate", "toggle"],
   computed: {
@@ -117,60 +112,53 @@ li + .sb-cat:not(.nested) { margin-top: 2px; }
   min-height: 34px;
   padding: 6px 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 .sb-cat-btn:hover,
 .sb-link:hover { background: var(--bg-hover); color: var(--text-primary); text-decoration: none; }
+/* 子项列表为了折叠动画设了 overflow: hidden，向外的焦点环会被裁掉一截，改为向内画 */
+.sb-cat-btn:focus-visible,
+.sb-link:focus-visible { outline-offset: -2px; }
 
 .sb-cat-btn { color: var(--text-primary); font-weight: 600; }
 .sb-cat.nested > .sb-cat-btn { font-weight: 500; color: var(--text-secondary); }
 
+/* 顶层篇章图标：16px 线性图标，不加底框；当前页在这一篇里时换成强调色 */
 .sb-icon {
-  display: grid;
+  display: inline-flex;
   flex-shrink: 0;
-  place-items: center;
-  width: 18px;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
   color: var(--text-muted);
-  transition: color 0.15s ease;
-}
-.sb-cat:not(.nested) > .sb-cat-btn .sb-icon {
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg-surface);
-  color: var(--text-secondary);
+  transition: color var(--dur) ease;
 }
 .sb-cat.has-active > .sb-cat-btn .sb-icon { color: var(--accent); }
-.sb-cat.has-active:not(.nested) > .sb-cat-btn .sb-icon {
-  border-color: var(--accent-soft-strong);
-  background: var(--accent-soft);
-}
 
 .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-count {
   flex-shrink: 0;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur) ease;
 }
 .sb-cat-btn:hover .sb-count,
 .sb-cat.open > .sb-cat-btn .sb-count { opacity: 1; }
 .sb-chevron {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform 0.25s var(--ease-out);
+  transition: transform var(--dur) var(--ease-out);
 }
 .sb-cat.open > .sb-cat-btn .sb-chevron { transform: rotate(90deg); }
 
@@ -178,18 +166,21 @@ li + .sb-cat:not(.nested) { margin-top: 2px; }
 .sb-children {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s var(--ease-out);
+  transition: grid-template-rows var(--dur-slow) var(--ease-out);
 }
 .sb-cat.open > .sb-children { grid-template-rows: 1fr; }
+/* 引导线落在顶层图标的中线上（8px 内边距 + 16px 图标的一半），
+   子项文字因此正好和篇章名左对齐 */
 .sb-children > ul {
   min-height: 0;
   overflow: hidden;
-  margin-left: 20px;
+  margin-left: 15px;
   padding-left: 10px;
   border-left: 1px solid var(--border);
 }
 .sb-cat.open > .sb-children > ul { padding-top: 2px; padding-bottom: 6px; }
-.sb-cat.nested > .sb-children > ul { margin-left: 16px; }
+/* 子分类没有图标，引导线对齐到它的文字起点 */
+.sb-cat.nested > .sb-children > ul { margin-left: 8px; }
 
 .sb-link.nested { position: relative; min-height: 32px; gap: 8px; }
 .sb-link.active {
@@ -197,7 +188,6 @@ li + .sb-cat:not(.nested) { margin-top: 2px; }
   color: var(--accent);
   font-weight: 600;
 }
-.sb-link.active .sb-icon { color: var(--accent); }
 /* 当前页在引导线上标一段高亮 */
 .sb-link.nested.active::before {
   content: "";
@@ -206,17 +196,18 @@ li + .sb-cat:not(.nested) { margin-top: 2px; }
   bottom: 7px;
   left: -11px;
   width: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--accent);
 }
 
 .sb-draft {
   flex-shrink: 0;
-  padding: 1px 6px;
-  border-radius: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
   background: var(--warning-soft);
   color: var(--warning);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 20px;
 }
 </style>

@@ -37,10 +37,9 @@ const routes = [
     component: () => import("@/views/ChangesPage.vue"),
   },
   {
+    // 标签功能已下线；旧书签和外部链接回到首页，避免落到 404。
     path: "/tags/:tag?",
-    name: "Tags",
-    component: () => import("@/views/TagsPage.vue"),
-    props: (route) => ({ tag: route.params.tag || "" }),
+    redirect: "/",
   },
   {
     path: "/contributors",

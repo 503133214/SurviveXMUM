@@ -183,9 +183,10 @@ export default {
   flex-wrap: wrap;
 }
 .afp-head h1 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
   margin: 0;
   color: var(--text-primary);
 }
@@ -202,7 +203,7 @@ export default {
 .afp-content {
   margin-top: 8px;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   white-space: pre-wrap;
   line-height: 1.6;

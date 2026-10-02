@@ -109,7 +109,7 @@ export default {
 </script>
 
 <style scoped>
-.aap-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 16px; color: var(--text-primary); }
+.aap-head h1 { font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; margin: 0 0 16px; color: var(--text-primary); }
 .aap-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .aap-kw { width: 240px; max-width: 100%; }
 .aap-pager { display: flex; justify-content: flex-end; margin-top: 14px; }

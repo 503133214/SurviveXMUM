@@ -353,41 +353,55 @@ export default {
 
 <style scoped>
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.panel-head h2 { margin: 0; color: var(--text-primary); font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; }
+/* 与其他管理面板的标题同一尺寸，切换面板时标题不跳动 */
+.panel-head h2 { margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; }
 .filters { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .tbl { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); }
 .is-deleted { color: var(--text-muted); text-decoration: line-through; }
 .pager { display: flex; justify-content: flex-end; margin-top: 16px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .btn-solid, .btn-ghost {
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 16px;
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all .2s ease;
+  /* 只过渡颜色类属性，尺寸和阴影变化不做动画 */
+  transition: background var(--dur), color var(--dur), border-color var(--dur);
 }
-.btn-solid { border: none; background: var(--accent); color: var(--accent-contrast); }
-.btn-solid:hover:not(:disabled) { opacity: .88; }
-.btn-solid:disabled { cursor: not-allowed; opacity: .6; }
-.btn-ghost { margin-right: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); }
-.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-solid { border: 1px solid transparent; background: var(--accent); color: var(--accent-contrast); }
+.btn-solid:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-ghost { margin-right: 8px; border: 1px solid var(--border-strong); background: var(--bg-surface); color: var(--text-body); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); }
+.btn-solid:disabled, .btn-ghost:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .hist-muted { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
 .hist-list { list-style: none; margin: 0; padding: 0; }
 .hist-item { padding: 12px 2px; border-bottom: 1px solid var(--border); }
-.hist-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.hist-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 .hist-title { font-weight: 600; color: var(--text-primary); font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hist-type { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; flex-shrink: 0; }
-.t-create { background: #e6f4ec; color: #137a3f; }
-.t-update { background: #eef1fb; color: #3a52c4; }
-.hist-status { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; flex-shrink: 0; }
-.s-pending { background: #fff4e0; color: #b3691a; }
-.s-approved { background: #e6f4ec; color: #137a3f; }
-.s-rejected { background: #fbe9e9; color: #c0392b; }
-.hist-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
-.hist-meta code { background: var(--bg-subtle); padding: 1px 6px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hist-reason { margin: 6px 0 0; font-size: 12.5px; color: #c0392b; }
+/* 类型 / 状态徽标：只用状态令牌对，亮暗主题由令牌切换，不再写死颜色 */
+.hist-type, .hist-status {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.t-create { background: var(--success-soft); color: var(--success); }
+.t-update { background: var(--accent-soft); color: var(--accent); }
+.s-pending { background: var(--warning-soft); color: var(--warning); }
+.s-approved { background: var(--success-soft); color: var(--success); }
+.s-rejected { background: var(--danger-soft); color: var(--danger); }
+.hist-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.hist-meta code { background: var(--bg-subtle); padding: 1px 6px; border-radius: var(--radius-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-reason { margin: 6px 0 0; font-size: 13px; color: var(--danger); overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .filters :deep(.el-input), .filters :deep(.el-select) { width: 100% !important; }
@@ -399,6 +413,6 @@ export default {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .panel-head .btn-solid { width: 100%; }
+  .panel-head .btn-solid { width: 100%; min-height: 40px; }
 }
 </style>

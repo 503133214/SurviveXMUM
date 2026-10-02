@@ -69,22 +69,26 @@
         <div v-if="loadingList" class="muted pad">加载中…</div>
         <el-empty v-else-if="!list.length" :description="`暂无${currentLabel}投稿`" />
         <ul v-else>
-          <li
-            v-for="r in list"
-            :key="r.id"
-            :class="{ active: current && current.id === r.id }"
-            @click="openDetail(r.id)"
-          >
-            <div class="li-top">
-              <span class="rev-type" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
-                {{ r.type === 'CREATE' ? '新建' : '修改' }}
+          <li v-for="r in list" :key="r.id">
+            <!-- 整行是 button：键盘可以 Tab 到每条投稿并回车打开 -->
+            <button
+              type="button"
+              class="rv-row"
+              :class="{ active: current && current.id === r.id }"
+              :aria-current="current && current.id === r.id ? 'true' : null"
+              @click="openDetail(r.id)"
+            >
+              <span class="li-top">
+                <span class="rev-type" :class="r.type === 'CREATE' ? 't-create' : 't-update'">
+                  {{ r.type === 'CREATE' ? '新建' : '修改' }}
+                </span>
+                <span class="li-title">{{ r.title }}</span>
               </span>
-              <span class="li-title">{{ r.title }}</span>
-            </div>
-            <div class="li-meta">
-              <span>{{ r.authorEmail }}</span>
-              <span>{{ fmt(r.createdAt) }}</span>
-            </div>
+              <span class="li-meta">
+                <span>{{ r.authorEmail }}</span>
+                <span>{{ fmt(r.createdAt) }}</span>
+              </span>
+            </button>
           </li>
         </ul>
       </aside>
@@ -92,8 +96,8 @@
       <!-- 详情 -->
       <section v-show="!isMobileAdmin || current" class="rv-detail">
         <div v-if="!current" class="placeholder">
-          <el-icon :size="40"><Tickets /></el-icon>
-          <p>从左侧选择一条投稿开始审核</p>
+          <strong>还没有选中投稿</strong>
+          <p>从左侧列表选择一条投稿开始审核</p>
         </div>
         <template v-else>
           <div class="dt-head">
@@ -107,14 +111,16 @@
                   {{ current.type === 'CREATE' ? '新建' : '修改' }}
                 </span>
                 路径 <code>{{ current.targetPath }}</code>
-                · 投稿人 <template v-if="current.authorNickname">{{ current.authorNickname }} </template>{{ current.authorEmail }}
+                <!-- 昵称与邮箱写在同一个插值里：模板里的尾随空格会被压缩掉，两者会粘在一起 -->
+                · 投稿人 {{ current.authorNickname ? `${current.authorNickname}（${current.authorEmail}）` : current.authorEmail }}
                 · 提交于 {{ fmt(current.createdAt) }}
                 <template v-if="current.status !== 'PENDING'">
                   <br />
                   <span class="dt-review">
                     {{ statusText(current.status) }}
-                    <template v-if="current.reviewerEmail">· 审核人 {{ current.reviewerEmail }}</template>
-                    <template v-if="current.reviewedAt">· {{ fmt(current.reviewedAt) }}</template>
+                    <!-- 分隔符前留空格：两个 template 之间的换行会被编译器去掉，否则文字会粘在一起 -->
+                    <template v-if="current.reviewerEmail"> · 审核人 {{ current.reviewerEmail }}</template>
+                    <template v-if="current.reviewedAt"> · {{ fmt(current.reviewedAt) }}</template>
                   </span>
                 </template>
               </p>
@@ -232,7 +238,6 @@ export default {
     AdminCategoriesPanel: markRaw(AdminCategoriesPanel),
     AdminBroadcastPanel: markRaw(AdminBroadcastPanel),
     AdminAuditPanel: markRaw(AdminAuditPanel),
-    Tickets,
   },
   data() {
     return {
@@ -484,53 +489,91 @@ export default {
 .ac-title {
   padding: 6px 12px 12px;
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
 }
 .ac-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  min-height: 36px;
+  padding: 0 12px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background .18s ease, color .18s ease;
+  transition: background var(--dur) ease, color var(--dur) ease;
 }
 .ac-item:hover { background: var(--bg-subtle); color: var(--text-primary); }
+/* 选中项与文档侧栏一致：强调色文字 + 浅强调底，不再叠加左侧色条 */
 .ac-item.active {
-  background: var(--bg-subtle);
-  color: var(--text-primary);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
-.ac-item .el-icon { color: var(--text-muted); font-size: 17px; }
-.ac-item.active .el-icon { color: var(--text-primary); }
+.ac-item .el-icon { color: var(--text-muted); font-size: 16px; }
+.ac-item.active .el-icon { color: var(--accent); }
 .ac-main { min-width: 0; }
 .admin-page { width: 100%; }
 .rv-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-.rv-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
-.seg { display: flex; background: var(--bg-subtle); border-radius: 999px; padding: 4px; }
+.rv-head h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
+  color: var(--text-primary);
+}
+/* 状态筛选：小圆角分段按钮，选中项用白底 + 1px 描边区分，不用投影 */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
 .seg button {
-  border: none; background: transparent; padding: 8px 18px;
-  font-size: 14px; font-weight: 600; color: var(--text-secondary);
-  border-radius: 999px; cursor: pointer; transition: all .2s var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur) ease, color var(--dur) ease;
 }
-.seg button.active { background: var(--bg-surface); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.seg button:hover { color: var(--text-primary); }
+.seg button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--border);
+}
 .seg-count {
-  display: inline-grid; place-items: center; min-width: 18px; height: 18px;
-  margin-left: 6px; padding: 0 5px; border-radius: 999px;
-  background: var(--bg-hover); color: var(--text-muted);
-  font-size: 11px; font-weight: 700; vertical-align: 1px;
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.seg button.active .seg-count { background: var(--accent); color: var(--accent-contrast); }
-.dt-review { color: var(--text-secondary); font-size: 12.5px; }
+.seg button.active .seg-count { background: var(--accent-soft); color: var(--accent); }
+.dt-review { color: var(--text-secondary); font-size: 13px; }
 
 .rv-filter {
   display: flex;
@@ -547,14 +590,13 @@ export default {
 
 .mobile-admin-notice {
   display: none;
-  padding: 14px 16px;
+  padding: 12px 16px;
   margin-bottom: 16px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
 }
-.mobile-admin-notice strong { color: var(--text-primary); font-size: 14px; }
+.mobile-admin-notice strong { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .mobile-admin-notice span { color: var(--text-secondary); font-size: 13px; }
 
 .rv-body { display: grid; grid-template-columns: clamp(280px, 22vw, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -566,25 +608,47 @@ export default {
   position: sticky; top: calc(var(--header-height) + 20px);
 }
 .rv-list ul { list-style: none; margin: 0; padding: 0; }
-.rv-list li { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s ease; }
+.rv-list li { border-bottom: 1px solid var(--border); }
 .rv-list li:last-child { border-bottom: none; }
-.rv-list li:hover { background: var(--bg-hover); }
-.rv-list li.active { background: var(--bg-subtle); box-shadow: inset 3px 0 0 var(--accent); }
-.li-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.li-title { font-weight: 600; color: var(--text-primary); font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-row {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur) ease;
+}
+/* 焦点环画在行内侧，不被列表容器的 overflow 裁掉 */
+.rv-row:focus-visible { outline-offset: -2px; }
+.rv-row:hover { background: var(--bg-subtle); }
+.rv-row.active { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.li-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.li-title { font-weight: 600; color: var(--text-primary); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .li-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-muted); }
 .li-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.li-meta span:last-child { flex-shrink: 0; }
+.li-meta span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 .rv-detail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); min-height: 64vh; overflow: hidden; }
 .placeholder {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  min-height: 64vh; color: var(--text-muted);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 64vh; padding: 24px; text-align: center;
 }
-.placeholder .el-icon { color: var(--border-strong); }
-.placeholder p { margin: 0; font-size: 14px; }
+.placeholder strong { color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.placeholder p { margin: 0; color: var(--text-secondary); font-size: 14px; }
 .dt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.dt-head h2 { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
+.dt-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
 .mobile-detail-back {
   display: none;
   padding: 0;
@@ -596,67 +660,91 @@ export default {
   font-size: 13px;
   cursor: pointer;
 }
+.mobile-detail-back:hover { color: var(--text-primary); }
 .dt-meta { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dt-meta code { background: var(--bg-subtle); padding: 2px 6px; border-radius: 5px; font-size: 12.5px; }
+.dt-meta code { background: var(--bg-subtle); padding: 1px 6px; border-radius: var(--radius-xs); font-size: 12px; overflow-wrap: anywhere; }
 .dt-actions { display: flex; gap: 10px; flex-shrink: 0; }
-.btn-approve, .btn-reject { padding: 9px 18px; border-radius: var(--radius-sm); font-weight: 700; font-size: 14px; cursor: pointer; border: none; transition: all .2s ease; }
-.btn-approve { background: #137a3f; color: #fff; }
-.btn-approve:hover:not(:disabled) { opacity: .9; }
-.btn-reject { background: transparent; color: #c0392b; border: 1px solid #e3b4ae; }
-.btn-reject:hover:not(:disabled) { background: #fbe9e9; }
-.btn-approve:disabled, .btn-reject:disabled { opacity: .6; cursor: not-allowed; }
+.btn-approve, .btn-reject, .btn-ghost-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  /* 只过渡颜色类属性，尺寸和阴影变化不做动画 */
+  transition: background var(--dur) ease, color var(--dur) ease, border-color var(--dur) ease;
+}
+.btn-approve, .btn-reject { min-height: 36px; padding: 0 16px; }
+/* 通过 / 驳回用状态色而不是主强调色：审核页的「主操作」语义就是这两个结果。
+   这里不用 color-mix()：部分内置浏览器不认，含 var() 的值会整条失效退回初始值，
+   悬停时「通过」的底色会变透明、白字直接看不见。只用两套主题都定义好的状态令牌对 */
+.btn-approve { background: var(--success); color: var(--bg-page); border: 1px solid var(--success); }
+/* 没有「深一号的绿」令牌，悬停换成浅底 + 绿字 + 绿边，与「驳回」的悬停同一套写法 */
+.btn-approve:hover:not(:disabled) { background: var(--success-soft); color: var(--success); }
+.btn-reject {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--border-strong);
+}
+.btn-reject:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .dt-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dt-status .btn-approve, .dt-status .btn-reject { padding: 7px 14px; font-size: 13px; }
+.dt-status .btn-approve, .dt-status .btn-reject { min-height: 30px; padding: 0 12px; font-size: 13px; }
 .btn-ghost-sm {
-  padding: 7px 12px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-body);
+  font-size: 13px;
+}
+.btn-ghost-sm:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); }
+.btn-ghost-sm.danger {
+  background: transparent;
+  color: var(--danger);
+}
+.btn-ghost-sm.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-approve:disabled, .btn-reject:disabled, .btn-ghost-sm:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* 类型 / 状态徽标：只用状态令牌对，亮暗主题由令牌切换 */
+.rev-type, .status {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.t-create { background: var(--success-soft); color: var(--success); }
+.t-update { background: var(--accent-soft); color: var(--accent); }
+.s-approved { background: var(--success-soft); color: var(--success); }
+.s-rejected { background: var(--danger-soft); color: var(--danger); }
+.s-pending { background: var(--warning-soft); color: var(--warning); }
+.mobile-review-lock {
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .2s ease;
-}
-.btn-ghost-sm:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
-.btn-ghost-sm.danger { color: #c0392b; border-color: #e3b4ae; }
-.btn-ghost-sm.danger:hover:not(:disabled) { background: #fbe9e9; }
-html.dark .btn-ghost-sm.danger:hover:not(:disabled) { background: rgba(192,57,43,.16); }
-.btn-ghost-sm:disabled { opacity: .6; cursor: not-allowed; }
-
-.rev-type { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
-.t-create { background: #e6f4ec; color: #137a3f; }
-.t-update { background: #eef1fb; color: #3a52c4; }
-html.dark .t-create { background: rgba(19,122,63,.2); color: #6ee7a8; }
-html.dark .t-update { background: rgba(58,82,196,.22); color: #aab8ff; }
-.status { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
-.s-approved { background: #e6f4ec; color: #137a3f; }
-.s-rejected { background: #fbe9e9; color: #c0392b; }
-.s-pending { background: #fff4e0; color: #b3691a; }
-.mobile-review-lock {
-  padding: 7px 10px;
-  border-radius: 999px;
   background: var(--bg-subtle);
   color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 500;
 }
 .rejection-note {
   display: flex;
   gap: 12px;
   padding: 12px 24px;
-  border-bottom: 1px solid rgba(192,57,43,.18);
-  background: #fff7f7;
-  color: #9f2f24;
+  border-bottom: 1px solid var(--border);
+  background: var(--danger-soft);
+  color: var(--danger);
   font-size: 13px;
 }
-.rejection-note strong { flex-shrink: 0; }
+.rejection-note strong { flex-shrink: 0; font-weight: 600; }
 .rejection-note p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-html.dark .rejection-note {
-  border-bottom-color: rgba(243,160,151,.2);
-  background: rgba(192,57,43,.1);
-  color: #f3a097;
-}
 
 .review-toolbar {
   display: flex;
@@ -669,32 +757,42 @@ html.dark .rejection-note {
 }
 .review-tabs {
   display: inline-flex;
-  gap: 3px;
+  gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
 }
 .review-tabs button,
 .list-toggle {
+  min-height: 28px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12.5px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background var(--dur) ease, color var(--dur) ease;
 }
-.review-tabs button { padding: 6px 12px; }
+.review-tabs button { padding: 0 12px; }
+.review-tabs button:hover { color: var(--text-primary); }
 .review-tabs button.active {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
-.list-toggle { padding: 6px 9px; }
+.list-toggle { padding: 0 10px; }
 .list-toggle:hover { color: var(--text-primary); background: var(--bg-hover); }
 .review-canvas { min-width: 0; }
 .preview-pane { min-width: 0; }
-.pane-head { padding: 10px 18px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--bg-subtle); }
+.pane-head {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
 .pane-body { padding: 24px 28px; min-height: 48vh; overflow: auto; }
 .muted { color: var(--text-muted); }
 .pad { padding: 16px; }
@@ -708,25 +806,26 @@ html.dark .rejection-note {
   .ac-nav { position: static; flex-direction: row; overflow-x: auto; }
   .ac-title { display: none; }
   .ac-item { flex: 1 0 auto; justify-content: center; white-space: nowrap; }
-  .ac-item.active { box-shadow: inset 0 -3px 0 var(--accent); }
+  /* 横排时改成底部 2px 下划线，与顶栏导航的选中样式一致 */
+  .ac-item.active { box-shadow: inset 0 -2px 0 var(--accent); }
 }
 
 @media (max-width: 768px) {
   .admin-console { padding: 20px 16px 48px; }
   .rv-head { align-items: flex-start; margin-bottom: 16px; }
-  .rv-head h1 { width: 100%; font-size: 1.25rem; }
+  .rv-head h1 { width: 100%; }
   .seg { width: 100%; }
-  .seg button { flex: 1; padding-inline: 8px; }
+  .seg button { flex: 1; min-height: 34px; padding-inline: 8px; }
   .mobile-admin-notice { display: flex; flex-direction: column; gap: 3px; }
   .rv-list { position: static; max-height: none; }
-  .rv-list li { padding: 16px; }
+  .rv-row { padding: 14px 16px; }
   .rv-detail { min-height: 0; }
   .placeholder { min-height: 240px; }
   .dt-head { padding: 18px 16px; }
-  .mobile-detail-back { display: inline-flex; }
+  .mobile-detail-back { display: inline-flex; min-height: 32px; align-items: center; }
   .review-toolbar { align-items: stretch; padding: 10px; }
   .review-tabs { width: 100%; overflow-x: auto; }
-  .review-tabs button { flex: 1; white-space: nowrap; }
+  .review-tabs button { flex: 1; min-height: 32px; white-space: nowrap; }
   .pane-body { max-height: none; padding: 18px 16px; }
 }
 </style>
