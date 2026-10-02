@@ -1,27 +1,23 @@
 <template>
-  <div class="edit-page">
+  <div class="edit-page" @keydown="onPageKeydown">
     <div class="edit-head">
       <div>
-        <h1 class="edit-title">{{ isUpdate ? '编辑文档' : '撰写新文档' }}</h1>
-        <p class="edit-sub">
-          {{ isUpdate ? `正在修改：${targetPath}` : '新建一篇 wiki 文档' }}
-          · 提交后需管理员审核通过才会发布
-        </p>
+        <button type="button" class="back-link" @click="leaveEditor"><ArrowLeft :size="16" />返回</button>
+        <h1 class="edit-title">{{ isUpdate ? '编辑文章' : '写文章' }}</h1>
+        <p class="edit-sub">{{ isUpdate ? '完善已有内容，让后来的人更容易找到答案。' : '分享你了解的校园生活、办事方法与经验。' }}</p>
       </div>
       <div class="edit-actions">
-        <span v-if="draftSavedAt" class="draft-saved-hint">已保存 {{ draftSavedAt.slice(11) || draftSavedAt }}</span>
-        <button class="btn-ghost" @click="openDrafts">草稿箱{{ drafts.length ? ` (${drafts.length})` : '' }}</button>
-        <button class="btn-ghost" :disabled="draftSaving" @click="manualSaveDraft">
+        <button type="button" class="btn-ghost" @click="openDrafts">草稿箱{{ drafts.length ? ` (${drafts.length})` : '' }}</button>
+        <button type="button" class="btn-ghost" :disabled="draftSaving || loading || !!loadError || uploadingImage" @click="manualSaveDraft">
           {{ draftSaving ? '保存中…' : '保存草稿' }}
         </button>
-        <button class="btn-ghost" @click="$router.back()">取消</button>
-        <button class="btn-solid" :disabled="submitting || uploadingImage" @click="submit">
-          {{ uploadingImage ? '等待图片上传…' : submitting ? '提交中…' : '提交审核' }}
+        <button type="button" class="btn-solid" :disabled="submitting || uploadingImage || loading || !!loadError" @click="reviewSubmission">
+          {{ submitting ? '提交中…' : '提交审核' }}
         </button>
       </div>
     </div>
 
-    <el-dialog v-model="draftsOpen" title="草稿箱" width="560px">
+    <el-dialog transition="article-dialog" v-model="draftsOpen" title="草稿箱" width="560px">
       <div v-if="draftsLoading" class="drafts-loading">加载中…</div>
       <el-empty v-else-if="!drafts.length" description="暂无草稿" />
       <ul v-else class="draft-list">
@@ -41,142 +37,64 @@
       </ul>
     </el-dialog>
 
-    <div class="meta-card">
-      <div class="meta-card-head">文档信息</div>
-      <div class="meta-grid">
-      <div class="field" v-if="!isUpdate">
-        <label>分类</label>
-        <select v-model="form.categorySlug" class="inp">
-          <option value="">（顶级 / 无分类）</option>
-          <option v-for="c in cats" :key="c.slug" :value="c.slug">{{ c.label }}</option>
-        </select>
-      </div>
-      <div class="field" v-else>
-        <label>分类</label>
-        <input class="inp" :value="form.categorySlug || '（顶级）'" disabled />
-      </div>
-
-      <div class="field">
-        <label>标题与图标</label>
+    <p v-if="loading" class="load-notice" role="status">正在加载文章…</p>
+    <div v-else-if="loadError" class="load-notice" role="alert">{{ loadError }} <button type="button" class="btn-ghost" @click="initFromRoute">重试</button></div>
+    <template v-else>
+      <div class="article-meta">
+        <label class="field-label" for="article-title">文章标题</label>
         <div class="title-row">
-          <div class="icon-picker" ref="iconPicker">
-            <button
-              type="button"
-              class="icon-btn"
-              :class="{ 'has-icon': form.icon }"
-              :title="form.icon ? '更换或清除图标' : '选择图标（可选）'"
-              @click="iconPanelOpen = !iconPanelOpen"
-            >
-              <WikiIcon v-if="form.icon" :icon="form.icon" :title="form.title" :category="form.categorySlug" :size="20" />
-              <Plus v-else :size="18" :stroke-width="2" />
-            </button>
-            <div v-if="iconPanelOpen" class="icon-panel">
-              <div class="icon-grid">
-                <button
-                  v-for="e in iconPresets"
-                  :key="e"
-                  type="button"
-                  class="icon-cell"
-                  :class="{ selected: sameIcon(form.icon, e) }"
-                  @click="pickIcon(e)"
-                ><component :is="iconFor(e)" :size="18" :stroke-width="1.75" /></button>
-              </div>
-              <div class="icon-panel-foot">
-                <input
-                  v-model="customIcon"
-                  class="inp icon-custom"
-                  placeholder="或粘贴 emoji 后回车，自动换成相近图标"
-                  @keydown.enter.prevent="pickIcon(customIcon)"
-                />
-                <button v-if="form.icon" type="button" class="icon-clear" @click="pickIcon('')">清除</button>
-              </div>
+          <ArticleIconPicker v-model="form.icon" :category="form.categorySlug" />
+          <input id="article-title" ref="titleInput" v-model="form.title" class="inp title-input"
+            placeholder="例如：图书馆使用指南" :disabled="isUpdate" :aria-describedby="isUpdate ? 'title-help' : undefined" />
+        </div>
+        <p v-if="isUpdate" id="title-help" class="field-help">标题与文章地址关联，编辑时保留原题。</p>
+        <details class="article-settings">
+          <summary>文章设置<span>{{ categoryLabel }} · 简介{{ form.description.trim() ? '已填写' : '自动提取' }}</span><ChevronDown :size="16" /></summary>
+          <div class="meta-grid">
+            <div class="field">
+              <label for="article-category">所属分类</label>
+              <select id="article-category" v-model="form.categorySlug" class="inp" :disabled="isUpdate">
+                <option value="">未分类</option>
+                <option v-for="c in cats" :key="c.slug" :value="c.slug">{{ c.label }}</option>
+              </select>
+              <p class="field-help">{{ isUpdate ? '编辑时保留文章原有分类。' : '选择合适的篇章，方便读者查找。' }}</p>
+            </div>
+            <div class="field">
+              <label for="article-description">简介 <span class="optional">（可选）</span></label>
+              <input id="article-description" v-model="form.description" class="inp" maxlength="200" :placeholder="descPlaceholder" />
+              <p class="field-help">留空时从正文提取，用于列表和搜索结果。</p>
             </div>
           </div>
-          <input v-model="form.title" class="inp" placeholder="例如：图书馆使用指南" :disabled="isUpdate" />
-        </div>
+        </details>
       </div>
-
-      <div class="field span2">
-        <label>简介（可选，留空将自动从正文提取）</label>
-        <input v-model="form.description" class="inp" maxlength="200" :placeholder="descPlaceholder" />
+      <ArticleEditor ref="articleEditor" v-model="form.content" :title="form.title" :description="form.description"
+        :base-path="baseDir" :uploading="uploadingImage" :upload-progress="uploadProgress"
+        :save-status="saveStatus" :save-error="draftSaveError" @image="startImageUpload" @paste="handlePaste"
+        @drop="handleDrop" @resize-image="onImageResize" @save="manualSaveDraft" />
+      <p class="submission-note">提交后由管理员审核，通过后会公开发布。未完成的文章可以先存为草稿。</p>
+    </template>
+    <el-dialog transition="article-dialog" v-model="reviewOpen" title="提交前确认" width="760px" :close-on-click-modal="!submitting" :close-on-press-escape="!submitting" :show-close="!submitting">
+      <p class="review-note">请检查标题、正文和图片。提交后可在个人中心查看审核结果。</p>
+      <div class="review-content">
+        <p class="review-category">{{ categoryLabel }}</p>
+        <h2>{{ form.title }}</h2>
+        <p v-if="form.description.trim()" class="review-description">{{ form.description }}</p>
+        <MarkdownRenderer :content="form.content" :base-path="baseDir" embedded />
       </div>
-      </div>
-    </div>
-
-    <div class="editor-grid">
-      <div
-        class="pane editor-pane"
-        :class="{ 'drag-active': isDragging }"
-        @dragover.prevent="isDragging = true"
-        @dragleave="isDragging = false"
-        @drop.prevent="handleDrop"
-      >
-        <div class="pane-head">
-          <span>Markdown</span>
-          <div class="pane-tools">
-            <span v-if="uploadingImage" class="upload-progress">上传中 {{ uploadProgress }}%</span>
-            <button
-              type="button"
-              class="image-upload-btn"
-              :disabled="uploadingImage"
-              title="上传图片，也可以直接粘贴或拖入图片"
-              @click="$refs.imageInput.click()"
-            >
-              <el-icon><Picture /></el-icon>
-              {{ uploadingImage ? '上传中' : '插入图片' }}
-            </button>
-            <span class="pane-hint">{{ charCount }} 字</span>
-            <input
-              ref="imageInput"
-              class="visually-hidden"
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              @change="handleFileSelect"
-            />
-          </div>
-        </div>
-        <textarea
-          ref="markdownInput"
-          v-model="form.content"
-          class="md-input"
-          placeholder="# 标题&#10;&#10;在这里用 Markdown 写正文…"
-          spellcheck="false"
-          @paste="handlePaste"
-        ></textarea>
-        <div v-if="isDragging" class="drop-overlay">
-          <el-icon :size="28"><Picture /></el-icon>
-          <strong>松开以上传图片</strong>
-          <span>支持 JPG、PNG、GIF、WebP，最大 10MB</span>
-        </div>
-      </div>
-      <div class="pane">
-        <div class="pane-head">
-          <span>实时预览</span>
-        </div>
-        <div class="md-preview markdown-scope">
-          <MarkdownRenderer
-            v-if="form.content.trim()"
-            :content="form.content"
-            :base-path="baseDir"
-            embedded
-            resizable
-            @resize-image="onImageResize"
-          />
-          <p v-else class="preview-empty">预览将在这里实时显示…</p>
-        </div>
-      </div>
-    </div>
+      <template #footer>
+        <button type="button" class="btn-ghost" :disabled="submitting" @click="reviewOpen = false">继续编辑</button>
+        <button type="button" class="btn-solid review-submit" :disabled="submitting || uploadingImage" @click="submit">{{ submitting ? '提交中…' : '确认提交审核' }}</button>
+      </template>
+    </el-dialog>
   </div>
 </template>
-
 <script>
 import { markRaw, nextTick } from 'vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import WikiIcon from '@/components/WikiIcon.vue'
-import { Plus } from 'lucide-vue-next'
-import { ICON_CHOICES, emojiIcon, normalizeEmoji, resolveIcon } from '@/utils/icons.js'
+import ArticleIconPicker from '@/components/ArticleIconPicker.vue'
+import ArticleEditor from '@/components/ArticleEditor.vue'
+import { ArrowLeft, ChevronDown } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
-import { Picture } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { categories, fetchPageContent, loadManifest, state as wikiState } from '@/wiki'
 import { submitRevision, uploadImage,
@@ -186,23 +104,26 @@ const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'im
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 // 标题拼进页面路径，这些字符会破坏路由（与后端 TitleUtil 一致）
 const ILLEGAL_TITLE = /[/\\#?%]|\.\./
-// 图标选择器：数据库里存的仍是 emoji（后端与历史内容的约定），
-// 界面上显示成对应的线性图标，见 utils/icons.js
 
 export default {
   name: 'EditPage',
-  components: { MarkdownRenderer: markRaw(MarkdownRenderer), Picture, WikiIcon, Plus },
+  components: { MarkdownRenderer: markRaw(MarkdownRenderer), ArticleIconPicker, ArticleEditor, ArrowLeft, ChevronDown },
   props: { targetPath: { type: String, default: '' } },
   data() {
     return {
       submitting: false,
       uploadingImage: false,
       uploadProgress: 0,
-      isDragging: false,
+      loading: true,
+      loadError: '',
+      initVersion: 0,
+      disposed: false,
+      reviewOpen: false,
+      submitted: false,
       form: { categorySlug: '', title: '', icon: '', description: '', content: '' },
       baseVersion: null,
-      iconPanelOpen: false,
-      customIcon: '',
+      draftSaveError: false,
+      savePromise: null,
       // 草稿
       draftId: null,
       draftSavedAt: '',
@@ -228,8 +149,14 @@ export default {
     cats() {
       return categories()
     },
-    iconPresets() {
-      return ICON_CHOICES
+    categoryLabel() { return this.cats.find(c => c.slug === this.form.categorySlug)?.label || this.form.categorySlug || '未分类' },
+    dirty() { return this.hasDraftWorthSaving() && this.snapshot() !== this.lastSavedSnapshot },
+    saveStatus() {
+      if (this.draftSaving) return '正在保存草稿…'
+      if (this.draftSaveError) return '草稿保存失败，请重试保存'
+      if (this.dirty) return '有未保存的修改 · 停止输入后自动保存'
+      if (this.draftSavedAt) return `草稿已保存 ${this.draftSavedAt.slice(11, 19) || this.draftSavedAt}`
+      return this.isUpdate ? '尚未修改原文' : '开始写作后自动保存草稿'
     },
     // 与后端 MarkdownUtil.extractSummary 同一规则：正文首个普通段落
     autoSummary() {
@@ -267,45 +194,52 @@ export default {
       const p = this.targetPath || (this.form.categorySlug ? `${this.form.categorySlug}/x` : '')
       return p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : ''
     },
-    charCount() {
-      return this.form.content.length
-    },
   },
   async mounted() {
+    window.addEventListener('beforeunload', this.onBeforeUnload)
     if (!wikiState.loaded) await loadManifest()
+    if (this.disposed) return
     await this.initFromRoute()
     this.refreshDrafts()
-    document.addEventListener('click', this.onDocClick)
   },
   beforeUnmount() {
-    document.removeEventListener('click', this.onDocClick)
+    this.disposed = true
+    this.initVersion += 1
+    window.removeEventListener('beforeunload', this.onBeforeUnload)
     clearTimeout(this.autoSaveTimer)
-    // 离开页面前尽力保存未落盘的改动（不阻塞导航，失败静默）
-    if (this.hasDraftWorthSaving() && this.snapshot() !== this.lastSavedSnapshot) {
-      this.doSaveDraft(true)
-    }
   },
+  async beforeRouteLeave() { return this.saveBeforeLeaving() },
+  async beforeRouteUpdate() { return this.saveBeforeLeaving() },
   methods: {
-    onDocClick(e) {
-      if (this.iconPanelOpen && this.$refs.iconPicker && !this.$refs.iconPicker.contains(e.target)) {
-        this.iconPanelOpen = false
+    onBeforeUnload(event) {
+      if (this.dirty || this.uploadingImage || this.submitting) { event.preventDefault(); event.returnValue = '' }
+    },
+    onPageKeydown(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault(); this.manualSaveDraft()
       }
     },
-    iconFor(e) {
-      return markRaw(emojiIcon(e) || resolveIcon({}))
+    leaveEditor() {
+      if (window.history.state?.back) this.$router.back()
+      else this.$router.push(this.isUpdate ? `/docs/${this.targetPath}` : '/')
     },
-    sameIcon(a, b) {
-      return !!a && normalizeEmoji(a) === normalizeEmoji(b)
-    },
-    pickIcon(e) {
-      this.form.icon = (e || '').trim()
-      this.iconPanelOpen = false
-      this.customIcon = ''
-    },
-    handleFileSelect(event) {
-      const file = event.target.files?.[0]
-      event.target.value = ''
-      if (file) this.startImageUpload(file)
+    async saveBeforeLeaving() {
+      if (this.submitted) return true
+      if (this.submitting) { ElMessage.warning('正在提交，请稍后再离开'); return false }
+      if (this.uploadingImage) { ElMessage.warning('图片正在上传，请稍后再离开'); return false }
+      while (this.savePromise) await this.savePromise
+      if (this.loading || this.loadError) return true
+      // 保存期间仍可输入，必须把最新一次修改也保存后才离开。
+      while (this.dirty) {
+        if (!await this.doSaveDraft(true)) break
+      }
+      if (!this.dirty) return true
+      try {
+        await ElMessageBox.confirm('草稿未能保存。离开会丢失尚未保存的修改。', '离开文章编辑？', {
+          confirmButtonText: '放弃修改并离开', cancelButtonText: '继续编辑', type: 'warning',
+        })
+        return true
+      } catch { return false }
     },
     handlePaste(event) {
       const clipboardFiles = Array.from(event.clipboardData?.items || [])
@@ -319,7 +253,6 @@ export default {
       this.startImageUpload(file)
     },
     handleDrop(event) {
-      this.isDragging = false
       const file = Array.from(event.dataTransfer?.files || [])
         .find((item) => ALLOWED_IMAGE_TYPES.has(item.type))
       if (!file) {
@@ -339,8 +272,8 @@ export default {
       }
       return true
     },
-    insertUploadPlaceholder(file) {
-      const textarea = this.$refs.markdownInput
+    insertUploadPlaceholder() {
+      const textarea = this.$refs.articleEditor?.$refs.input
       const start = textarea?.selectionStart ?? this.form.content.length
       const end = textarea?.selectionEnd ?? start
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -349,19 +282,20 @@ export default {
       const suffix = end < this.form.content.length && this.form.content[end] !== '\n' ? '\n' : ''
       const insertion = `${prefix}${placeholder}${suffix}`
       this.form.content = this.form.content.slice(0, start) + insertion + this.form.content.slice(end)
-      return { placeholder, cursor: start + insertion.length }
+      return { placeholder }
     },
-    replaceUploadPlaceholder(placeholder, replacement, fallbackCursor) {
+    replaceUploadPlaceholder(placeholder, replacement) {
+      this.$refs.articleEditor?.removeUploadPlaceholderFromHistory(placeholder)
       const index = this.form.content.indexOf(placeholder)
       if (index >= 0) {
         this.form.content = this.form.content.replace(placeholder, replacement)
         return index + replacement.length
       }
-      const cursor = Math.min(fallbackCursor, this.form.content.length)
-      this.form.content = this.form.content.slice(0, cursor) + replacement + this.form.content.slice(cursor)
-      return cursor + replacement.length
+      // 上传中撤销或删除了占位符，就尊重用户的删除操作。
+      return null
     },
     removeUploadPlaceholder(placeholder) {
+      this.$refs.articleEditor?.removeUploadPlaceholderFromHistory(placeholder)
       this.form.content = this.form.content.replace(placeholder, '')
     },
     imageMarkdown(file, data) {
@@ -379,7 +313,7 @@ export default {
       }
       if (!this.validateImage(file)) return
 
-      const { placeholder, cursor } = this.insertUploadPlaceholder(file)
+      const { placeholder } = this.insertUploadPlaceholder()
       this.uploadingImage = true
       this.uploadProgress = 0
       uploadImage(
@@ -394,11 +328,12 @@ export default {
             return
           }
           const markdown = this.imageMarkdown(file, data)
-          const nextCursor = this.replaceUploadPlaceholder(placeholder, markdown, cursor)
+          const nextCursor = this.replaceUploadPlaceholder(placeholder, markdown)
           this.uploadingImage = false
           this.uploadProgress = 100
+          if (nextCursor === null) { ElMessage.info('已取消插入图片'); this.scheduleAutoSave(); return }
           await nextTick()
-          const textarea = this.$refs.markdownInput
+          const textarea = this.$refs.articleEditor?.$refs.input
           textarea?.focus()
           textarea?.setSelectionRange(nextCursor, nextCursor)
           ElMessage.success('图片已插入')
@@ -445,32 +380,39 @@ export default {
       this.draftId = null
       this.draftSavedAt = ''
       this.lastSavedSnapshot = ''
+      this.draftSaveError = false
+      this.reviewOpen = false
+      this.submitted = false
     },
     async initFromRoute() {
+      const version = ++this.initVersion
+      this.loading = true
+      this.loadError = ''
       this.resetFormState()
       if (this.isUpdate) {
         try {
           const d = await fetchPageContent(this.targetPath)
-          this.form.categorySlug = d.categorySlug || ''
-          this.form.title = d.title || ''
-          this.form.icon = d.icon || ''
-          this.form.description = d.description || ''
-          this.form.content = d.content || ''
+          if (version !== this.initVersion) return
+          this.form = { categorySlug: d.categorySlug || '', title: d.title || '', icon: d.icon || '', description: d.description || '', content: d.content || '' }
           this.baseVersion = d.version ?? 0
-        } catch (e) {
-          ElMessage.error('无法加载原文内容')
+        } catch {
+          if (version === this.initVersion) { this.loadError = '无法加载原文，请重试。'; this.loading = false }
+          return
         }
-        // 灌入原文不算改动：先对齐快照，避免刚打开就自动存了一份与线上相同的草稿
-        this.lastSavedSnapshot = this.snapshot()
-        // 原文灌入后再检查是否有这页的编辑草稿，避免草稿被覆盖
-        this.$nextTick(() => this.checkDraftForPath())
-      } else {
-        this.lastSavedSnapshot = this.snapshot()
-        if (this.$route.query.draft) {
-          // 从草稿箱进入：直接载入指定草稿
-          getDraft(this.$route.query.draft, (d) => this.applyDraft(d), () => {})
-        }
+      } else if (this.$route.query.draft) {
+        await new Promise(resolve => getDraft(this.$route.query.draft, d => {
+          if (version === this.initVersion) this.applyDraft(d)
+          resolve()
+        }, () => { if (version === this.initVersion) this.loadError = '无法加载草稿，请重试。'; resolve() }))
       }
+      if (version !== this.initVersion) return
+      this.lastSavedSnapshot = this.snapshot()
+      if (this.isUpdate) await this.checkDraftForPath()
+      if (version !== this.initVersion) return
+      await nextTick()
+      this.loading = false
+      await nextTick()
+      this.$refs.articleEditor?.resetHistory()
     },
 
     // ---------- 草稿 ----------
@@ -493,45 +435,57 @@ export default {
       return JSON.stringify(p)
     },
     hasDraftWorthSaving() {
-      return !!(this.form.title.trim() || this.form.content.trim()
+      return !!(this.draftId || this.form.title.trim() || this.form.content.trim()
         || this.form.description.trim())
     },
     scheduleAutoSave() {
       clearTimeout(this.autoSaveTimer)
-      if (this.submitting) return
+      if (this.submitting || this.loading || this.loadError || this.uploadingImage) return
       this.autoSaveTimer = setTimeout(() => {
-        if (this.submitting) return
+        if (this.submitting || this.loading || this.loadError || this.uploadingImage) return
         if (!this.hasDraftWorthSaving()) return
         if (this.snapshot() === this.lastSavedSnapshot) return
         this.doSaveDraft(true)
       }, 3000)
     },
-    doSaveDraft(silent) {
-      if (!silent) {
-        if (!this.hasDraftWorthSaving()) return ElMessage.warning('内容为空，无需保存草稿')
-        this.draftSaving = true
+    async doSaveDraft(silent = true) {
+      if (this.loading || this.loadError || this.uploadingImage || this.submitted) return false
+      // 先完成在途保存，再保存最新内容，避免首次自动保存生成两份草稿。
+      while (this.savePromise) await this.savePromise
+      if (this.loading || this.loadError || this.uploadingImage || this.submitted || this.submitting) return false
+      if (!this.hasDraftWorthSaving()) {
+        if (!silent) ElMessage.warning('写下标题或正文后再保存草稿')
+        return false
       }
+      if (this.snapshot() === this.lastSavedSnapshot) return true
+      clearTimeout(this.autoSaveTimer)
       const snap = this.snapshot()
-      saveDraft(this.draftPayload(),
-        (d) => {
+      this.draftSaving = true
+      this.draftSaveError = false
+      this.savePromise = new Promise(resolve => {
+        const failed = (message) => {
+          this.draftSaveError = true
+          if (!silent) ElMessage.error(typeof message === 'string' ? message : '草稿保存失败，请重试')
+          resolve(false)
+        }
+        saveDraft(this.draftPayload(), d => {
           this.draftId = d.id
           this.draftSavedAt = d.savedAt || ''
           this.lastSavedSnapshot = snap
-          this.draftSaving = false
-          if (!silent) {
-            ElMessage.success('草稿已保存')
-            this.refreshDrafts()
-          }
-        },
-        (msg) => {
-          this.draftSaving = false
-          if (!silent) ElMessage.error(msg || '草稿保存失败')
-        },
-        // 网络层错误：自动保存完全静默（离线打字不弹全局警告），手动保存才提示
-        silent ? () => {} : undefined)
+          if (!silent) ElMessage.success('草稿已保存')
+          resolve(true)
+        }, failed, failed)
+      })
+      const saved = await this.savePromise
+      this.savePromise = null
+      this.draftSaving = false
+      if (saved && !silent) this.refreshDrafts()
+      return saved
     },
     manualSaveDraft() {
-      this.doSaveDraft(false)
+      if (this.uploadingImage) return ElMessage.warning('图片上传完成后会自动保存')
+      if (this.submitting) return
+      return this.doSaveDraft(false)
     },
     refreshDrafts() {
       listDrafts((d) => { this.drafts = d || [] }, () => {})
@@ -546,49 +500,58 @@ export default {
     applyDraft(d) {
       if (!d) return
       if (!this.isUpdate) this.form.categorySlug = d.categorySlug || ''
-      this.form.title = d.title || this.form.title
+      if (!this.isUpdate) this.form.title = d.title || ''
       this.form.icon = d.icon || ''
       this.form.description = d.description || ''
       this.form.content = d.content || ''
       this.draftId = d.id
       this.draftSavedAt = d.updatedAt || ''
+      // 恢复编辑草稿时保留它基于的版本，交给后端检测期间的其他修改。
+      if (this.isUpdate && d.baseVersion != null) this.baseVersion = d.baseVersion
       // 灌入草稿本身不算“新改动”，避免马上又自动保存一遍
-      this.$nextTick(() => { this.lastSavedSnapshot = this.snapshot() })
+      this.lastSavedSnapshot = this.snapshot()
+      this.draftSaveError = false
+      this.$nextTick(() => this.$refs.articleEditor?.resetHistory())
     },
     checkDraftForPath() {
-      getDraftByPath(this.targetPath, (d) => {
-        if (!d) return
-        ElMessageBox.confirm(
-          `检测到你在 ${d.updatedAt} 保存过这篇文档的草稿，是否恢复？`,
-          '发现草稿',
-          {
-            confirmButtonText: '恢复草稿',
-            cancelButtonText: '丢弃草稿',
-            distinguishCancelAndClose: true,
-            type: 'info',
-          }
-        ).then(() => {
-          this.applyDraft(d)
-        }).catch((action) => {
-          // 明确点「丢弃」才删除；按 ESC / 点 X 保留草稿不动
-          if (action === 'cancel') {
+      const version = this.initVersion
+      // 恢复草稿前暂不开放正文，避免慢请求覆盖刚输入的文字。
+      return new Promise(resolve => getDraftByPath(this.targetPath, async d => {
+        if (!d || version !== this.initVersion) { resolve(); return }
+        try {
+          await ElMessageBox.confirm(
+            `检测到你在 ${d.updatedAt} 保存过这篇文章的草稿，是否恢复？`, '发现草稿',
+            { confirmButtonText: '恢复草稿', cancelButtonText: '丢弃草稿', distinguishCancelAndClose: true, type: 'info' }
+          )
+          if (version === this.initVersion) this.applyDraft(d)
+        } catch (action) {
+          // 明确点「丢弃」才删除；按 ESC / 点 X 保留草稿不动。
+          if (action === 'cancel' && version === this.initVersion) {
             deleteDraft(d.id, () => { this.refreshDrafts() }, () => {})
           }
-        })
-      }, () => {})
+        } finally { resolve() }
+      }, () => resolve()))
     },
-    loadDraftItem(d) {
+    async loadDraftItem(d) {
+      if (!await this.saveBeforeLeaving()) return
       this.draftsOpen = false
-      if (d.type === 'UPDATE') {
-        if (this.isUpdate && this.targetPath === d.targetPath) {
-          getDraft(d.id, (full) => this.applyDraft(full), (m) => ElMessage.error(m || '草稿加载失败'))
-        } else {
-          this.$router.push(`/edit/${d.targetPath}`) // 进入编辑页后走「发现草稿」恢复流程
-        }
-      } else if (this.isUpdate) {
+      if (d.type === 'UPDATE' && (!this.isUpdate || this.targetPath !== d.targetPath)) {
+        this.$router.push(`/edit/${d.targetPath}`)
+      } else if (d.type !== 'UPDATE' && this.isUpdate) {
         this.$router.push({ path: '/edit', query: { draft: String(d.id) } })
       } else {
-        getDraft(d.id, (full) => this.applyDraft(full), (m) => ElMessage.error(m || '草稿加载失败'))
+        const version = ++this.initVersion
+        this.loading = true
+        clearTimeout(this.autoSaveTimer)
+        getDraft(d.id, full => {
+          if (version !== this.initVersion) return
+          this.applyDraft(full)
+          this.loading = false
+        }, message => {
+          if (version !== this.initVersion) return
+          this.loading = false
+          ElMessage.error(message || '草稿加载失败')
+        })
       }
     },
     async removeDraftItem(d) {
@@ -602,13 +565,32 @@ export default {
       }, (m) => ElMessage.error(m || '删除失败'))
     },
 
-    submit() {
-      if (this.uploadingImage) return ElMessage.warning('请等待图片上传完成')
+    reviewSubmission() {
+      if (!this.validateSubmission()) return
+      this.reviewOpen = true
+    },
+    validateSubmission() {
+      if (this.loading || this.loadError || this.submitting) return false
+      if (this.uploadingImage) { ElMessage.warning('请等待图片上传完成'); return false }
       const title = this.form.title.trim()
-      if (!title) return ElMessage.error('请填写标题')
-      if (ILLEGAL_TITLE.test(title)) return ElMessage.error('标题不能包含 / \\ # ? % 或 .. 等字符')
-      if (!this.form.content.trim()) return ElMessage.error('正文不能为空')
+      if (!title || ILLEGAL_TITLE.test(title)) {
+        ElMessage.error(!title ? '请填写文章标题' : '标题不能包含 / \\ # ? % 或 .. 等字符')
+        this.$refs.titleInput?.focus()
+        return false
+      }
+      if (!this.form.content.trim()) {
+        ElMessage.error('请先写下正文')
+        this.$refs.articleEditor?.$refs.input?.focus()
+        return false
+      }
+      return true
+    },
+    async submit() {
+      if (!this.validateSubmission()) return
+      const title = this.form.title.trim()
       this.submitting = true
+      clearTimeout(this.autoSaveTimer)
+      while (this.savePromise) await this.savePromise
       const payload = {
         type: this.isUpdate ? 'UPDATE' : 'CREATE',
         path: this.isUpdate ? this.targetPath : undefined,
@@ -624,6 +606,8 @@ export default {
         payload,
         () => {
           this.submitting = false
+          this.submitted = true
+          this.reviewOpen = false
           // 投稿成功：清掉对应草稿，并对齐快照防止离开页面时又补存一份
           clearTimeout(this.autoSaveTimer)
           if (this.draftId) deleteDraft(this.draftId, () => {}, () => {})
@@ -634,7 +618,9 @@ export default {
         (msg) => {
           this.submitting = false
           ElMessage.error(msg || '提交失败')
-        }
+          this.scheduleAutoSave()
+        },
+        () => { this.submitting = false; ElMessage.error('网络异常，提交未完成，请重试'); this.scheduleAutoSave() }
       )
     },
   },
@@ -642,38 +628,43 @@ export default {
 </script>
 
 <style scoped>
-.edit-page {
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 28px 24px 64px;
-}
-.edit-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 20px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-}
-.edit-title {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: var(--lh-tight);
-  letter-spacing: 0;
-  color: var(--text-primary);
-  margin: 0;
-}
-.edit-sub { color: var(--text-secondary); font-size: 14px; margin: 6px 0 0; }
-.edit-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
-.draft-saved-hint {
-  color: var(--text-muted);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
+.edit-page { width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 32px 56px; }
+.edit-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin-bottom: 12px; color: var(--text-secondary); background: transparent; border: 0; font: inherit; font-size: 13px; cursor: pointer; }
+.edit-title { margin: 0; color: var(--text-primary); font-size: 26px; line-height: var(--lh-tight); }
+.edit-sub { margin: 8px 0 0; color: var(--text-secondary); font-size: 14px; }
+.edit-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.btn-solid, .btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-body); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: background var(--dur), color var(--dur); }
+.btn-solid { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.btn-solid:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-ghost:hover:not(:disabled) { background: var(--bg-hover); }
+button:focus-visible, summary:focus-visible, .inp:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-solid:disabled, .btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
+.article-meta { margin-bottom: 20px; }
+.field-label, .field label { display: block; font-size: 14px; font-weight: 600; color: var(--text-body); margin-bottom: 8px; }
+.title-row { display: flex; gap: 10px; }
+.inp { width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-sans); font-size: 14px; }
+.title-input { flex: 1; min-width: 0; font-size: 20px; padding: 10px 14px; }
+.inp:disabled { color: var(--text-secondary); background: var(--bg-subtle); }
+.inp::placeholder { color: var(--text-muted); }
+.field-help { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); }
+.article-settings { margin-top: 18px; border: 1px solid var(--border); border-radius: var(--radius); }
+.article-settings summary { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: var(--text-body); font-size: 14px; cursor: pointer; list-style: none; }
+.article-settings summary::-webkit-details-marker { display: none; }
+.article-settings summary span { flex: 1; color: var(--text-muted); font-size: 12px; }
+.article-settings[open] summary { border-bottom: 1px solid var(--border); }
+.article-settings[open] summary svg { transform: rotate(180deg); }
+.meta-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; padding: 16px; }
+.field { min-width: 0; }
+.optional { font-weight: 400; color: var(--text-muted); }
+.submission-note { font-size: 13px; color: var(--text-muted); margin: 14px 0 0; }
+.load-notice { padding: 24px 0; color: var(--text-secondary); }
+.review-note { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
+.review-content { border-top: 1px solid var(--border); max-height: 56vh; overflow-y: auto; overflow-wrap: anywhere; padding: 16px 4px; }
+.review-category { color: var(--text-muted); font-size: 13px; margin: 0; }
+.review-content h2 { color: var(--text-primary); font-size: 24px; margin: 8px 0 16px; }
+.review-description { color: var(--text-secondary); font-size: 14px; }
+.review-submit { margin-left: 8px; }
 /* 草稿箱 */
 .drafts-loading { padding: 20px; color: var(--text-muted); font-size: 14px; }
 .draft-list { list-style: none; margin: 0; padding: 0; }
@@ -731,262 +722,17 @@ export default {
   white-space: nowrap;
 }
 
-.btn-solid, .btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  font-size: 14px;
-  cursor: pointer;
-  /* 只过渡颜色类属性，尺寸和阴影变化不做动画 */
-  transition: background var(--dur), color var(--dur), border-color var(--dur);
-}
-.btn-solid { background: var(--accent); color: var(--accent-contrast); border: 1px solid transparent; }
-.btn-solid:hover:not(:disabled) { background: var(--accent-hover); }
-.btn-ghost { background: var(--bg-surface); color: var(--text-body); border: 1px solid var(--border-strong); }
-.btn-ghost:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); }
-.btn-solid:disabled, .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
-.meta-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-surface);
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-.meta-card-head {
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--bg-subtle);
-  border-bottom: 1px solid var(--border);
-}
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  padding: 18px;
-}
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field.span2 { grid-column: 1 / -1; }
-.field label { font-size: 13px; font-weight: 600; color: var(--text-body); }
-.inp {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: var(--font-sans);
-  transition: border-color var(--dur) ease;
-}
-/* 输入框的焦点提示就是边框变成强调色；全局的 2px 焦点环在输入框上显得太重 */
-.inp:focus { outline: none; border-color: var(--accent); }
-.inp:disabled { background: var(--bg-subtle); color: var(--text-muted); }
-
-/* ---- 标题 + 图标选择器 ---- */
-.title-row { display: flex; gap: 8px; align-items: stretch; }
-.title-row .inp { flex: 1; min-width: 0; }
-.icon-picker { position: relative; flex-shrink: 0; }
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 100%;
-  min-height: 40px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  transition: border-color var(--dur) ease, color var(--dur) ease;
-}
-.icon-btn.has-icon { border-style: solid; color: var(--accent); }
-.icon-btn:hover { border-color: var(--accent); color: var(--text-primary); }
-.icon-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 20;
-  width: 320px;
-  max-width: 78vw;
-  padding: 10px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
-}
-.icon-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
-  /* 表情较多时在面板内滚动；否则面板高度超出视口且页面无法带着它下滑 */
-  max-height: min(264px, 42vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.icon-cell {
-  display: grid;
-  place-items: center;
-  padding: 7px 0;
-  color: var(--text-secondary);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font-size: 18px;
-  line-height: 1.3;
-  cursor: pointer;
-}
-.icon-cell:hover { background: var(--bg-hover); color: var(--text-primary); }
-.icon-cell.selected { background: var(--accent-soft); color: var(--accent); outline: 2px solid var(--accent); }
-.icon-panel-foot { display: flex; gap: 8px; margin-top: 10px; }
-.icon-custom { flex: 1; padding: 6px 10px; font-size: 13px; }
-.icon-clear {
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-}
-.icon-clear:hover { color: var(--text-primary); border-color: var(--border-strong); }
-
-.editor-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  height: calc(100vh - 320px);
-  min-height: 480px;
-}
-.pane {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-surface);
-}
-.editor-pane { position: relative; }
-.pane-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  /* 两个窗格的标题栏等高（含 30px 工具按钮），拖拽遮罩从这条线下方开始 */
-  min-height: 45px;
-  padding: 7px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-subtle);
-}
-.pane-hint { font-weight: 400; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.pane-tools { display: flex; align-items: center; gap: 10px; }
-/* 窗格标题栏里的工具按钮：30px 行内高度 */
-.image-upload-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color var(--dur) ease, color var(--dur) ease;
-}
-.image-upload-btn:hover:not(:disabled) {
-  border-color: var(--text-muted);
-  color: var(--text-primary);
-}
-.image-upload-btn:disabled { cursor: wait; opacity: 0.55; }
-.upload-progress {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-.drop-overlay {
-  position: absolute;
-  inset: 45px 0 0;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 2px dashed var(--accent);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  pointer-events: none;
-}
-/* 支持 color-mix() 时让编辑区微微透出；不支持时用上面的不透明底色，不会变成全透明 */
-@supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .drop-overlay { background: color-mix(in srgb, var(--bg-surface) 92%, transparent); }
-}
-.drop-overlay span { color: var(--text-secondary); font-size: 12px; }
-.md-input {
-  flex: 1;
-  border: none;
-  resize: none;
-  padding: 18px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-body);
-  background: var(--bg-surface);
-}
-/* 正文框没有自己的边框，焦点提示改由整个编辑窗格的边框承担，避免焦点完全不可见 */
-.md-input:focus { outline: none; }
-.editor-pane:focus-within { border-color: var(--accent); }
-.md-preview { flex: 1; padding: 20px 24px; overflow-y: auto; }
-.preview-empty { color: var(--text-muted); font-size: 14px; }
-
-@media (max-width: 1024px) {
-  .meta-grid { grid-template-columns: 1fr; }
-  .editor-grid { grid-template-columns: 1fr; height: auto; }
-  .pane { min-height: 360px; }
-}
-
-@media (max-width: 640px) {
-  .edit-page { padding: 20px 14px 48px; }
-  .meta-grid { gap: 13px; padding: 14px; }
-  .field.span2 { grid-column: auto; }
-  .editor-grid { gap: 12px; }
-  .pane { min-height: 320px; }
-  .md-input { padding: 14px; }
-  .md-preview { padding: 16px 14px; }
-  .pane-head { gap: 8px; }
-  .pane-tools { gap: 6px; }
-  .upload-progress, .pane-hint { display: none; }
-  .image-upload-btn { padding: 0 8px; }
-  /* 头部改纵向堆叠：否则标题被按钮挤成一列竖排、提交按钮溢出屏幕 */
-  .edit-head { flex-direction: column; align-items: stretch; }
-  .edit-actions { width: 100%; }
-  .edit-actions .btn-solid,
-  .edit-actions .btn-ghost { flex: 1 1 auto; min-height: 40px; padding: 0 8px; white-space: nowrap; }
-  .draft-saved-hint { width: 100%; order: -1; }
+@media (max-width: 760px) {
+  .edit-page { padding: 18px 14px 40px; }
+  .edit-head { flex-direction: column; align-items: stretch; gap: 18px; margin-bottom: 22px; }
+  .edit-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .edit-actions button { padding: 8px 6px; min-height: 42px; }
+  .edit-title { font-size: 24px; }
+  .edit-sub { font-size: 13px; }
+  .title-input { font-size: 18px; }
+  .meta-grid { grid-template-columns: 1fr; gap: 16px; padding: 14px; }
+  .article-settings summary { gap: 8px; }
   .draft-list li { align-items: flex-start; flex-wrap: wrap; }
 }
 </style>

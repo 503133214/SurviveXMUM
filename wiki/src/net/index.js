@@ -200,8 +200,8 @@ function logout(success, failure = defaultFailure, error = defaultError) {
     );
 }
 // ---- Wiki 投稿 / 审核 ----
-function submitRevision(payload, success, failure = defaultFailure) {
-    post('/wiki/revision', payload, success, failure)
+function submitRevision(payload, success, failure = defaultFailure, error = defaultError) {
+    internalPost('/wiki/revision', payload, accessHeader(), success, failure, error)
 }
 function getMyRevisions(success, failure = defaultFailure) {
     get('/wiki/revision/mine', success, failure)
@@ -411,13 +411,13 @@ function saveDraft(payload, success, failure = defaultFailure, error = defaultEr
     internalPost('/wiki/drafts', payload, accessHeader(), success, failure, error)
 }
 function listDrafts(success, failure = defaultFailure) {
-    get('/wiki/drafts', success, failure)
+    internalGet('/wiki/drafts', accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function getDraft(id, success, failure = defaultFailure) {
-    get(`/wiki/drafts/${id}`, success, failure)
+    internalGet(`/wiki/drafts/${id}`, accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function getDraftByPath(path, success, failure = defaultFailure) {
-    get(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, success, failure)
+    internalGet(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function deleteDraft(id, success, failure = defaultFailure) {
     remove(`/wiki/drafts/${id}`, success, failure)
