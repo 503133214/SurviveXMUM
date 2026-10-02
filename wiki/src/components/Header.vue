@@ -1,5 +1,5 @@
 <template>
-  <header class="site-header" :class="{ scrolled: isScrolled }">
+  <header class="site-header">
     <div class="header-top">
       <router-link to="/" class="logo" aria-label="返回首页">
         <img src="/svg/Text_logo_hor.svg" alt="XMUM Wiki" class="logo-img" />
@@ -60,15 +60,22 @@
                 <span>暂无通知</span>
               </div>
               <ul v-else class="nm-list">
-                <li
-                  v-for="n in notifications"
-                  :key="n.id"
-                  :class="{ unread: !n.read }"
-                  @click="openNotification(n)"
-                >
-                  <div class="nm-title">{{ n.title }}<span v-if="!n.read" class="nm-dot"></span></div>
-                  <div class="nm-content">{{ n.content }}</div>
-                  <div class="nm-time">{{ n.createTime }}</div>
+                <!-- 每行是一个真按钮：键盘能 Tab 到，回车 / 空格就能打开并标为已读 -->
+                <li v-for="n in notifications" :key="n.id">
+                  <button
+                    type="button"
+                    class="nm-row"
+                    :class="{ unread: !n.read }"
+                    @click="openNotification(n)"
+                  >
+                    <span class="nm-title">
+                      {{ n.title }}
+                      <span v-if="!n.read" class="nm-dot" aria-hidden="true"></span>
+                      <span v-if="!n.read" class="sr-only">（未读）</span>
+                    </span>
+                    <span class="nm-content">{{ n.content }}</span>
+                    <span class="nm-time">{{ n.createTime }}</span>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -162,9 +169,6 @@
                 <el-dropdown-item :command="`/docs/${HOME_PATH}`">
                   <el-icon><Document /></el-icon>文档
                 </el-dropdown-item>
-                <el-dropdown-item command="/tags">
-                  <el-icon><PriceTag /></el-icon>标签
-                </el-dropdown-item>
                 <el-dropdown-item command="/changes">
                   <el-icon><Clock /></el-icon>站点动态
                 </el-dropdown-item>
@@ -212,7 +216,6 @@
     <nav v-if="!isMobileView" class="header-nav" aria-label="主导航">
       <div class="header-nav-inner">
         <router-link :to="`/docs/${HOME_PATH}`" :class="{ 'is-active': inDocs }">文档</router-link>
-        <router-link to="/tags" :class="{ 'is-active': $route.path.startsWith('/tags') }">标签</router-link>
         <router-link to="/changes" :class="{ 'is-active': $route.path === '/changes' }">动态</router-link>
         <router-link to="/contributors" :class="{ 'is-active': $route.path.startsWith('/contributors') }">贡献榜</router-link>
       </div>
@@ -224,7 +227,7 @@
 import {
   Menu, X as Close, UserRound as User, SquarePen as EditPen, Settings as Setting, LogOut as SwitchButton,
   Moon, Sun as Sunny, Github as Link, FileText as Document, ChevronDown as ArrowDown, Bell, Star,
-  MessageSquareText as ChatDotRound, Trophy, Tags as PriceTag, History as Clock, Search,
+  MessageSquareText as ChatDotRound, Trophy, History as Clock, Search,
 } from "lucide-vue-next";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
@@ -233,22 +236,22 @@ import { useTheme } from "@/composables/useTheme.js";
 import { openPalette } from "@/composables/usePalette.js";
 import { HOME_PATH, REPO } from "@/wiki";
 import { BACKEND_ENABLED } from "@/config.js";
+import { shortcutLabel } from "@/utils/shortcut.js";
 
 const MOBILE_BREAKPOINT = 767;
 
 export default {
   name: "SiteHeader",
-  components: { Menu, Close, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, PriceTag, Clock, Search },
+  components: { Menu, Close, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, Clock, Search },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
   },
   data() {
-    const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || "");
     return {
-      shortcutLabel: isMac ? "⌘K" : "Ctrl K",
+      // 快捷键文案与首页助手区共用同一个判断，避免两处各写一套平台检测
+      shortcutLabel: shortcutLabel(),
       isMobileView: false,
-      isScrolled: false,
       menuOpen: false,
       // 弹层默认可以贴到视口边缘；留 12px 让面板不与屏幕边框粘在一起
       popperKeepInset: {
@@ -354,9 +357,6 @@ export default {
       clearTimeout(this.resizeTimeout);
       this.resizeTimeout = setTimeout(this.checkMobileView, 100);
     },
-    handleScroll() {
-      this.isScrolled = window.scrollY > 8;
-    },
     handleMobileNavCommand(command) {
       if (command === "github") {
         window.open(REPO, "_blank", "noopener,noreferrer");
@@ -371,9 +371,7 @@ export default {
   },
   mounted() {
     this.checkMobileView();
-    this.handleScroll();
     window.addEventListener("resize", this.handleResize);
-    window.addEventListener("scroll", this.handleScroll, { passive: true });
     // 其它标签页登录/登出会触发 storage 事件，这里同步刷新本标签页的登录态。
     window.addEventListener("storage", this.bumpAuthVersion);
     this.loadUnread();
@@ -387,7 +385,6 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.handleResize);
-    window.removeEventListener("scroll", this.handleScroll);
     window.removeEventListener("storage", this.bumpAuthVersion);
     document.removeEventListener("visibilitychange", this.onVisibilityRefresh);
     window.removeEventListener("focus", this.onVisibilityRefresh);
@@ -398,7 +395,7 @@ export default {
 </script>
 
 <style scoped>
-/* 顶栏：实色品牌蓝，亮暗主题同色（参造 ac-wiki）。
+/* 顶栏：实色品牌蓝（参造 ac-wiki），暗色主题换成更沉的一档，颜色都来自 --header-* 令牌。
    第一行是品牌行（logo + 站名 + 搜索 + 操作区），第二行是主导航行。 */
 .site-header {
   position: sticky;
@@ -406,9 +403,12 @@ export default {
   z-index: 1000;
   background: var(--header-bg);
   color: var(--header-ink);
-  transition: box-shadow 0.25s ease;
 }
-.site-header.scrolled { box-shadow: 0 2px 12px rgba(9, 12, 40, 0.28); }
+/* 实色顶栏和正文之间本来就有明显色差，滚动后也不加投影，所以不监听滚动 */
+
+/* 全局焦点环是 --accent 蓝，落在同为蓝色的顶栏上几乎看不见，顶栏里改用白色描边 */
+.site-header a:focus-visible,
+.site-header button:focus-visible { outline-color: var(--header-ink); }
 
 .header-top {
   display: flex;
@@ -422,8 +422,8 @@ export default {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  border-radius: 6px;
-  transition: opacity 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--dur) ease;
 }
 .logo:hover { opacity: 0.8; text-decoration: none; }
 /* 品牌蓝底上 logo 一律用白色 */
@@ -434,13 +434,15 @@ export default {
   color: var(--header-ink);
   font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 主导航行：文字链接 + 当前列底部白色指示条 */
-.header-nav { border-top: 1px solid var(--header-line); }
+/* 主导航行：文字链接 + 当前列底部白色指示条。
+   和品牌行之间的分隔线用内阴影画在这 40px 里面，不用 border-top：
+   边框会让顶栏变成 97px，比 --header-height 多 1px，贴着它定位的进度条和
+   sticky 元素就会被顶栏压住一条 */
+.header-nav { box-shadow: inset 0 1px 0 var(--header-line); }
 .header-nav-inner {
   display: flex;
   align-items: stretch;
@@ -454,12 +456,14 @@ export default {
   align-items: center;
   padding: 0 13px;
   color: var(--header-ink-dim);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 500;
-  transition: color 0.15s ease;
+  transition: color var(--dur) ease;
 }
 .header-nav a:hover { color: var(--header-ink); text-decoration: none; }
 .header-nav a.is-active { color: var(--header-ink); font-weight: 600; }
+/* 导航链接占满整行高度，向外的焦点环会压到上方分隔线和顶栏下沿，改为向内画 */
+.header-nav a:focus-visible { outline-offset: -2px; }
 .header-nav a.is-active::after {
   content: "";
   position: absolute;
@@ -467,7 +471,7 @@ export default {
   bottom: 0;
   left: 13px;
   height: 2px;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
   background: var(--header-ink);
 }
 
@@ -491,29 +495,29 @@ export default {
   height: 34px;
   margin-right: 6px;
   padding: 0 6px 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--header-field-border);
+  border-radius: var(--radius-sm);
+  background: var(--header-field-bg);
+  color: var(--header-ink-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--dur) ease, color var(--dur) ease, border-color var(--dur) ease;
 }
 .search-trigger:hover {
-  border-color: rgba(255, 255, 255, 0.38);
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--header-hover);
   color: var(--header-ink);
 }
 .search-label { flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .search-kbd {
   flex-shrink: 0;
-  padding: 2px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 11px;
-  font-weight: 600;
+  padding: 0 6px;
+  border: 1px solid var(--header-field-border);
+  border-radius: var(--radius-xs);
+  color: var(--header-ink-dim);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 20px;
 }
 
 .icon-btn {
@@ -525,48 +529,50 @@ export default {
   width: 34px;
   height: 34px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--header-ink-dim);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
 }
 .icon-btn:hover,
-.icon-btn.open { background: rgba(255, 255, 255, 0.14); color: var(--header-ink); text-decoration: none; }
+.icon-btn.open { background: var(--header-hover); color: var(--header-ink); text-decoration: none; }
 
+/* 未读数：描一圈顶栏底色，和铃铛图标之间留出缝隙 */
 .bell-count {
   position: absolute;
-  top: 2px;
-  right: 1px;
+  top: 1px;
+  right: 0;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
   border: 2px solid var(--header-bg);
-  border-radius: 999px;
-  background: #ff5a5f;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--header-badge-bg);
+  color: var(--header-ink);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
   text-align: center;
   box-sizing: content-box;
 }
 
+/* 顶栏上唯一的实心按钮：反白，悬停时略降亮度，不做缩放 */
 .login-btn {
   display: inline-flex;
   align-items: center;
   height: 32px;
   margin-left: 6px;
-  padding: 0 15px;
-  border-radius: 6px;
-  background: #fff;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  background: var(--header-ink);
   color: var(--header-bg);
-  font-size: 13px;
-  font-weight: 600;
-  transition: background 0.15s ease, transform 0.15s ease;
+  font-size: var(--fs-ui);
+  font-weight: 500;
+  transition: background-color var(--dur) ease;
 }
-.login-btn:hover { background: #e9ecff; color: #3a49c4; text-decoration: none; }
-.login-btn:active { transform: scale(0.97); }
+.login-btn:hover { background: var(--header-ink-dim); color: var(--header-bg); text-decoration: none; }
 
 .account-btn {
   display: flex;
@@ -574,26 +580,26 @@ export default {
   gap: 7px;
   margin-left: 4px;
   padding: 3px 9px 3px 3px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
+  border: 1px solid var(--header-field-border);
+  border-radius: var(--radius-sm);
   background: transparent;
   font: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--dur) ease;
 }
-.account-btn:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.1); }
+.account-btn:hover { background: var(--header-hover); }
 .account-btn :deep(.el-avatar) {
-  background: #fff;
+  background: var(--header-ink);
   color: var(--header-bg);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
-.account-btn .caret { color: rgba(255, 255, 255, 0.7); }
+.account-btn .caret { color: var(--header-ink-dim); }
 .user-name {
   max-width: 88px;
   overflow: hidden;
   color: var(--header-ink);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -603,7 +609,7 @@ export default {
 @media (max-width: 1080px) {
   .header-top { gap: 10px; }
   .search-trigger { flex: 0 0 34px; justify-content: center; margin-right: 0; padding: 0; border-color: transparent; background: transparent; }
-  .search-trigger:hover { border-color: transparent; background: rgba(255, 255, 255, 0.14); }
+  .search-trigger:hover { border-color: transparent; background: var(--header-hover); }
   .search-label,
   .search-kbd { display: none; }
 }
@@ -623,8 +629,8 @@ export default {
 .user-menu.el-dropdown__popper {
   overflow: hidden;
   border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 .user-menu.el-dropdown__popper .el-popper__arrow { display: none; }
 .user-menu .um-card { min-width: 232px; padding: 6px; }
@@ -658,13 +664,14 @@ export default {
   line-height: 1.2;
 }
 .user-menu .um-badge {
-  padding: 1px 6px;
+  padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle);
   color: var(--text-secondary);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 18px;
 }
 .user-menu .um-badge-super {
   border-color: var(--accent);
@@ -689,9 +696,9 @@ export default {
   gap: 9px;
   margin: 1px 0;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-body);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   line-height: 1.3;
 }
 .user-menu .el-dropdown-menu__item .el-icon {
@@ -723,8 +730,8 @@ export default {
 .nav-menu.el-dropdown__popper {
   overflow: hidden;
   border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 .nav-menu.el-dropdown__popper .el-popper__arrow { display: none; }
 .nav-menu .nv-card {
@@ -757,13 +764,14 @@ export default {
   line-height: 1.2;
 }
 .nav-menu .nv-badge {
-  padding: 1px 6px;
+  padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--bg-subtle);
   color: var(--text-secondary);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 18px;
 }
 .nav-menu .nv-badge-super {
   border-color: var(--accent);
@@ -782,13 +790,12 @@ export default {
   border: none;
   background: transparent;
 }
-/* 分组小标题：条目变多之后（浏览 7 项 + 我的 5 项）没有分组就是一长条 */
+/* 分组小标题：登录后「浏览」「我的」加起来有八项，不分组就是一长条 */
 .nav-menu .nv-group {
   padding: 7px 10px 3px;
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .08em;
+  font-size: var(--fs-xs);
+  font-weight: 600;
   list-style: none;
 }
 .nav-menu .el-dropdown-menu__item {
@@ -798,9 +805,9 @@ export default {
   min-height: 40px;
   margin: 1px 0;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-body);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   line-height: 1.3;
 }
 .nav-menu .el-dropdown-menu__item .el-icon {
@@ -831,8 +838,8 @@ export default {
 .notif-menu.el-dropdown__popper {
   overflow: hidden;
   border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 .notif-menu.el-dropdown__popper .el-popper__arrow { display: none; }
 .notif-menu .nm-card { width: 320px; max-width: 86vw; padding: 0; }
@@ -854,7 +861,7 @@ export default {
   padding: 32px 14px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 .notif-menu .nm-list {
   list-style: none;
@@ -863,19 +870,29 @@ export default {
   max-height: 380px;
   overflow-y: auto;
 }
-.notif-menu .nm-list li {
+/* 行本身是 <button>：清掉按钮默认外观，铺满整行，文字左对齐 */
+.notif-menu .nm-row {
+  display: block;
+  width: 100%;
   padding: 9px 10px;
-  border-radius: 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background-color var(--dur) ease;
 }
-.notif-menu .nm-list li:hover { background: var(--bg-subtle); }
-.notif-menu .nm-list li.unread { background: var(--accent-soft); }
+.notif-menu .nm-row:hover { background: var(--bg-subtle); }
+.notif-menu .nm-row.unread { background: var(--accent-soft); }
+/* 列表有滚动容器，向外的焦点环会被裁掉，改为向内画 */
+.notif-menu .nm-row:focus-visible { outline-offset: -2px; }
 .notif-menu .nm-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -888,7 +905,8 @@ export default {
 }
 .notif-menu .nm-content {
   margin-top: 3px;
-  font-size: 12.5px;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   line-height: 1.45;
   display: -webkit-box;
@@ -897,8 +915,10 @@ export default {
   overflow: hidden;
 }
 .notif-menu .nm-time {
+  display: block;
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 </style>

@@ -1,87 +1,72 @@
 <template>
   <div class="feedback-page">
-    <el-card class="feedback-card">
-      <template #header>
-        <div class="card-header">
-          <span>系统反馈</span>
-        </div>
-      </template>
+    <header class="fb-head">
+      <h1>意见反馈</h1>
+      <p class="fb-sub">遇到问题或有建议，写在这里，管理员会在下方回复。</p>
+    </header>
 
-      <el-alert
-        title="我们重视您的每一条反馈"
-        description="如果您在使用过程中遇到任何问题，或对系统功能、界面、交互有任何建议，欢迎在此提交。您的反馈将帮助我们持续优化产品体验。"
-        type="info"
-        show-icon
-        :closable="false"
-        style="margin-bottom: 24px;"
-      />
+    <!-- 表单项名称统一放在输入框上方：手机和桌面同一种排版，不用再为窄屏改写 label 宽度 -->
+    <el-form
+      ref="feedbackFormRef"
+      :model="feedbackForm"
+      :rules="feedbackRules"
+      label-position="top"
+      class="fb-form"
+    >
+      <el-form-item label="反馈类型" prop="type">
+        <el-radio-group v-model="feedbackForm.type">
+          <el-radio value="bug">问题反馈</el-radio>
+          <el-radio value="feature">功能建议</el-radio>
+          <el-radio value="ui">界面优化</el-radio>
+          <el-radio value="other">其他</el-radio>
+        </el-radio-group>
+      </el-form-item>
 
-      <el-form
-        ref="feedbackFormRef"
-        :model="feedbackForm"
-        :rules="feedbackRules"
-        label-width="100px"
-      >
-        <el-form-item label="反馈类型" prop="type">
-          <el-radio-group v-model="feedbackForm.type">
-            <el-radio label="bug">问题反馈</el-radio>
-            <el-radio label="feature">功能建议</el-radio>
-            <el-radio label="ui">界面优化</el-radio>
-            <el-radio label="other">其他</el-radio>
-          </el-radio-group>
-        </el-form-item>
+      <el-form-item label="反馈标题" prop="title">
+        <el-input
+          v-model="feedbackForm.title"
+          placeholder="一句话说明是什么问题或建议"
+          maxlength="50"
+          show-word-limit
+        />
+      </el-form-item>
 
-        <el-form-item label="反馈标题" prop="title">
-          <el-input
-            v-model="feedbackForm.title"
-            placeholder="请简要描述反馈主题"
-            maxlength="50"
-            show-word-limit
-          />
-        </el-form-item>
+      <el-form-item label="详细描述" prop="content">
+        <el-input
+          v-model="feedbackForm.content"
+          type="textarea"
+          :rows="6"
+          placeholder="写清楚在哪个页面、做了什么、看到了什么，或者你希望怎么改"
+          maxlength="1000"
+          show-word-limit
+        />
+      </el-form-item>
 
-        <el-form-item label="详细描述" prop="content">
-          <el-input
-            v-model="feedbackForm.content"
-            type="textarea"
-            :rows="6"
-            placeholder="请详细描述您遇到的问题或建议..."
-            maxlength="1000"
-            show-word-limit
-          />
-        </el-form-item>
+      <el-form-item label="满意度（选填）" prop="rating">
+        <el-rate
+          v-model="feedbackForm.rating"
+          show-text
+          :texts="['非常不满意', '不满意', '一般', '满意', '非常满意']"
+        />
+      </el-form-item>
 
-        <el-form-item label="满意度" prop="rating">
-          <el-rate
-            v-model="feedbackForm.rating"
-            :colors="['#99A9BF', '#F7BA2A', '#FF9900']"
-            show-text
-            :texts="['非常不满意', '不满意', '一般', '满意', '非常满意']"
-          />
-        </el-form-item>
+      <el-form-item label="联系方式" prop="contact">
+        <el-input
+          v-model="feedbackForm.contact"
+          placeholder="选填，方便管理员联系你（邮箱或手机号）"
+        />
+      </el-form-item>
 
-        <el-form-item label="联系方式" prop="contact">
-          <el-input
-            v-model="feedbackForm.contact"
-            placeholder="选填，便于我们与您沟通（邮箱/手机号）"
-          />
-        </el-form-item>
+      <el-form-item class="fb-actions">
+        <el-button type="primary" @click="submitFeedback" :loading="isSubmitting">
+          提交反馈
+        </el-button>
+        <el-button @click="resetForm">重置</el-button>
+      </el-form-item>
+    </el-form>
 
-        <el-form-item>
-          <el-button type="primary" @click="submitFeedback" :loading="isSubmitting">
-            提交反馈
-          </el-button>
-          <el-button @click="resetForm">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card v-if="myFeedbacks.length" class="feedback-list-card">
-      <template #header>
-        <div class="list-header">
-          <span>我的反馈记录</span>
-        </div>
-      </template>
+    <section v-if="myFeedbacks.length" class="fb-history">
+      <h2 class="fb-section-title">我的反馈记录</h2>
 
       <el-timeline>
         <el-timeline-item
@@ -90,21 +75,21 @@
           :timestamp="item.createTime"
           :type="item.status === 'resolved' ? 'success' : item.status === 'processing' ? 'warning' : 'info'"
         >
-          <el-card class="feedback-item" shadow="hover">
+          <div class="feedback-item">
             <div class="feedback-item-header">
-              <h4>{{ item.title }}</h4>
+              <h3>{{ item.title }}</h3>
               <el-tag :type="statusType(item.status)">{{ statusText(item.status) }}</el-tag>
             </div>
             <p class="feedback-content">{{ item.content }}</p>
             <div v-if="item.reply" class="feedback-reply">
-              <el-divider content-position="left">官方回复</el-divider>
-              <p>{{ item.reply }}</p>
+              <p class="reply-label">管理员回复</p>
+              <p class="reply-body">{{ item.reply }}</p>
               <span class="reply-time">回复于 {{ item.replyTime }}</span>
             </div>
-          </el-card>
+          </div>
         </el-timeline-item>
       </el-timeline>
-    </el-card>
+    </section>
   </div>
 </template>
 
@@ -166,7 +151,7 @@ export default {
           },
           () => {
             isSubmitting.value = false
-            ElMessage.success('反馈提交成功，感谢您的宝贵意见！')
+            ElMessage.success('反馈已提交，管理员回复后会显示在下方')
             resetForm()
             loadFeedbacks()
           },
@@ -220,92 +205,115 @@ export default {
 </script>
 
 <style scoped>
+/* 与其它应用页同一套页头和留白；表单直接铺在页面上，不再套 el-card */
 .feedback-page {
   width: 100%;
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 0 20px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
 }
 
-.feedback-card {
-  margin-bottom: 24px;
+.fb-head { margin-bottom: 24px; }
+.fb-head h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+.fb-sub {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
-.card-header,
-.list-header {
-  font-size: 1.25rem;
-  font-weight: bold;
+.fb-form :deep(.el-form-item__label) {
+  font-weight: 600;
+  color: var(--text-body);
 }
+.fb-actions { margin-bottom: 0; }
 
-.feedback-list-card {
-  margin-bottom: 40px;
+/* 星级用站点的 warning 令牌，暗色主题下自动跟着换色；悬停不放大 */
+.feedback-page :deep(.el-rate) { --el-rate-fill-color: var(--warning); }
+.feedback-page :deep(.el-rate__icon.hover) { transform: none; }
+
+.fb-history { margin-top: 40px; }
+.fb-section-title {
+  margin: 0 0 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
 }
+.fb-history :deep(.el-timeline) { padding: 0; }
 
 .feedback-item {
-  margin-bottom: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
 }
 
 .feedback-item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
-.feedback-item-header h4 {
+.feedback-item-header h3 {
   margin: 0;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .feedback-content {
   margin: 0;
   color: var(--text-secondary);
+  font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
 .feedback-reply {
-  margin-top: 16px;
-  padding: 12px;
-  background-color: var(--bg-subtle);
-  border-radius: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
 }
-
-.feedback-reply p {
-  margin: 0 0 8px;
+.reply-label {
+  margin: 0 0 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.reply-body {
+  margin: 0 0 6px;
   color: var(--text-body);
+  font-size: 14px;
   line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .reply-time {
-  font-size: 0.85rem;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
-/* 移动端：标签置顶、输入框占满整行（左侧 100px 标签太挤） */
 @media (max-width: 640px) {
-  .feedback-page { margin: 14px auto; padding: 0 12px 36px; }
-  .feedback-card,
-  .feedback-list-card { border-radius: var(--radius); }
-  .feedback-page :deep(.el-card__header) { padding: 15px 16px; }
-  .feedback-page :deep(.el-card__body) { padding: 16px; }
-  .feedback-page :deep(.el-form-item) { display: block; }
-  .feedback-page :deep(.el-form-item__label) {
-    display: block;
-    width: auto !important;
-    text-align: left;
-    margin-bottom: 4px;
-  }
-  .feedback-page :deep(.el-form-item__content) { margin-left: 0 !important; }
-  .feedback-page :deep(.el-radio-group) { gap: 4px 10px; }
-  .feedback-page :deep(.el-radio) { margin-right: 4px; }
-  .feedback-page :deep(.el-rate) {
-    display: flex;
-    max-width: 100%;
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-  .feedback-page :deep(.el-timeline) { padding-left: 10px; }
-  .feedback-item-header { align-items: flex-start; gap: 10px; }
-  .feedback-item-header h4 { min-width: 0; overflow-wrap: anywhere; }
+  .feedback-page { padding: 24px 16px 48px; }
+  .fb-head h1 { font-size: 24px; }
+  /* 四个单选在 390px 宽放不下一行，缩小间距让它们两两换行 */
+  .feedback-page :deep(.el-radio) { margin-right: 20px; }
+  .feedback-item { padding: 12px; }
+  .feedback-item-header { align-items: flex-start; }
 }
 </style>

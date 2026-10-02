@@ -1,59 +1,76 @@
 /* src/assets/global.css */
 
 /* ===========================================================================
-   Design tokens — the whole UI themes off these. Dark mode overrides the same
-   names under html.dark, and Element Plus is mapped onto them further down,
-   so its dialogs, switches and tabs follow both themes too.
+   设计令牌：整站界面都从这里取值。暗色主题在 html.dark 下覆盖同名变量，
+   Element Plus 的变量也映射到这些令牌上，所以它的对话框、开关、标签页同样
+   跟着两套主题走。
 
-   Colour: the accent is derived from the logo's navy (#00045a) in OKLCH
-   (hue 270) and lifted to a readable indigo. Values are written as hex on
-   purpose: some in-app browsers still can't parse oklch(), and an invalid
-   custom property would blank out every colour that uses it.
+   颜色：唯一的强调色是从校徽深蓝（#00045a）推出来的一支正蓝（色相约 220），
+   提亮到正文里读得清（亮色 #2456b8，暗色 #7ea6f0），只标记链接、当前导航项
+   和每屏至多一个主按钮，其余一律用中性灰。顶栏是同一色系里更深的实色蓝。
+   不用靛紫色：那是模板站的默认色，而且离校徽的深蓝越来越远。
+   令牌值一律写 hex / rgba：部分 App 内置浏览器解析不了 oklch()，一个非法的
+   自定义属性会让所有引用它的颜色整片失效。
 
-   Specificity: Element Plus injects its per-component CSS (base.css included)
-   lazily, often after this file. The token block is `html:root` and every
-   Element override below starts with `body` so they win regardless of order.
+   层次：平面为主，用 1px 边框和留白分隔；阴影只给浮在页面上的东西（菜单、
+   对话框、搜索面板）。圆角只有 2 / 4 / 6 / 8 四档。
+
+   优先级：Element Plus 的按组件样式（含 base.css）是懒加载注入的，常排在
+   本文件之后。所以令牌块写成 html:root，下面每条 Element 覆盖都以 body 开头，
+   不论注入顺序都能生效。
    ========================================================================= */
 html:root {
-  /* Type */
-  --font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* 字体：只用系统字体栈。不再从 Google Fonts 拉 Inter——中国大陆访问会卡住，
+     中文本来也是回落到系统字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* Brand & accent */
-  --navy: #00045a;
-  --accent: #3345ce;
-  --accent-hover: #2936b7;
+  /* 字号与行高：界面文字 14、阅读正文 16，全站不低于 12 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-ui: 14px;
+  --fs-read: 16px;
+  --fs-h3: 18px;
+  --lh-tight: 1.3;
+  --lh-ui: 1.6;
+  --lh-read: 1.8;
+
+  /* 品牌与强调色 */
+  --accent: #2456b8;
+  --accent-hover: #1c4596;
   --accent-contrast: #ffffff;
-  --accent-soft: #eff0fb;
-  --accent-soft-strong: #e3e6f8;
-  --accent-ring: rgba(51, 69, 206, 0.28);
+  --accent-soft: #edf2fb;
+  --accent-soft-strong: #dbe5f6;
   --brand: var(--accent);
-  --brand-strong: #0f0e6b;
-  --brand-blue: #2e40b9; /* link ink */
-  --brand-gradient: linear-gradient(100deg, #3345ce 0%, #7c5cff 55%, #22b8e6 100%);
-  --brand-gradient-text: linear-gradient(100deg, #2e40b9 0%, #6d4df2 50%, #0e9ad4 100%);
+  --brand-strong: #183772;
+  --brand-blue: #2456b8; /* 链接色 */
 
-  /* 顶栏：亮暗两套主题都用同一条实色品牌蓝（参造 ac-wiki / VitePress 的站头） */
-  --header-bg: #4d5ce6;
+  /* 顶栏：一条实色深蓝。栏上的控件只用半透明白叠在蓝底上，不再引入别的颜色；
+     未读角标是唯一例外，红色才看得出「有新消息」。角标上是 12px 白字，
+     红色取 #d13438（白字 4.9:1）；原来的 #e5484d 只有 3.9:1，不到 AA */
+  --header-bg: #1f4287;
   --header-ink: #ffffff;
-  --header-ink-dim: rgba(255, 255, 255, 0.78);
-  --header-line: rgba(255, 255, 255, 0.14);
+  --header-ink-dim: rgba(255, 255, 255, 0.8);
+  --header-line: rgba(255, 255, 255, 0.16);
+  --header-hover: rgba(255, 255, 255, 0.12);
+  --header-field-bg: rgba(255, 255, 255, 0.1);
+  --header-field-border: rgba(255, 255, 255, 0.24);
+  --header-badge-bg: #d13438;
 
-  /* Surfaces */
+  /* 底色 */
   --bg-page: #ffffff;
   --bg-surface: #ffffff;
   --bg-subtle: #f6f6f7;
   --bg-hover: #ececee;
-  --bg-inverse: #0f1321;
 
-  /* Text */
+  /* 文字。muted 从 #6e7280 调深：原值压在 bg-subtle 上只有 4.4:1，不到 AA */
   --text-primary: #0f1321;
   --text-body: #292d3b;
   --text-secondary: #5b606f;
-  --text-muted: #6e7280;
+  --text-muted: #676b78;
 
-  /* Status */
+  /* 状态色 */
   --success: #15803d;
   --success-soft: #ecfdf3;
   --warning: #b45309;
@@ -61,41 +78,91 @@ html:root {
   --danger: #c62828;
   --danger-soft: #fef2f2;
 
-  /* Lines & depth (shadows are tinted with the ink colour, not pure black) */
+  /* 线条与阴影：阴影用墨色而不是纯黑，模糊半径小，只是让浮层和页面分开 */
   --border: #e3e4e6;
   --border-strong: #d3d4d8;
-  --shadow-xs: 0 1px 2px rgba(15, 19, 33, 0.05);
-  --shadow-sm: 0 1px 2px rgba(15, 19, 33, 0.04), 0 2px 6px rgba(15, 19, 33, 0.05);
-  --shadow-md: 0 2px 4px rgba(15, 19, 33, 0.04), 0 10px 28px rgba(15, 19, 33, 0.08);
-  --shadow-lg: 0 4px 10px rgba(15, 19, 33, 0.05), 0 28px 72px rgba(15, 19, 33, 0.16);
+  --shadow-sm: 0 1px 2px rgba(15, 19, 33, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 19, 33, 0.08);
+  --shadow-lg: 0 8px 24px rgba(15, 19, 33, 0.12);
 
-  /* Shape & layout */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* 遮罩、搜索高亮、差异对比：组件里不写死颜色，统一从这里取 */
+  --overlay: rgba(15, 19, 33, 0.45);
+  --overlay-strong: rgba(8, 10, 20, 0.88);
+  --mark-bg: #fff1a8;
+  --mark-ink: #1c1917;
+  --diff-add-bg: #edf9f0;
+  --diff-del-bg: #fff0ef;
+
+  /* 形状与布局。圆角只有这四档。
+     --header-height 必须等于顶栏实际高度（桌面 56 + 40，分隔线画在导航行里面、
+     不额外占高）：阅读进度条和各处 sticky 元素都贴着它定位，多 1px 就会钻到顶栏下面 */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
   --header-height: 96px;
   --maxw: 1080px;
-  --measure: 46rem; /* comfortable reading width for the doc body */
+  --measure: 46rem; /* 正文的舒适阅读宽度 */
 
-  /* Glass + motion */
-  --glass-bg: rgba(255, 255, 255, 0.92);
-  --glass-border: rgba(15, 19, 33, 0.07);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* 动效：只做颜色、背景、透明度的反馈，150ms 以内；不用回弹曲线 */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 150ms;
+  --dur-slow: 200ms;
 
-  /* Element Plus → our tokens */
+  /* Element Plus → 我们的令牌 */
   --el-font-family: var(--font-sans);
   --el-color-primary: var(--accent);
-  --el-color-primary-light-3: #707ddd;
-  --el-color-primary-light-5: #99a2e7;
-  --el-color-primary-light-7: #c2c7f0;
-  --el-color-primary-light-8: #d6daf5;
-  --el-color-primary-light-9: #ebecfa;
-  --el-color-primary-dark-2: #2937a5;
-  --el-border-radius-base: 10px;
-  --el-border-radius-small: 8px;
+  --el-color-primary-light-3: #6689cd;
+  --el-color-primary-light-5: #92abdc;
+  --el-color-primary-light-7: #bdccea;
+  --el-color-primary-light-8: #d3ddf1;
+  --el-color-primary-light-9: #e9eef8;
+  --el-color-primary-dark-2: #1d4593;
+  /* 状态色族也要映射：Element Plus 自带的 #67c23a / #e6a23c / #f56c6c / #909399
+     压在白底或标签浅底上只有 2～3:1，el-tag 状态徽标和 type="danger" 的文字按钮
+     都会用到。主色取状态令牌；light-3～8 按 Element Plus 的算法与白色混合，
+     light-9（标签底色）直接用对应的 -soft 令牌，和站内自己的徽标是同一对颜色；
+     dark-2 与黑色混 20%。info 是中性色，对应 --text-secondary / --bg-subtle。
+     error 是 danger 的别名，el-message 等组件读的是它 */
+  --el-color-success: var(--success);
+  --el-color-success-light-3: #5ba677;
+  --el-color-success-light-5: #8ac09e;
+  --el-color-success-light-7: #b9d9c5;
+  --el-color-success-light-8: #d0e6d8;
+  --el-color-success-light-9: #ecfdf3;
+  --el-color-success-dark-2: #116631;
+  --el-color-warning: var(--warning);
+  --el-color-warning-light-3: #ca8753;
+  --el-color-warning-light-5: #daa984;
+  --el-color-warning-light-7: #e8cbb5;
+  --el-color-warning-light-8: #f0ddce;
+  --el-color-warning-light-9: #fffbeb;
+  --el-color-warning-dark-2: #904207;
+  --el-color-danger: var(--danger);
+  --el-color-danger-light-3: #d76868;
+  --el-color-danger-light-5: #e29494;
+  --el-color-danger-light-7: #eebebe;
+  --el-color-danger-light-8: #f4d4d4;
+  --el-color-danger-light-9: #fef2f2;
+  --el-color-danger-dark-2: #9e2020;
+  --el-color-error: var(--el-color-danger);
+  --el-color-error-light-3: var(--el-color-danger-light-3);
+  --el-color-error-light-5: var(--el-color-danger-light-5);
+  --el-color-error-light-7: var(--el-color-danger-light-7);
+  --el-color-error-light-8: var(--el-color-danger-light-8);
+  --el-color-error-light-9: var(--el-color-danger-light-9);
+  --el-color-error-dark-2: var(--el-color-danger-dark-2);
+  --el-color-info: var(--text-secondary);
+  --el-color-info-light-3: #8c909a;
+  --el-color-info-light-5: #adb0b7;
+  --el-color-info-light-7: #cecfd4;
+  --el-color-info-light-8: #dedfe2;
+  --el-color-info-light-9: #f6f6f7;
+  --el-color-info-dark-2: #494d59;
+  --el-border-radius-base: 4px;
+  --el-border-radius-small: 3px;
+  /* 只有圆形按钮和头像用得到全圆角 */
   --el-border-radius-round: 999px;
   --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-body);
@@ -113,41 +180,38 @@ html:root {
   --el-fill-color-lighter: var(--bg-subtle);
   --el-fill-color: var(--bg-hover);
   --el-mask-color: rgba(255, 255, 255, 0.86);
-  --el-overlay-color-lighter: rgba(10, 12, 24, 0.42);
+  --el-overlay-color-lighter: var(--overlay);
   --el-box-shadow-light: var(--shadow-md);
 
   color-scheme: light;
 }
 
 html.dark {
-  --accent: #8ba6fd;
-  --accent-hover: #a2b8fd;
-  --accent-contrast: #0d142c;
-  --accent-soft: #23252b;
-  --accent-soft-strong: #2d3038;
-  --accent-ring: rgba(139, 166, 253, 0.36);
-  --brand-strong: #c9d4ff;
-  --brand-blue: #99b3ff;
-  --brand-gradient: linear-gradient(100deg, #8ba6fd 0%, #b69cff 55%, #67d4f5 100%);
-  --brand-gradient-text: linear-gradient(100deg, #a9bdff 0%, #c8b4ff 50%, #7fdcf7 100%);
+  /* 暗色下强调色提亮到 #7ea6f0，在石墨底上约 7.1:1 */
+  --accent: #7ea6f0;
+  --accent-hover: #a3c0f5;
+  --accent-contrast: #0f1a33;
+  --accent-soft: #232831;
+  --accent-soft-strong: #2c3442;
+  --brand-strong: #c9d8f7;
+  --brand-blue: #8fb2f2;
 
-  /* 顶栏在暗色下仍是同一条品牌蓝（与 ac-wiki 一致） */
-  --header-bg: #4d5ce6;
-  --header-ink: #ffffff;
-  --header-ink-dim: rgba(255, 255, 255, 0.78);
-  --header-line: rgba(255, 255, 255, 0.14);
+  /* 顶栏换成更沉的深蓝，压在石墨色页面上不刺眼；栏上的其余令牌（白字、
+     半透明白的悬停 / 输入框 / 分隔线、红色角标）两套主题相同，沿用亮色的值 */
+  --header-bg: #1b2d55;
 
-  /* 中性石墨色阶（VitePress 暗色观感），替代原先偏蓝的夜色 */
+  /* 中性石墨色阶（VitePress 暗色观感），不用偏蓝的夜色 */
   --bg-page: #1b1b1f;
   --bg-surface: #222327;
   --bg-subtle: #282a2e;
   --bg-hover: #313338;
-  --bg-inverse: #f3f5f9;
 
+  /* muted 从 #8b8e96 调亮：原值在 bg-subtle 上只有 4.4:1、bg-hover 上 3.9:1。
+     现在 bg-page 6.2 / surface 5.7 / subtle 5.2 / hover 4.55，和亮色一样四种底色都过 AA */
   --text-primary: #f1f2f4;
   --text-body: #d6d7da;
   --text-secondary: #a4a7ae;
-  --text-muted: #8b8e96;
+  --text-muted: #989ba3;
 
   --success: #4ade80;
   --success-soft: rgba(74, 222, 128, 0.1);
@@ -158,20 +222,51 @@ html.dark {
 
   --border: #2e3035;
   --border-strong: #3c3f45;
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 6px 14px rgba(0, 0, 0, 0.45), 0 32px 80px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-  --glass-bg: rgba(34, 35, 39, 0.92);
-  --glass-border: rgba(255, 255, 255, 0.07);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --overlay-strong: rgba(8, 10, 20, 0.9);
+  --mark-bg: #5a4b12;
+  --mark-ink: #f5ecc8;
+  --diff-add-bg: rgba(34, 128, 68, 0.16);
+  --diff-del-bg: rgba(181, 53, 46, 0.16);
 
-  --el-color-primary-light-3: #667ab9;
-  --el-color-primary-light-5: #4e5d8c;
-  --el-color-primary-light-7: #36405f;
-  --el-color-primary-light-8: #293148;
-  --el-color-primary-light-9: #1d2332;
-  --el-color-primary-dark-2: #a2b8fd;
+  /* Element Plus 的暗色变量表也写在 html.dark 上，这里再声明一遍，保证用的是我们的值 */
+  --el-color-primary-light-3: #607cb1;
+  --el-color-primary-light-5: #4d6188;
+  --el-color-primary-light-7: #39455e;
+  --el-color-primary-light-8: #2f3749;
+  --el-color-primary-light-9: #252934;
+  --el-color-primary-dark-2: #a3c0f5;
+  /* 状态色族的暗色版：light-N 与页面底色 #1b1b1f 混合（和上面主色同一算法），
+     dark-2 在暗色下是更亮的一档（与白色混 20%），和 Element Plus 自己的暗色表一致。
+     error 在 html:root 里已经指向 danger，这里不用再写 */
+  --el-color-success-light-3: #3ca363;
+  --el-color-success-light-5: #327c50;
+  --el-color-success-light-7: #29563c;
+  --el-color-success-light-8: #244232;
+  --el-color-success-light-9: #202e29;
+  --el-color-success-dark-2: #6ee599;
+  --el-color-warning-light-3: #b88e22;
+  --el-color-warning-light-5: #8b6d22;
+  --el-color-warning-light-7: #5e4c20;
+  --el-color-warning-light-8: #483c20;
+  --el-color-warning-light-9: #312b20;
+  --el-color-warning-dark-2: #fccc50;
+  --el-color-danger-light-3: #b65758;
+  --el-color-danger-light-5: #8a4648;
+  --el-color-danger-light-7: #5d3538;
+  --el-color-danger-light-8: #472c2f;
+  --el-color-danger-light-9: #312427;
+  --el-color-danger-dark-2: #f98d8d;
+  --el-color-info-light-3: #7b7d83;
+  --el-color-info-light-5: #606166;
+  --el-color-info-light-7: #44454a;
+  --el-color-info-light-8: #36373c;
+  --el-color-info-light-9: #29292d;
+  --el-color-info-dark-2: #b6b9be;
   --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-body);
   --el-text-color-secondary: var(--text-secondary);
@@ -188,7 +283,8 @@ html.dark {
   --el-fill-color-lighter: var(--bg-subtle);
   --el-fill-color: var(--bg-hover);
   --el-mask-color: rgba(10, 12, 18, 0.86);
-  --el-overlay-color-lighter: rgba(0, 0, 0, 0.6);
+  --el-overlay-color-lighter: var(--overlay);
+  --el-box-shadow-light: var(--shadow-md);
 
   color-scheme: dark;
 }
@@ -215,15 +311,15 @@ html {
   text-size-adjust: 100%;
 }
 
+/* 不设 font-feature-settings 和负字距：那是给 Inter 调的，
+   负字距落到中文上会把字挤在一起 */
 body {
   height: 100%;
   font-family: var(--font-sans);
-  font-feature-settings: 'cv11', 'ss03';
-  font-optical-sizing: auto;
   background-color: var(--bg-page);
   color: var(--text-body);
-  line-height: 1.6;
-  letter-spacing: -0.006em;
+  line-height: var(--lh-ui);
+  letter-spacing: 0;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -257,7 +353,7 @@ svg {
 a {
   color: var(--brand-blue);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color var(--dur) ease;
 }
 
 a:hover {
@@ -266,7 +362,7 @@ a:hover {
   text-underline-offset: 3px;
 }
 
-/* 键盘焦点统一成品牌色光环；鼠标点击不显示（:focus-visible） */
+/* 键盘焦点统一成强调色描边；鼠标点击不显示（:focus-visible） */
 :where(a, button, [role='button'], [tabindex], summary, input, select, textarea):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -324,109 +420,29 @@ a:hover {
   padding: 0 5px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1;
 }
 
-/* 小节眉题 */
-.ui-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* 路由切换只做 120ms 的淡入淡出，不位移：动效只用来提示「换页了」 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--dur-fast) ease;
 }
-
-/* ===========================================================================
-   Motion system — scroll reveal, glass, micro-interactions.
-   All transform/opacity based for 60fps; fully disabled under reduced-motion.
-   ========================================================================= */
-
-/* Scroll reveal (used via the v-reveal directive) */
-.reveal {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
-}
-.reveal.reveal-in {
-  opacity: 1;
-  transform: none;
 }
 
-/* Glass surface */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: saturate(180%) blur(14px);
-  -webkit-backdrop-filter: saturate(180%) blur(14px);
-  border: 1px solid var(--glass-border);
-}
-
-/* Brand gradient text */
-.gradient-text {
-  background: var(--brand-gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* Spotlight overlay that follows the cursor (set --mx/--my via JS) */
-.spotlight {
-  position: relative;
-}
-.spotlight::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    260px circle at var(--mx, 50%) var(--my, 0%),
-    var(--accent-ring),
-    transparent 65%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.spotlight:hover::after {
-  opacity: 0.5;
-}
-
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes shimmer {
-  to { background-position: 200% 0; }
-}
-@keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.96); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-/* Staggered entrance helper */
-.fade-up { animation: fade-up 0.6s var(--ease-out) both; }
-
-/* Route transition */
-.fade-enter-active { transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out); }
-.fade-leave-active { transition: opacity 0.14s ease, transform 0.14s ease; }
-.fade-enter-from { opacity: 0; transform: translateY(8px); }
-.fade-leave-to { opacity: 0; transform: translateY(-4px); }
-
-/* 主题切换的圆形揭幕（View Transitions API；不支持的浏览器直接切换） */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
+/* 系统要求减少动效时，过渡和动画一律瞬间完成。界面上没有任何内容依赖
+   动画播完才显示，所以这里压到近乎 0 不会让东西卡在半透明状态。
+   这里只管得住 CSS：JS 里 scrollIntoView / scrollTo 显式写 'smooth' 时浏览器
+   不看 scroll-behavior，所以脚本一律用 utils/motion.js 的 scrollBehavior() 取值 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -435,7 +451,6 @@ a:hover {
     scroll-behavior: auto !important;
   }
   html { scroll-behavior: auto; }
-  .reveal { opacity: 1; transform: none; }
 }
 
 /* 响应式调整 */
@@ -446,9 +461,9 @@ a:hover {
 }
 
 /* ===========================================================================
-   Element Plus 弹层的统一皮肤
+   Element Plus 的统一皮肤
    颜色已在 :root 里映射到设计令牌；这里只调形状、间距和层次，让确认框、
-   提示条、对话框、抽屉与站内卡片是同一套东西。两套主题都会自动跟上。
+   提示条、对话框、抽屉与站内其它部分是同一套平面风格。两套主题都会自动跟上。
    ========================================================================= */
 
 body .el-button { font-weight: 500; }
@@ -461,26 +476,40 @@ body .el-button--primary {
   --el-button-hover-text-color: var(--accent-contrast);
   --el-button-active-bg-color: var(--accent-hover);
   --el-button-active-border-color: var(--accent-hover);
-  font-weight: 600;
 }
 body .el-button--primary.is-link,
 body .el-button--primary.is-text {
   --el-button-text-color: var(--accent);
   --el-button-hover-link-text-color: var(--accent-hover);
 }
+/* 状态色的文字按钮（删除、隐藏、恢复…）悬停时 Element Plus 换成 light-5，
+   在亮色下会淡到 2.4:1；和主色一样改成更深（暗色下更亮）的 dark-2 */
+body .el-button--success.is-link { --el-button-hover-link-text-color: var(--el-color-success-dark-2); }
+body .el-button--warning.is-link { --el-button-hover-link-text-color: var(--el-color-warning-dark-2); }
+body .el-button--danger.is-link { --el-button-hover-link-text-color: var(--el-color-danger-dark-2); }
+body .el-button--info.is-link { --el-button-hover-link-text-color: var(--el-color-info-dark-2); }
 
+/* 输入框聚焦只把边框换成强调色（内描 1px），不再外扩一圈光晕 */
 body .el-input__wrapper,
 body .el-textarea__inner,
 body .el-select__wrapper {
-  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+  transition: box-shadow var(--dur) ease, background-color var(--dur) ease;
 }
 body .el-input__wrapper.is-focus,
 body .el-select__wrapper.is-focused,
 body .el-textarea__inner:focus {
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 0 0 4px var(--accent-ring) !important;
+  box-shadow: 0 0 0 1px var(--accent) inset !important;
 }
 
-body .el-tag { border-radius: 999px; }
+/* el-tag 在本站只当状态徽标用（审核状态、角色等），小圆角的方块比胶囊更像标注 */
+body .el-tag { border-radius: var(--radius-xs); }
+
+/* 骨架屏不要扫光动画：加载中就是几块静止的浅灰块。
+   在这里统一关掉，各页面的 <el-skeleton animated> 不用逐个改 */
+body .el-skeleton.is-animated .el-skeleton__item {
+  animation: none;
+  background: var(--bg-subtle);
+}
 
 /* ---- 确认 / 提示对话框 ---- */
 body .el-message-box {
@@ -494,8 +523,7 @@ body .el-message-box__header { padding: 0 0 10px; }
 body .el-message-box__title {
   color: var(--text-primary);
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
 }
 body .el-message-box__headerbtn { top: 18px; right: 18px; }
 body .el-message-box__headerbtn .el-message-box__close { color: var(--text-muted); }
@@ -506,8 +534,8 @@ body .el-message-box__status { font-size: 20px !important; }
 body .el-message-box__message p {
   margin: 0;
   color: var(--text-body);
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: var(--fs-ui);
+  line-height: var(--lh-ui);
   overflow-wrap: anywhere;
 }
 body .el-message-box__input { padding-top: 14px; }
@@ -520,19 +548,17 @@ body .el-message-box .el-input__wrapper {
   background: var(--bg-subtle);
 }
 
-/* ---- 顶部提示条 ---- */
+/* ---- 顶部提示条：实色底 + 细边 + 一层浅阴影，不做毛玻璃和胶囊形 ---- */
 body .el-message {
   padding: 10px 16px;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--glass-bg);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
   box-shadow: var(--shadow-md);
-  backdrop-filter: saturate(180%) blur(12px);
-  -webkit-backdrop-filter: saturate(180%) blur(12px);
 }
 body .el-message .el-message__content {
   color: var(--text-primary);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   line-height: 1.5;
 }
@@ -561,8 +587,7 @@ body .el-dialog__footer { padding: 14px 22px 18px; border-top: 1px solid var(--b
 body .el-dialog__title {
   color: var(--text-primary);
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
 }
 body .el-dialog__headerbtn { top: 6px; right: 8px; }
 body .el-dialog__headerbtn .el-dialog__close { color: var(--text-muted); }
@@ -579,17 +604,17 @@ body .el-drawer__header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 600;
 }
 body .el-drawer__body { padding: 16px 20px; }
 body .el-drawer.btt { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-body .el-overlay { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+/* 遮罩只是一层半透明底色（--el-overlay-color-lighter → --overlay），不做背景模糊 */
 
 /* ---- 下拉 / 弹出层 ---- */
 body .el-popper.is-light,
 body .el-dropdown__popper.el-popper {
   border-color: var(--border) !important;
-  border-radius: 12px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-md) !important;
 }
 body .el-dropdown-menu__item:not(.is-disabled):focus,
@@ -606,13 +631,14 @@ body .el-table {
   --el-table-tr-bg-color: transparent;
   --el-table-bg-color: transparent;
 }
-body .el-tabs__active-bar { border-radius: 2px; }
-body .el-pagination.is-background .el-pager li { border-radius: 8px; }
+body .el-tabs__active-bar { border-radius: var(--radius-xs); }
+body .el-pagination.is-background .el-pager li { border-radius: var(--radius-sm); }
 
 /* ===== 移动端：弹层不超过视口 ===== */
 body .el-dialog { max-width: calc(100vw - 24px); }
 body .el-message-box { max-width: calc(100vw - 24px); }
-body .el-drawer.ltr, .el-drawer.rtl { max-width: 92vw; }
+body .el-drawer.ltr,
+body .el-drawer.rtl { max-width: 92vw; }
 body .el-message {
   min-width: 0;
   max-width: calc(100vw - 24px);

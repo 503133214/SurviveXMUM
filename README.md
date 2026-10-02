@@ -70,10 +70,11 @@ WIKI_API_TARGET=https://surivivexmum.wiki/api npm run dev
 ├── wiki/                    前端应用（Vue 3 + Vite）
 │   ├── src/
 │   │   ├── net/index.js     所有后端接口（axios，baseURL=/api）
-│   │   ├── wiki/index.js    内容门面：manifest、页面、搜索、标签、面包屑
+│   │   ├── wiki/index.js    内容门面：manifest、页面、搜索、面包屑
 │   │   ├── views/           路由页面（首页、文档、编辑、个人中心、管理后台…）
-│   │   ├── components/      通用组件、Markdown 渲染、搜索面板、侧栏、后台面板
-│   │   ├── utils/           纯函数（有单测）
+│   │   ├── components/      通用组件、Markdown 渲染、搜索面板、侧栏、后台面板；
+│   │   │                    AgentSlot.vue 是首页预留的站内问答助手挂载点
+│   │   ├── utils/           纯函数（有单测）；shortcut.js 管快捷键文案，motion.js 管减少动效
 │   │   ├── store/           Pinia：登录态与角色
 │   │   ├── composables/     主题、搜索面板等组合式函数
 │   │   └── assets/global.css 设计令牌（CSS 变量）与 Element Plus 皮肤

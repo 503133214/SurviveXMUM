@@ -1,13 +1,13 @@
-// Light / dark theme management. Persists to localStorage, follows the OS on
-// first visit, and toggles the `dark` class on <html> (which both our design
-// tokens and Element Plus dark mode key off).
+// 亮 / 暗主题：记在 localStorage，首次访问跟随系统，切换的是 <html> 上的
+// dark 类（我们的设计令牌和 Element Plus 的暗色变量都以它为准）。
 import { ref } from 'vue'
 
 const STORAGE_KEY = 'wiki-theme'
 const isDark = ref(false)
 
-// 与 global.css 里两套主题的 --bg-page 保持一致，手机浏览器的地址栏颜色跟着变
-const THEME_COLORS = { light: '#ffffff', dark: '#1b1b1f' }
+// 与 global.css 两套主题的 --header-bg 保持一致：手机浏览器的地址栏和顶栏的
+// 实色蓝连成一条，不会出现白色地址栏接蓝色顶栏的断层
+const THEME_COLORS = { light: '#1f4287', dark: '#1b2d55' }
 
 function apply(dark) {
   isDark.value = dark
@@ -34,27 +34,10 @@ export function useTheme() {
     try { localStorage.setItem(STORAGE_KEY, isDark.value ? 'dark' : 'light') } catch { /* 隐私模式 */ }
   }
 
-  // 传入点击事件时，从按钮位置以圆形揭开新主题（View Transitions API）。
-  // 不支持或用户要求减少动效时直接切换。
-  function toggleTheme(event) {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (!document.startViewTransition || reduce || !event) {
-      commit()
-      return
-    }
-    // 键盘触发时没有指针坐标，从按钮中心展开
-    const rect = event.currentTarget?.getBoundingClientRect?.()
-    const fromPointer = event.detail > 0 && event.clientX != null
-    const x = fromPointer ? event.clientX : rect ? rect.left + rect.width / 2 : window.innerWidth / 2
-    const y = fromPointer ? event.clientY : rect ? rect.top + rect.height / 2 : 0
-    const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
-    const transition = document.startViewTransition(commit)
-    transition.ready.then(() => {
-      document.documentElement.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-        { duration: 480, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', pseudoElement: '::view-transition-new(root)' },
-      )
-    }).catch(() => {})
+  // 主题立即切换，不再做圆形揭幕动画：切主题是为了看清内容，动画只会拖慢它。
+  // 保留事件参数是因为顶栏仍以 toggleTheme($event) 调用，这里用不到它。
+  function toggleTheme(_event) {
+    commit()
   }
 
   return { isDark, toggleTheme }

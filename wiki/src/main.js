@@ -9,7 +9,6 @@ import "./assets/global.css";
 import axios from "axios";
 import { useUserStore } from "./store/userStore.js";
 import { initTheme } from "./composables/useTheme.js";
-import { reveal } from "./directives/reveal.js";
 import { BACKEND_ENABLED } from "./config.js";
 import { loadManifest } from "./wiki/index.js";
 
@@ -25,7 +24,6 @@ const pinia = createPinia();
 app.use(pinia);
 app.use(router);
 app.use(ElementPlus);
-app.directive("reveal", reveal);
 
 // 拉取内容清单（侧栏/首页/搜索）。不阻塞挂载，数据就绪后响应式填充。
 loadManifest();

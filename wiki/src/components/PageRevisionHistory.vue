@@ -10,7 +10,7 @@
       <p class="history-note">仅展示已经审核并公开发布的版本，不包含待审核内容与审核信息。</p>
 
       <div v-if="historyLoading" class="history-loading">
-        <el-skeleton :rows="7" animated />
+        <el-skeleton :rows="7" />
       </div>
 
       <div v-else-if="historyError" class="history-state">
@@ -48,7 +48,7 @@
 
         <section class="revision-detail" aria-live="polite">
           <div v-if="detailLoading" class="detail-loading">
-            <el-skeleton :rows="9" animated />
+            <el-skeleton :rows="9" />
           </div>
 
           <div v-else-if="detailError" class="history-state compact">
@@ -122,7 +122,6 @@ const FIELD_LABELS = {
   categorySlug: '分类',
   icon: '图标',
   description: '简介',
-  tags: '标签',
   content: '正文',
 }
 
@@ -179,7 +178,8 @@ export default {
       const fields = Array.isArray(this.detail?.changedFields)
         ? this.detail.changedFields
         : []
-      return fields.map((field) => FIELD_LABELS[field] || field)
+      // 只展示有中文名的字段，原因同站点动态页：不把后端的原始键名露给读者
+      return fields.filter((field) => FIELD_LABELS[field]).map((field) => FIELD_LABELS[field])
     },
     contentChanged() {
       if (Array.isArray(this.detail?.changedFields)) {
@@ -351,7 +351,7 @@ export default {
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
 }
 
@@ -392,13 +392,13 @@ export default {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color .18s ease, box-shadow .18s ease;
+  transition: background-color var(--dur) ease;
 }
 
 .revision-item:hover { background: var(--bg-hover); }
 .revision-item.active {
   background: var(--bg-surface);
-  box-shadow: inset 3px 0 0 var(--brand);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .revision-topline {
@@ -420,9 +420,9 @@ export default {
   white-space: nowrap;
 }
 
-.revision-title { color: var(--text-secondary); font-size: 12.5px; }
-.revision-summary { color: var(--text-muted); font-size: 12px; }
-.revision-meta { color: var(--text-muted); font-size: 11.5px; }
+.revision-title { color: var(--text-secondary); font-size: var(--fs-xs); }
+.revision-summary { color: var(--text-muted); font-size: var(--fs-xs); }
+.revision-meta { color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 .revision-detail {
   min-width: 0;
@@ -444,12 +444,14 @@ export default {
   margin: 0;
   color: var(--text-primary);
   font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .detail-header p {
   margin: 5px 0 0;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 
 .detail-actions {
@@ -519,7 +521,7 @@ export default {
     border-bottom: 0;
   }
   .revision-item.active {
-    box-shadow: inset 0 -3px 0 var(--brand);
+    box-shadow: inset 0 -3px 0 var(--accent);
   }
   .revision-detail {
     flex: 1;

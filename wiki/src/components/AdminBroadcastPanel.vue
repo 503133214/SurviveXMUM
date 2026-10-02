@@ -61,7 +61,7 @@ export default {
 </script>
 
 <style scoped>
-.abp-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 8px; color: var(--text-primary); }
+.abp-head h1 { font-size: 24px; font-weight: 700; line-height: var(--lh-tight); letter-spacing: 0; margin: 0 0 8px; color: var(--text-primary); }
 .abp-note { margin: 0 0 18px; color: var(--text-muted); font-size: 13px; }
 .abp-note strong { color: var(--text-secondary); }
 .abp-card {

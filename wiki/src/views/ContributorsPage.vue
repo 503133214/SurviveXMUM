@@ -2,7 +2,7 @@
   <div class="contrib-page">
     <header class="cp-head">
       <h1>贡献者</h1>
-      <p>感谢每一位认真留下答案的人。</p>
+      <p>这里列出为本站写过文档或提供过支持的人。</p>
     </header>
 
     <section v-if="loadingWall || wall.length" class="cp-section">
@@ -145,24 +145,26 @@ export default {
   padding: 40px 20px 72px;
 }
 
-.cp-head { margin-bottom: 32px; }
+.cp-head { margin-bottom: 24px; }
 .cp-head h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.9rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
 }
-.cp-head p { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; }
+.cp-head p { margin: 6px 0 0; color: var(--text-secondary); font-size: 14px; }
 
 .cp-section { margin-top: 40px; }
 .cp-title {
   margin: 0;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 .cp-desc { margin: 10px 0 0; color: var(--text-muted); font-size: 13px; }
 
@@ -171,8 +173,8 @@ export default {
 .wall-group-name {
   margin: 0 0 10px;
   color: var(--text-secondary);
-  font-size: 13.5px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 600;
 }
 .wall-grid {
   display: grid;
@@ -189,14 +191,14 @@ export default {
   background: var(--bg-surface);
   color: var(--text-primary);
   text-decoration: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--dur) ease;
 }
 a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
 .wall-card :deep(.el-avatar) {
   flex-shrink: 0;
   background: var(--bg-subtle);
   color: var(--text-primary);
-  font-weight: 650;
+  font-weight: 600;
 }
 .wall-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .wall-name {
@@ -211,7 +213,7 @@ a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
 .wall-desc {
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -228,7 +230,8 @@ a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
 .skeleton-avatar { width: 44px !important; height: 44px !important; }
 
 /* ---- 贡献榜 ---- */
-.board { list-style: none; margin: 14px 0 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); }
+/* overflow: hidden 让首末行的悬停底色也跟着圆角裁切 */
+.board { overflow: hidden; list-style: none; margin: 14px 0 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-surface); }
 .board li + li { border-top: 1px solid var(--border); }
 .board-row {
   display: grid;
@@ -239,13 +242,15 @@ a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
   padding: 9px 16px;
   color: var(--text-primary);
   text-decoration: none;
-  transition: background 0.15s ease;
+  transition: background-color var(--dur) ease;
 }
 .board-row:hover { background: var(--bg-subtle); color: var(--text-primary); text-decoration: none; }
-.board-row :deep(.el-avatar) { background: var(--bg-hover); color: var(--text-primary); font-weight: 650; }
+/* 列表容器裁掉了溢出，焦点环向内收才不会被切掉 */
+.board-row:focus-visible { outline-offset: -2px; }
+.board-row :deep(.el-avatar) { background: var(--bg-hover); color: var(--text-primary); font-weight: 600; }
 .board-rank {
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -258,9 +263,12 @@ a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
   white-space: nowrap;
 }
 .board-row :deep(.cb-strip) { margin-right: 8px; }
+/* 固定放在最后一列：没获得徽章时 ContributorBadges 不输出元素，计数会被自动排进
+   徽章那一列，比有徽章的行往左错开一个列间距 */
 .board-count {
+  grid-column: -2;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -275,12 +283,13 @@ a.wall-card:hover { border-color: var(--border-strong); text-decoration: none; }
   padding-top: 20px;
   border-top: 1px solid var(--border);
 }
-.cp-foot p { margin: 0; color: var(--text-muted); font-size: 13.5px; }
-.cp-foot a { color: var(--brand-blue); font-size: 13.5px; font-weight: 500; }
+.cp-foot p { margin: 0; color: var(--text-muted); font-size: 14px; }
+.cp-foot a { color: var(--brand-blue); font-size: 14px; font-weight: 500; }
 .cp-foot a:hover { color: var(--accent-hover); }
 
 @media (max-width: 700px) {
   .contrib-page { padding: 24px 16px 56px; }
+  .cp-head h1 { font-size: 24px; }
   .wall-grid { grid-template-columns: minmax(0, 1fr); }
   .board-row { grid-template-columns: 24px 36px minmax(0, 1fr) auto; }
   .board-row :deep(.cb-strip) { display: none; }

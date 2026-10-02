@@ -2,7 +2,6 @@
   <section class="page-contributors" aria-labelledby="page-contributors-title">
     <div class="contributors-heading">
       <div>
-        <p class="contributors-eyebrow">共同完成</p>
         <h2 id="page-contributors-title">
           本页贡献者
           <span v-if="contributors.length" class="contributors-total">{{ contributors.length }} 位</span>
@@ -21,7 +20,7 @@
       </button>
     </div>
 
-    <el-skeleton v-if="loading" :rows="1" animated />
+    <el-skeleton v-if="loading" :rows="1" />
     <p v-else-if="error" class="contributors-status">贡献者信息暂时无法加载</p>
     <p v-else-if="!contributors.length" class="contributors-status">暂无可确认的贡献者记录</p>
     <div v-else id="page-contributor-list" class="contributors-list">
@@ -80,13 +79,11 @@ export default {
 </script>
 
 <style scoped>
+/* 文档页的附属区块不再装进卡片：只用一条分隔线和正文隔开，读起来像手册的章末附录 */
 .page-contributors {
-  max-width: 1360px;
-  margin: 32px auto 0;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-surface);
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
 }
 
 .contributors-heading {
@@ -97,54 +94,50 @@ export default {
   margin-bottom: 16px;
 }
 
-.contributors-eyebrow {
-  margin: 0 0 4px;
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
-
 .contributors-heading h2 {
   display: flex;
   align-items: baseline;
   gap: 8px;
   margin: 0;
   color: var(--text-primary);
-  font-size: 1.08rem;
-  line-height: 1.3;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
 }
 
 .contributors-total {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .contributors-note {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
+/* 不覆盖 :focus-visible 的 outline：键盘用户要靠全局焦点环看到当前位置 */
 .contributors-toggle {
   flex-shrink: 0;
-  padding: 7px 11px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-page);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
   color: var(--text-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   cursor: pointer;
-  transition: border-color .2s ease, color .2s ease, background .2s ease;
+  transition: border-color var(--dur) ease, color var(--dur) ease;
 }
 
-.contributors-toggle:hover,
-.contributors-toggle:focus-visible {
-  border-color: var(--brand);
-  color: var(--brand);
-  outline: none;
+.contributors-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .contributors-list {
@@ -166,17 +159,14 @@ export default {
   text-decoration: none;
 }
 
+/* 可点的卡片悬停只换边框色，不浮起、不加阴影 */
 .contributor-card.linked {
-  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+  transition: border-color var(--dur) ease;
 }
 
-.contributor-card.linked:hover,
-.contributor-card.linked:focus-visible {
-  border-color: var(--brand);
-  box-shadow: var(--shadow-sm);
+.contributor-card.linked:hover {
+  border-color: var(--accent);
   text-decoration: none;
-  transform: translateY(-1px);
-  outline: none;
 }
 
 .contributor-copy {
@@ -189,20 +179,22 @@ export default {
 .contributor-copy strong {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 13.5px;
+  font-size: var(--fs-ui);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .contributor-copy small {
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .contributors-status {
   margin: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 900px) {
@@ -210,7 +202,6 @@ export default {
 }
 
 @media (max-width: 600px) {
-  .page-contributors { padding: 20px 14px; }
   .contributors-heading { align-items: center; }
   .contributors-list { grid-template-columns: 1fr; }
   .contributors-note { display: none; }
