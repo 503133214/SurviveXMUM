@@ -8,7 +8,16 @@
             <h1 class="pf-name">{{ nickname }}</h1>
             <span v-if="isAdmin" class="role-badge">管理员</span>
           </div>
-          <p class="pf-email">{{ email }}</p>
+          <p class="pf-email">
+            <span class="pf-email-text">{{ email }}</span>
+            <button
+              v-if="!editingName"
+              ref="editNameBtn"
+              type="button"
+              class="pf-edit-name"
+              @click="startEditName"
+            >修改昵称</button>
+          </p>
         </div>
       </div>
       <div class="pf-actions">
@@ -22,6 +31,31 @@
         </router-link>
       </div>
     </header>
+
+    <!-- 昵称就是公开署名：没设时后端在评论、贡献榜等处公开完整校园邮箱（前缀是学号），
+         所以要能在这里自己改。只说它真正影响的范围：已发布版本的署名是发布时的快照，不会跟着变 -->
+    <form v-if="editingName" class="pf-name-form" @submit.prevent="saveNickname" @keydown.esc="cancelEditName">
+      <label class="pf-form-label" for="pf-nickname">公开昵称</label>
+      <div class="pf-form-row">
+        <el-input
+          id="pf-nickname"
+          ref="nameInput"
+          v-model="nicknameDraft"
+          class="pf-form-input"
+          maxlength="30"
+          show-word-limit
+          placeholder="留空则显示完整校园邮箱"
+          aria-describedby="pf-nickname-hint"
+        />
+        <div class="pf-form-actions">
+          <el-button type="primary" native-type="submit" :loading="savingName">保存</el-button>
+          <el-button @click="cancelEditName">取消</el-button>
+        </div>
+      </div>
+      <p id="pf-nickname-hint" class="pf-form-hint">
+        评论、贡献榜和贡献者页显示这个昵称；不设昵称时显示你的完整校园邮箱。改名不会更新已发布版本里的署名。
+      </p>
+    </form>
 
     <!-- 未完成草稿：有才显示；个人中心是续写最自然的入口 -->
     <section v-if="drafts.length" class="pf-section">
@@ -158,7 +192,7 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { PenLine, Settings } from 'lucide-vue-next'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment } from '@/net/index.js'
+import { getMyRevision, getMyRevisions, listDrafts, deleteDraft, listMyComments, deleteComment, updateProfile } from '@/net/index.js'
 import { useUserStore } from '@/store/userStore.js'
 
 export default {
@@ -174,6 +208,9 @@ export default {
       detailVisible: false,
       detailLoading: false,
       selectedRevision: null,
+      editingName: false,
+      nicknameDraft: '',
+      savingName: false,
     }
   },
   computed: {
@@ -193,6 +230,37 @@ export default {
     listMyComments((data) => { this.comments = data || [] }, () => {})
   },
   methods: {
+    startEditName() {
+      this.nicknameDraft = this.userStore.userInfo?.nickname || ''
+      this.editingName = true
+      this.$nextTick(() => this.$refs.nameInput?.focus())
+    },
+    cancelEditName() {
+      this.editingName = false
+      // 表单收起后焦点回到「修改昵称」，键盘用户不会被甩回页面顶部
+      this.$nextTick(() => this.$refs.editNameBtn?.focus())
+    },
+    saveNickname() {
+      if (this.savingName) return
+      const name = this.nicknameDraft.trim()
+      // 和后端同一条规则：带 @ 的署名只能是本人邮箱，防止用昵称冒充别人的学号
+      if (name.includes('@')) return ElMessage.warning('昵称不能包含 @')
+      this.savingName = true
+      updateProfile(
+        name,
+        (info) => {
+          this.savingName = false
+          if (info) this.userStore.setUserInfo(info)
+          else this.userStore.fetchUserInfo()
+          ElMessage.success(name ? '昵称已保存' : '已清除昵称，公开处将显示完整校园邮箱')
+          this.cancelEditName()
+        },
+        (message) => {
+          this.savingName = false
+          ElMessage.error(message || '保存失败')
+        },
+      )
+    },
     statusText(s) {
       return { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回', REMOVED: '文章已删除' }[s] || s
     },
@@ -296,13 +364,40 @@ export default {
   white-space: nowrap;
 }
 .pf-email {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
   margin: 4px 0 0;
-  overflow: hidden;
   color: var(--text-secondary);
   font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
+.pf-email-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-edit-name {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--dur);
+}
+.pf-edit-name:hover { color: var(--accent-hover); text-decoration: underline; }
+.pf-edit-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+.pf-name-form {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+}
+.pf-form-label { display: block; margin-bottom: 8px; color: var(--text-primary); font-size: 14px; font-weight: 600; }
+.pf-form-row { display: flex; align-items: center; gap: 8px; }
+.pf-form-input { flex: 1; max-width: 360px; }
+.pf-form-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.pf-form-actions .el-button + .el-button { margin-left: 0; }
+.pf-form-hint { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
 /* 徽标统一规格：0 6px 内边距、20px 行高、12px/500、2px 圆角，颜色只取令牌 */
 .role-badge,
 .count,
@@ -453,6 +548,14 @@ export default {
   .pf-actions { width: 100%; }
   .action-link { flex: 1; height: 40px; }
   .pf-section { padding-top: 28px; }
+  /* 文字按钮在手机上把可点区域撑到 44px 高，版面不变 */
+  .pf-edit-name { padding: 12px 0; margin: -12px 0; }
+  .pf-form-row { flex-direction: column; align-items: stretch; }
+  .pf-form-input { max-width: none; }
+  /* 输入框字号低于 16px 时 iOS 聚焦会放大整页 */
+  .pf-form-input :deep(.el-input__wrapper) { min-height: 40px; }
+  .pf-form-input :deep(.el-input__inner) { font-size: 16px; }
+  .pf-form-actions .el-button { flex: 1; height: 40px; }
   /* 窄屏下状态和日期挪到标题下方，标题才有足够宽度 */
   .rev-row { grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 12px; }
   .rev-side,

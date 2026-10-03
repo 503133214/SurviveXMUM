@@ -200,8 +200,8 @@ function logout(success, failure = defaultFailure, error = defaultError) {
     );
 }
 // ---- Wiki 投稿 / 审核 ----
-function submitRevision(payload, success, failure = defaultFailure) {
-    post('/wiki/revision', payload, success, failure)
+function submitRevision(payload, success, failure = defaultFailure, error = defaultError) {
+    internalPost('/wiki/revision', payload, accessHeader(), success, failure, error)
 }
 function getMyRevisions(success, failure = defaultFailure) {
     get('/wiki/revision/mine', success, failure)
@@ -313,6 +313,13 @@ function docFavoriteUpdateNotification(id, notifyUpdates, success, failure = def
     internalPut(url, { notifyUpdates }, accessHeader(), success, failure,
         (err) => failure(err.response?.data?.message || '关注设置失败，请检查网络后重试', err.response?.status || -1, url))
 }
+// ---- 个人资料 ----
+// 昵称是公开署名：没设时评论、贡献榜等处显示完整校园邮箱。空串表示清除；成功返回最新的 UserInfoVO
+function updateProfile(nickname, success, failure = defaultFailure) {
+    const url = '/user/profile'
+    internalPut(url, { nickname }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '保存失败，请检查网络后重试', err.response?.status || -1, url))
+}
 function recordHistory(path, success = () => {}, failure = () => {}) {
     // 纯后台埋点：网络层错误也静默
     internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
@@ -411,13 +418,13 @@ function saveDraft(payload, success, failure = defaultFailure, error = defaultEr
     internalPost('/wiki/drafts', payload, accessHeader(), success, failure, error)
 }
 function listDrafts(success, failure = defaultFailure) {
-    get('/wiki/drafts', success, failure)
+    internalGet('/wiki/drafts', accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function getDraft(id, success, failure = defaultFailure) {
-    get(`/wiki/drafts/${id}`, success, failure)
+    internalGet(`/wiki/drafts/${id}`, accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function getDraftByPath(path, success, failure = defaultFailure) {
-    get(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, success, failure)
+    internalGet(`/wiki/drafts/by-path?path=${encodeURIComponent(path)}`, accessHeader(), success, failure, () => failure('草稿加载失败，请重试'))
 }
 function deleteDraft(id, success, failure = defaultFailure) {
     remove(`/wiki/drafts/${id}`, success, failure)
@@ -469,4 +476,5 @@ export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,send
     saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
     adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
     adminBroadcast,adminAuditQuery,
-    adminPurgePage,adminPurgeUser,adminDeleteFeedback}
+    adminPurgePage,adminPurgeUser,adminDeleteFeedback,
+    updateProfile}

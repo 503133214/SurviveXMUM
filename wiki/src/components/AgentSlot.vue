@@ -5,20 +5,20 @@
   不发任何请求。真正的助手以后作为单独组件放进默认插槽，上线时只需改 HomePage
   里的一行，占位文字、「筹备中」标记会自动消失，外框切换成实线（.is-live）。
 
-  预留给真正助手的约定（现在不要实现）：
+  预留给真正助手的约定（后端和 Agent 上线前，main 上的 HomePage 不挂真组件，见 AGENTS.md）：
   - 用法：<AgentSlot v-slot="{ headingId }"><WikiAgent :labelledby="headingId" /></AgentSlot>
     插槽把标题 id 传出去，输入框用 aria-labelledby 指向它，区域名称前后一致。
-  - 请求在 wiki/src/net/index.js 里新增函数（例如 askWiki(payload, success, failure)），
-    走同源 /api；按 AGENTS.md 先上线后端接口，再部署依赖它的前端。
+  - 接口、事件流、错误处理和引用链接的拼法见 AGENTS.md「联调站内问答 Agent」：
+    先创建 run，再用 fetch 订阅带鉴权的事件流，结束后读快照；引用用服务端给的 path + anchor，
+    不要自己对标题 slugify。按 AGENTS.md 的顺序先上线后端和 Agent，再部署依赖它们的前端。
   - 回答是 Markdown，必须交给 MarkdownRenderer（经 DOMPurify 消毒），不要对原文 v-html。
-  - 引用链接写成 /docs/<path>#<slugify(heading)>，锚点统一用 utils/slug.js，
-    否则和正文标题的 id 对不上。
-  - 后端的雪花 ID 一律按字符串处理。
+  - 所有 id 一律按字符串处理。
+  - 接口要求登录：未登录时不显示输入框，只给登录入口和下面的「搜索文档」入口。
   - 回答区域用 aria-live="polite"，加载中设置 aria-busy。
-  - 出错时退回到同样的「搜索文档」入口，别让用户卡在一个坏掉的框里。
+  - 出错时（尤其 429 / 502 / 503）退回到同样的「搜索文档」入口，别让用户卡在一个坏掉的框里。
   - CommandPalette 的「/」快捷键会忽略 INPUT / TEXTAREA，所以在助手输入框里打「/」
     不会弹出搜索；⌘K 仍会打开搜索，这是有意保留的。
-  - config.js 里暂时不加开关：现在没有可以开关的东西。
+  - 要加开关（例如 config.js 里默认关闭的一项）先和维护者确认，见 AGENTS.md「分支、提交与发布」。
 -->
 <template>
   <section class="agent-slot" :class="{ 'is-live': $slots.default }" :aria-labelledby="headingId">
