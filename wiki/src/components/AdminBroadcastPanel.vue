@@ -13,7 +13,7 @@
                     placeholder="公告正文（最多 500 字）" />
         </el-form-item>
         <el-form-item label="链接">
-          <el-input v-model="form.link" maxlength="400" placeholder="可选，点击通知跳转的站内路径，如 /docs/贡献指南" />
+          <el-input v-model="form.link" maxlength="400" placeholder="可选，站内路径（如 /docs/贡献指南）或 http(s) 网址" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="sending" @click="send">发送公告</el-button>
@@ -27,6 +27,7 @@
 <script>
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminBroadcast } from '@/net/index.js'
+import { resolveLink } from '@/utils/safeLink.js'
 
 export default {
   name: 'AdminBroadcastPanel',
@@ -39,6 +40,12 @@ export default {
       const content = this.form.content.trim()
       if (!title) return ElMessage.warning('请填写公告标题')
       if (!content) return ElMessage.warning('请填写公告内容')
+      // 和后端同一套规则先查一遍：发送前要弹确认框，别等确认之后才被后端拒绝。
+      // 后端连站内路径里的空格也拒收（resolveLink 为兼容旧通知放行了），这里一并拦下
+      const link = this.form.link.trim()
+      if (link && (!resolveLink(link) || /\s/.test(link))) {
+        return ElMessage.warning('链接须为 / 开头的站内路径或 http(s) 网址，且不能含空格')
+      }
       try {
         await ElMessageBox.confirm(
           `将向全体用户发送公告《${title}》，发送后不可撤回。确认发送？`,
@@ -46,7 +53,7 @@ export default {
       } catch { return }
       this.sending = true
       adminBroadcast(
-        { title, content, link: this.form.link.trim() || null },
+        { title, content, link: link || null },
         (d) => {
           this.sending = false
           const n = Number(d && d.sent) || 0

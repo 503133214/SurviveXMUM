@@ -237,6 +237,7 @@ import { openPalette } from "@/composables/usePalette.js";
 import { HOME_PATH, REPO } from "@/wiki";
 import { BACKEND_ENABLED } from "@/config.js";
 import { shortcutLabel } from "@/utils/shortcut.js";
+import { resolveLink } from "@/utils/safeLink.js";
 
 const MOBILE_BREAKPOINT = 767;
 
@@ -342,7 +343,11 @@ export default {
         n.read = true;
         this.unreadCount = Math.max(0, this.unreadCount - 1);
       }
-      if (n.link) this.$router.push(n.link).catch(() => {});
+      // 公告可以带站外的 http(s) 链接：交给 router.push 会被拼成站内的错误地址，所以分开打开；
+      // 不认识的链接只标记已读
+      const target = resolveLink(n.link, window.location.origin);
+      if (target?.kind === "internal") this.$router.push(target.to).catch(() => {});
+      else if (target?.kind === "external") window.open(target.href, "_blank", "noopener,noreferrer");
     },
     markAllRead() {
       readAllNotifications(() => {

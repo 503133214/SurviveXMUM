@@ -25,20 +25,20 @@
           <h3 v-if="group.category" class="wall-group-name">{{ group.category }}</h3>
           <div class="wall-grid">
             <component
-              :is="item.link ? 'a' : 'article'"
+              :is="item.href ? 'a' : 'article'"
               v-for="item in group.items"
               :key="item.id"
               class="wall-card"
-              :href="item.link || undefined"
-              :target="item.link ? '_blank' : undefined"
-              :aria-label="item.link ? `${item.name}，在新窗口打开链接` : undefined"
+              :href="item.href || undefined"
+              :target="item.href ? '_blank' : undefined"
+              :aria-label="item.href ? `${item.name}，在新窗口打开链接` : undefined"
               rel="noopener noreferrer"
             >
               <el-avatar :size="44" :src="item.avatar || undefined">
                 {{ initial(item.name) }}
               </el-avatar>
               <span class="wall-info">
-                <span class="wall-name">{{ item.name }}<span v-if="item.link" class="wall-ext" aria-hidden="true"> ↗</span></span>
+                <span class="wall-name">{{ item.name }}<span v-if="item.href" class="wall-ext" aria-hidden="true"> ↗</span></span>
                 <span class="wall-desc">{{ item.description || '感谢你的支持' }}</span>
               </span>
             </component>
@@ -80,6 +80,7 @@
 <script>
 import ContributorBadges from '@/components/ContributorBadges.vue'
 import { getContributors, getWall } from '@/net/index.js'
+import { resolveLink } from '@/utils/safeLink.js'
 
 export default {
   name: 'ContributorsPage',
@@ -102,7 +103,10 @@ export default {
           indexes[category] = groups.length
           groups.push({ category, items: [] })
         }
-        groups[indexes[category]].items.push(item)
+        // link 由后台录入，只把站内路径和 http(s) 网址渲染成链接，javascript: 之类当作没有链接
+        const target = resolveLink(item.link)
+        const href = target ? (target.kind === 'internal' ? target.to : target.href) : null
+        groups[indexes[category]].items.push({ ...item, href })
       }
       return groups
     },

@@ -313,6 +313,13 @@ function docFavoriteUpdateNotification(id, notifyUpdates, success, failure = def
     internalPut(url, { notifyUpdates }, accessHeader(), success, failure,
         (err) => failure(err.response?.data?.message || '关注设置失败，请检查网络后重试', err.response?.status || -1, url))
 }
+// ---- 个人资料 ----
+// 昵称是公开署名：没设时评论、贡献榜等处显示完整校园邮箱。空串表示清除；成功返回最新的 UserInfoVO
+function updateProfile(nickname, success, failure = defaultFailure) {
+    const url = '/user/profile'
+    internalPut(url, { nickname }, accessHeader(), success, failure,
+        (err) => failure(err.response?.data?.message || '保存失败，请检查网络后重试', err.response?.status || -1, url))
+}
 function recordHistory(path, success = () => {}, failure = () => {}) {
     // 纯后台埋点：网络层错误也静默
     internalPost('/user/history', { path }, accessHeader(), success, failure, () => {})
@@ -469,4 +476,5 @@ export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,send
     saveDraft,listDrafts,getDraft,getDraftByPath,deleteDraft,
     adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
     adminBroadcast,adminAuditQuery,
-    adminPurgePage,adminPurgeUser,adminDeleteFeedback}
+    adminPurgePage,adminPurgeUser,adminDeleteFeedback,
+    updateProfile}
