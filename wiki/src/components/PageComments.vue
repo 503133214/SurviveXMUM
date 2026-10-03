@@ -76,7 +76,8 @@
                     class="pc-name"
                     :to="reply.userId ? `/contributors/${reply.userId}` : undefined"
                   >{{ reply.displayName || '——' }}</component>
-                  <span v-if="reply.replyToName" class="pc-replyto">回复 @{{ reply.replyToName }}</span>
+                  <!-- 没设昵称的用户署名是完整邮箱，本身带 @，再加前缀会变成「@a@b」 -->
+                  <span v-if="reply.replyToName" class="pc-replyto">回复 {{ reply.replyToName.includes('@') ? '' : '@' }}{{ reply.replyToName }}</span>
                   <span class="pc-time">{{ reply.createdAt }}</span>
                 </div>
                 <p class="pc-text">{{ reply.content }}</p>

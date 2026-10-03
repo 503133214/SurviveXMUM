@@ -49,6 +49,7 @@ wiki/src/utils/              纯函数（有单测的放这里）
   slug.js                    标题锚点 id；Agent 算引用锚点也照它的规则（改动见「代码约定」）
   icons.js                   内容 emoji → Lucide 线性图标的映射
   markdownEditing.js         编辑器工具栏的纯函数（含插入链接时的协议校验）
+  safeLink.js                通知 / 公告 / 致谢墙链接分类：站内路径、http(s) 外链，其余丢弃
   shortcut.js                搜索快捷键提示文案（⌘K / Ctrl K）
   motion.js                  「减少动效」判断，JS 滚动的 behavior 从这里取
   navGroups.js               首页「内容导航」每个篇章先露哪几篇（阅读最多的三篇，其余点展开）
@@ -84,12 +85,13 @@ deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.
   打开时分开处理：站内路径用 `router.push`，http(s) 用 `window.open(link, '_blank', 'noopener,noreferrer')`，
   其它值忽略。别把 http(s) 交给 `router.push`：vue-router 会把它当相对路径解析（在 `/docs/a/b` 上变成
   `/docs/a/https://…`），落到找不到页面。致谢墙等其它来源的 `link` 渲染成 `href` 前同样要过滤，
-  不要假定后端已经校验过协议。
+  不要假定后端已经校验过协议。打开和渲染统一用 `wiki/src/utils/safeLink.js` 的 `resolveLink()`
+  （返回 null 就当没有链接），不要再各写一份。
 - 署名（`displayName`、`authorName`、`replyToName`）原样显示，打不打码由后端决定：在册用户没设昵称时
-  公开完整校园邮箱，账号注销后后端重新打码。前端不要自己打码或拼邮箱。改昵称走 `PUT /user/profile
-  {nickname}`：去掉首尾空白后最多 30 个 UTF-16 码元（`s.trim().length`，emoji 算 2），不能含 `@` 和控制字符，
-  空串或纯空白表示清除。它只影响之后显示的署名，版本历史和站点动态里已发布版本的署名是发布时的快照，
-  不会跟着变，界面文案别承诺更多。
+  公开完整校园邮箱，账号注销后后端重新打码。前端不要自己打码或拼邮箱。改昵称用 `net/index.js` 的
+  `updateProfile()`（`PUT /user/profile {nickname}`）：去掉首尾空白后最多 30 个 UTF-16 码元
+  （`s.trim().length`，emoji 算 2），不能含 `@` 和控制字符，空串或纯空白表示清除。它只影响之后显示的署名，
+  版本历史和站点动态里已发布版本的署名是发布时的快照，不会跟着变，界面文案别承诺更多。
 - 标题锚点 id 统一用 `wiki/src/utils/slug.js`，正文渲染和搜索跳转共用。锚点规则不止这一个文件：重复标题加
   `-1` / `-2`、slug 为空时回退 `h-N` 在 `MarkdownRenderer.vue` 的 `heading_open` 里，`DocPage.vue` 会去掉正文开头的 H1。
   Agent 的分块（`src/wiki_agent/indexing/chunker.py`）照这套规则算引用锚点，Agent 仓库 `docs/java-contract.md`
