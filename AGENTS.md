@@ -1,7 +1,7 @@
 # AGENTS.md
 
 给 coding agent（Claude Code、Codex、Cursor、Copilot 等）的开发规范。人类贡献者请先读
-[`README.md`](README.md)；部署与运维细节见 [`DEPLOY.md`](DEPLOY.md)。
+[`CONTRIBUTING.md`](CONTRIBUTING.md)；部署与运维细节见 [`DEPLOY.md`](DEPLOY.md)。
 
 ## 项目是什么
 
