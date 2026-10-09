@@ -175,6 +175,9 @@
                 <el-dropdown-item command="/contributors">
                   <el-icon><Trophy /></el-icon>贡献榜
                 </el-dropdown-item>
+                <el-dropdown-item command="happytorch">
+                  <el-icon><Flame /></el-icon>Torch 刷题
+                </el-dropdown-item>
 
                 <template v-if="backendEnabled && hasToken">
                   <li class="nv-group">我的</li>
@@ -218,6 +221,8 @@
         <router-link :to="`/docs/${HOME_PATH}`" :class="{ 'is-active': inDocs }">文档</router-link>
         <router-link to="/changes" :class="{ 'is-active': $route.path === '/changes' }">动态</router-link>
         <router-link to="/contributors" :class="{ 'is-active': $route.path.startsWith('/contributors') }">贡献榜</router-link>
+        <!-- 刷题站和 wiki 同域但不是本 SPA 的路由，用普通链接整页跳转，交给 nginx 处理 -->
+        <a :href="HAPPYTORCH">Torch 刷题</a>
       </div>
     </nav>
   </header>
@@ -227,7 +232,7 @@
 import {
   Menu, X as Close, UserRound as User, SquarePen as EditPen, Settings as Setting, LogOut as SwitchButton,
   Moon, Sun as Sunny, Github as Link, FileText as Document, ChevronDown as ArrowDown, Bell, Star,
-  MessageSquareText as ChatDotRound, Trophy, History as Clock, Search,
+  MessageSquareText as ChatDotRound, Trophy, History as Clock, Search, Flame,
 } from "lucide-vue-next";
 import { logout, takeAccessToken, authVersion,
   getNotifications, getUnreadCount, readNotification, readAllNotifications } from "@/net/index.js";
@@ -240,10 +245,12 @@ import { shortcutLabel } from "@/utils/shortcut.js";
 import { resolveLink } from "@/utils/safeLink.js";
 
 const MOBILE_BREAKPOINT = 767;
+// PyTorch 刷题站，独立部署在同域的 /happytorch 下
+const HAPPYTORCH = "/happytorch/";
 
 export default {
   name: "SiteHeader",
-  components: { Menu, Close, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, Clock, Search },
+  components: { Menu, Close, User, EditPen, Setting, SwitchButton, Moon, Sunny, Link, Document, ArrowDown, Bell, Star, ChatDotRound, Trophy, Clock, Search, Flame },
   setup() {
     const { isDark, toggleTheme } = useTheme();
     return { isDark, toggleTheme };
@@ -261,6 +268,7 @@ export default {
       resizeTimeout: null,
       backendEnabled: BACKEND_ENABLED,
       HOME_PATH,
+      HAPPYTORCH,
       REPO,
       notifications: [],
       unreadCount: 0,
@@ -365,6 +373,8 @@ export default {
     handleMobileNavCommand(command) {
       if (command === "github") {
         window.open(REPO, "_blank", "noopener,noreferrer");
+      } else if (command === "happytorch") {
+        window.location.assign(HAPPYTORCH);
       } else if (command === "login") {
         this.$router.push("/login");
       } else if (command === "logout") {
