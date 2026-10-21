@@ -5,8 +5,12 @@
       <h1 class="hero-title">厦大马校生存指南</h1>
       <p class="hero-sub">厦门大学马来西亚分校学生共同维护的学习与生活手册</p>
 
-      <!-- 原来大搜索框的位置留给以后的站内问答助手；搜索入口仍在顶栏和 ⌘K -->
-      <AgentSlot class="hero-agent" />
+      <!-- 站内问答助手：内测期间只对超级管理员挂上，其他人看到「筹备中」占位；搜索入口仍在顶栏和 ⌘K -->
+      <AgentSlot class="hero-agent" :status="agentEnabled ? '内测' : ''">
+        <template v-if="agentEnabled" #default="{ headingId }">
+          <LazyWikiAgent :labelledby="headingId" />
+        </template>
+      </AgentSlot>
 
       <div class="hero-actions">
         <router-link class="btn btn-primary" :to="`/docs/${HOME_PATH}`">开始阅读</router-link>
@@ -115,9 +119,11 @@
 </template>
 
 <script>
+import { defineAsyncComponent } from "vue";
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import WikiIcon from "@/components/WikiIcon.vue";
 import AgentSlot from "@/components/AgentSlot.vue";
+import { useUserStore } from "@/store/userStore.js";
 import { pages, categories, HOME_PATH } from "@/wiki";
 import SiteFooter from "@/components/SiteFooter.vue";
 import { getSiteChanges } from "@/net/index.js";
@@ -135,7 +141,16 @@ function pagesUnder(node) {
 
 export default {
   name: "HomePage",
-  components: { AgentSlot, ChevronDown, ChevronUp, SiteFooter, WikiIcon },
+  components: {
+    AgentSlot,
+    ChevronDown,
+    ChevronUp,
+    SiteFooter,
+    WikiIcon,
+    // 按需加载：只有超管会挂上助手，其他人不用下载这部分代码。名字故意不叫 WikiAgent：
+    // unplugin-vue-components 会按标签名把 src/components 里的同名组件静态导入，按需加载就失效了。
+    LazyWikiAgent: defineAsyncComponent(() => import("@/components/WikiAgent.vue")),
+  },
   data() {
     // recentChanges 取站点动态：只含有人实际发布的内容，并能显示是谁改的。
     // openCats 记已展开的篇章 slug：按 slug 而不是下标记，清单从缓存换成最新版时状态不丢。
@@ -149,6 +164,11 @@ export default {
     }, () => {});
   },
   computed: {
+    // 内测只给超级管理员。后端同样只放行 AGENT_ACCESS_ROLE 允许的角色，这里只决定显示什么，不是权限边界。
+    agentEnabled() {
+      const store = useUserStore();
+      return store.isLoggedIn && store.isSuperAdmin;
+    },
     cats() {
       return categories();
     },
