@@ -5,9 +5,10 @@
   不发任何请求。真正的助手以后作为单独组件放进默认插槽，上线时只需改 HomePage
   里的一行，占位文字、「筹备中」标记会自动消失，外框切换成实线（.is-live）。
 
-  预留给真正助手的约定（后端和 Agent 上线前，main 上的 HomePage 不挂真组件，见 AGENTS.md）：
-  - 用法：<AgentSlot v-slot="{ headingId }"><WikiAgent :labelledby="headingId" /></AgentSlot>
+  预留给真正助手的约定（内测期间 HomePage 只对超级管理员挂 WikiAgent，其他人仍看到这里的占位，见 AGENTS.md）：
+  - 用法：<AgentSlot status="内测" v-slot="{ headingId }"><WikiAgent :labelledby="headingId" /></AgentSlot>
     插槽把标题 id 传出去，输入框用 aria-labelledby 指向它，区域名称前后一致。
+    status 是助手挂上后显示在标题旁的状态文字；没挂上时固定显示「筹备中」。
   - 接口、事件流、错误处理和引用链接的拼法见 AGENTS.md「联调站内问答 Agent」：
     先创建 run，再用 fetch 订阅带鉴权的事件流，结束后读快照；引用用服务端给的 path + anchor，
     不要自己对标题 slugify。按 AGENTS.md 的顺序先上线后端和 Agent，再部署依赖它们的前端。
@@ -25,8 +26,9 @@
     <div class="agent-head">
       <MessageCircleQuestionMark class="agent-icon" :size="18" :stroke-width="1.75" aria-hidden="true" />
       <h2 :id="headingId" class="agent-title">{{ heading }}</h2>
-      <!-- 状态写成文字而不是只靠颜色区分；插槽有内容（助手已上线）就不再显示 -->
+      <!-- 状态写成文字而不是只靠颜色区分；插槽有内容（助手已挂上）时改显示 status（如「内测」） -->
       <span v-if="!$slots.default" class="agent-status">筹备中</span>
+      <span v-else-if="status" class="agent-status">{{ status }}</span>
     </div>
     <!-- 挂载点：真正的问答助手放进默认插槽，占位内容随之消失 -->
     <slot :headingId="headingId">
@@ -49,6 +51,8 @@ export default {
   props: {
     // 可见的 h2 文字，同时也是这个区域的无障碍名称
     heading: { type: String, default: "站内问答助手" },
+    // 助手挂上后标题旁的状态文字，例如「内测」；为空则不显示
+    status: { type: String, default: "" },
   },
   setup() {
     // useId 保证同一页面放多个实例时 id 也不重复；加前缀避免和正文标题锚点撞名
