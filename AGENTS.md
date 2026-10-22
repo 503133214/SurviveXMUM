@@ -43,7 +43,8 @@ wiki/src/net/index.js        所有后端接口（axios，baseURL=/api）
 wiki/src/wiki/index.js       内容门面：manifest、页面、搜索、面包屑
 wiki/src/views/              路由页面
 wiki/src/components/         通用组件、Markdown 渲染、搜索面板、侧栏
-  AgentSlot.vue              首页预留的站内问答助手挂载点（接入约定见下文「联调站内问答 Agent」）
+  AgentSlot.vue              首页的站内问答助手外框（接入约定见下文「联调站内问答 Agent」）
+  WikiAgent.vue              站内问答助手本体（内测只对超级管理员挂上，按需加载）
   ArticleEditor.vue          编辑页的正文编辑器（工具栏、预览、写作帮助）
 wiki/src/utils/              纯函数（有单测的放这里）
   slug.js                    标题锚点 id；Agent 算引用锚点也照它的规则（改动见「代码约定」）
@@ -53,6 +54,8 @@ wiki/src/utils/              纯函数（有单测的放这里）
   shortcut.js                搜索快捷键提示文案（⌘K / Ctrl K）
   motion.js                  「减少动效」判断，JS 滚动的 behavior 从这里取
   navGroups.js               首页「内容导航」每个篇章先露哪几篇（阅读最多的三篇，其余点展开）
+  agentStream.js             问答事件流的增量解析、游标与续传规则
+  agentAnswer.js             问答的输入校验、引用链接与编号、错误文案
 wiki/src/assets/global.css   设计令牌与 Element Plus 皮肤
 wiki/test/                   单测
 deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.yml 是 CI/CD
@@ -71,8 +74,9 @@ deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.
   这些只放在私有后端仓库的 `DEPLOY.md`。不要提交 `.env*`。
 - 跨仓库的功能按依赖顺序上线：**后端（server）→ Agent 服务 → 前端**，每一步确认线上接口可用再走下一步。
   前端 `main` 合并即上线，所以依赖未上线接口的代码不要合进 `main`（要先合就放在默认关闭的开关后面，
-  先和维护者确认）。问答在线上是否可用、还缺哪些前提，看 Agent 仓库 `docs/STATUS.md`；没就绪前
-  `AgentSlot` 保持「筹备中」。
+  先和维护者确认）。问答在线上是否可用、还缺哪些前提，看 Agent 仓库 `docs/STATUS.md`。
+  内测期间 `HomePage` 只对超级管理员挂 `WikiAgent`，其他人仍看到「筹备中」；后端 `AGENT_ACCESS_ROLE=SUPER_ADMIN`
+  同样只放行超管，前端的判断只决定显示什么，不是权限边界。正式开放时先改后端的 `AGENT_ACCESS_ROLE`，再放开前端的判断。
 
 ## 代码约定
 
@@ -106,10 +110,11 @@ deploy.sh / ci-deploy.sh     服务器部署脚本；.github/workflows/frontend.
 
 ## 联调站内问答 Agent
 
-链路：浏览器 → 同源 `/api/agent/**`（管理端 `/api/admin/agent/**`）→ 后端网关 → Agent 服务。网关校验登录，
+链路：浏览器 → 同源 `/api/agent/**`（管理端 `/api/admin/agent/**`）→ 后端网关 → Agent 服务。网关校验登录和角色，
 给每个请求现签一个短期的 `X-Agent-Context` 再转发；浏览器看不到这个头，自己带了也会被忽略。
-写这一节时（2026-10）线上还没部署 Agent，登录后访问 `/api/agent/**` 返回 503，最新进度看 Agent 仓库
-`docs/STATUS.md`。本节与该仓库 `docs/java-contract.md` 有出入时以那边为准，并回来更新这里。
+谁能用由后端的 `AGENT_ACCESS_ROLE` 决定：2026-10 起线上内测设为 `SUPER_ADMIN`，其他角色访问 `/api/agent/**` 得到
+`code: 403`（HTTP 200）。Agent 部署在独立主机上，最新进度看 Agent 仓库 `docs/STATUS.md`。
+本节与该仓库 `docs/java-contract.md` 有出入时以那边为准，并回来更新这里。
 
 ### 本地起三端
 
@@ -131,8 +136,9 @@ cd wiki && npm run dev                  # /api 代理到 localhost:8080
 - 后端找 Agent 用 `AGENT_BASE_URL`（默认 `http://127.0.0.1:8090`）；Agent 没起时只有 Agent 这两组接口返回 503。
 - 密钥各管各的：`AGENT_GATEWAY_SECRET`（网关签上下文）、`JWT_SECRET`（用户登录）、`AGENT_TOOLS_SECRET`（Agent 将来调后端
   内部接口用；后端还没实现这组接口，fake 模式不用配）。值不能混用，也都不要写进本仓库。
-- Agent 接口都要登录。本机新库可以在后端 `.env` 配 `WIKI_ADMIN_EMAIL` / `WIKI_ADMIN_PASSWORD` 得到超级管理员；要看普通用户
-  的效果就注册一个账号，`MAIL_ENABLED=false`（默认）时验证码打印在后端日志里。
+- Agent 接口都要登录，且角色要满足后端的 `AGENT_ACCESS_ROLE`（默认 `SUPER_ADMIN`）。本机新库可以在后端 `.env` 配
+  `WIKI_ADMIN_EMAIL` / `WIKI_ADMIN_PASSWORD` 得到超级管理员；要用普通账号试问答就把后端的 `AGENT_ACCESS_ROLE` 改成 `USER`
+  （前端首页仍只对超管显示助手，普通账号只能直接调接口）。注册账号时 `MAIL_ENABLED=false`（默认）验证码打印在后端日志里。
 - Agent 默认 `AGENT_MODEL_PROVIDER=fake`、`AGENT_WIKI_TOOLS=fake`：不需要模型密钥，回答是固定的演示句子，引用指向站上不存在的
   `demo/` 页面。Agent 仓库 `dev` 分支起支持 `AGENT_DEV_CORPUS_PATH`，换成三篇真实公开页面的快照（只能配合
   `AGENT_WIKI_TOOLS=fake`）；要在本地点开这些引用，本机数据库里也得有这几页。

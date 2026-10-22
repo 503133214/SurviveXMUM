@@ -460,6 +460,50 @@ function adminDeleteWall(id, success, failure = defaultFailure) {
     remove(`/admin/wall/${id}`, success, failure)
 }
 
+// ---- 站内问答 Agent（内测仅超级管理员；后端按 AGENT_ACCESS_ROLE 放行）----
+// 和站内其它接口不同：Agent 接口透传真实 HTTP 状态（成功 200 / 202），网关自己拦下的仍是 HTTP 200 + code。
+// 所以不能走 internal*（非 2xx 只会弹通用提示），失败回调统一收到 (message, httpStatus, code)：
+// httpStatus 是真实 HTTP 状态（0 表示没连上），code 是响应体里的 code，两者分开才能区分两种 401。
+function agentRequest(method, url, data, success, failure) {
+    axios({ method, url, data, headers: accessHeader() }).then(({ status, data: body }) => {
+        if (body && body.code === 0) {
+            success(body.data, status)
+        } else {
+            failure((body && body.message) || '', status, body ? body.code : null)
+        }
+    }).catch((err) => {
+        const res = err.response
+        failure((res && res.data && res.data.message) || '', res ? res.status : 0, res && res.data ? res.data.code : null)
+    })
+}
+function agentCreateRun(payload, success, failure) {
+    agentRequest('post', '/agent/runs', payload, success, failure)
+}
+function agentGetRun(runId, success, failure) {
+    agentRequest('get', `/agent/runs/${encodeURIComponent(runId)}`, undefined, success, failure)
+}
+function agentResumeRun(runId, payload, success, failure) {
+    agentRequest('post', `/agent/runs/${encodeURIComponent(runId)}/resume`, payload, success, failure)
+}
+// 取消接口不带 body：axios 在 data 为 undefined 时不发请求体，也不加 Content-Type
+function agentCancelRun(runId, success, failure) {
+    agentRequest('post', `/agent/runs/${encodeURIComponent(runId)}/cancel`, undefined, success, failure)
+}
+function agentSendFeedback(payload, success, failure) {
+    agentRequest('post', '/agent/feedback', payload, success, failure)
+}
+// 事件流只能用 fetch：EventSource 带不了 Authorization，axios 有全局超时。fetch 不走 axios 的 baseURL，路径写全。
+// 返回 fetch 的 Promise<Response>，解析与续传由调用方负责（utils/agentStream.js）。
+function agentOpenEvents(runId, cursor, signal) {
+    const token = takeAccessToken()
+    const query = cursor > 0 ? `?cursor=${cursor}` : ''
+    return fetch(`/api/agent/runs/${encodeURIComponent(runId)}/events${query}`, {
+        headers: { Accept: 'text/event-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        cache: 'no-store',
+        signal,
+    })
+}
+
 export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,sendCode,
     uploadImage,submitRevision,getMyRevisions,adminListRevisions,adminGetRevision,adminApproveRevision,adminRejectRevision,
     adminRevisionCounts,adminListUserRevisions,getMyRevision,
@@ -477,4 +521,5 @@ export {get,post,remove,login,logout,takeAccessToken,register,resetPassword,send
     adminListCategories,adminCreateCategory,adminUpdateCategory,adminDeleteCategory,
     adminBroadcast,adminAuditQuery,
     adminPurgePage,adminPurgeUser,adminDeleteFeedback,
-    updateProfile}
+    updateProfile,
+    agentCreateRun,agentGetRun,agentResumeRun,agentCancelRun,agentSendFeedback,agentOpenEvents}
