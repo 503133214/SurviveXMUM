@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { get, takeAccessToken } from '@/net/index.js'
+import { authVersion, get, takeAccessToken } from '@/net/index.js'
 
 export const useUserStore = defineStore('user', () => {
   const userInfo = ref(null)
   const isLoading = ref(false)
 
   const isLoggedIn = computed(() => {
+    // localStorage 本身不响应式；没有 token 时的短路也不能漏订阅之后的登录切换。
+    authVersion.value
     return !!takeAccessToken() && !!userInfo.value
   })
 

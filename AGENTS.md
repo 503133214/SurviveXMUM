@@ -210,8 +210,8 @@ GET  /agent/usage                本人当日在 Agent 侧的次数与花费，�
   - `status` `{status, stage?, message?, …}`：一订阅就能收到。最新一条还是 `QUEUED`（没有 `message`）时显示「排队中」，
     不是错误；之后的 `message` 是给用户看的中文，只显示最新一条。
   - `sources` `{sources: [{sourceId, path, anchor, title, headingPath, excerpt, …}]}`。
-  - `delta` `{text}`：结果校验完才分段发出，不是逐字流式；累加后整体渲染，不做打字机效果。`notice` 的文字也走 `delta`，
-    所以不能凭 `delta` 断定是回答。
+  - `delta` `{text}`：生成过程中逐段校验后发出；累加正文与 `sources` 后及时渲染，不做打字机效果。`notice` 的文字也走 `delta`，
+    所以先作为正文预览，不能凭 `delta` 断定结果类型；完整结果以快照为准。
   - `clarification_required` `{interruptId, question}`：显示问题，`resume` 之后带游标重新订阅。
   - `done` `{status: 'SUCCEEDED'}`；`error` `{status, code, message}`（取消、失败、过期都走它）。
   - `proposal`、`confirmation_required` 是编辑助手用的，现在不做；`snapshot` 在游标太旧时先给整份快照。
@@ -227,8 +227,9 @@ GET  /agent/usage                本人当日在 Agent 侧的次数与花费，�
 - 结果在快照里（刷新页面也照这样恢复）：
   - `SUCCEEDED` 读 `result.type`：`answer`（`text`、`citations`、`sources`、`unresolved`、`reduced`）或 `notice`（`reason`、
     `text`，可能带 `sources`）。`notice.reason` 分资料不足、校验未过、用户结束澄清和拒答几类，按它选文案。
-  - `FAILED` / `CANCELLED` / `EXPIRED` 的 `result` 为 null，读 `error {code, message}`。
-  - `WAITING_USER` 读 `waiting {interruptId, type, question}` 和 `waitingExpiresAt`；`QUEUED` / `RUNNING` 用 `cursor=0` 重新订阅。
+  - `FAILED` / `CANCELLED` / `EXPIRED` 读 `error {code, message}`；`result` 可能仍有 `partial: true` 的答案，要保留并提示尚未完成。
+  - `WAITING_USER` 读 `waiting {interruptId, type, question}` 和 `waitingExpiresAt`；`QUEUED` / `RUNNING` 先恢复快照中的部分正文与来源，
+    再从 `lastEventSeq` 续传。快照覆盖已包含的段落，旧帧不能重复追加。
   - 澄清默认等 24 小时，过期后 run 变 `EXPIRED`，`resume` 返回 410 或 409：都按过期处理，引导用户重新提问。
 
 ### 回答与引用

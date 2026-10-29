@@ -15,6 +15,17 @@ export function isSettledStatus(status) {
   return SETTLED_STATUSES.has(status)
 }
 
+/** 只累积展示用正文与来源，不从 delta 推断结果类型；最终 answer / notice 由快照决定。 */
+export function updateAnswerPreview(preview, event, data) {
+  if (event === 'delta' && typeof data.text === 'string') {
+    return { ...preview, text: preview.text + data.text }
+  }
+  if (event === 'sources' && Array.isArray(data.sources)) {
+    return { ...preview, sources: data.sources }
+  }
+  return preview
+}
+
 /**
  * 增量解析 SSE 文本。fetch 读到的一段文本可能在任意位置断开（半行、半帧，甚至 \r\n 中间），
  * 所以按行缓冲，遇到空行才算一帧结束。注释行（`: ping` 心跳）不产生帧；

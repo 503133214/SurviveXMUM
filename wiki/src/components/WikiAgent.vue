@@ -2,8 +2,8 @@
   站内问答助手（内测）。HomePage 只在当前用户是超级管理员时把它挂进 AgentSlot；后端同样只放行
   AGENT_ACCESS_ROLE 允许的角色，前端的判断只决定显示什么，不是权限边界。
 
-  一轮问答：创建 run（requestId 幂等，没连上时可原样重试）→ 用 fetch 订阅事件流，只拿来显示进度，
-  断线按游标续传 → 流结束后读快照渲染结果（回答与来源、澄清问题或失败原因）。快照是唯一依据，
+  一轮问答：创建 run（requestId 幂等，没连上时可原样重试）→ 用 fetch 订阅进度与已校验的正文段落，
+  断线按快照和游标续传 → 流结束后用快照核对结果类型、完整正文与失败原因。快照是最终依据，
   刷新页面后也按快照恢复：本轮对话（conversationId 与各轮 runId）按用户记在 sessionStorage，关掉标签页即丢弃。
   接口与事件约定见 AGENTS.md「联调站内问答 Agent」；解析与文案规则在 utils/agentStream.js、utils/agentAnswer.js（有单测）。
 -->
@@ -18,11 +18,12 @@
 
         <p v-if="turn.progress" class="wa-progress">{{ turn.progress }}</p>
 
-        <template v-if="turn.result && turn.result.type === 'answer'">
+        <template v-if="(turn.result && turn.result.type === 'answer') || (!turn.result && turn.preview.text)">
           <div class="wa-answer">
             <MarkdownRenderer :content="answerMarkdown(turn)" />
           </div>
-          <p v-if="turn.result.reduced" class="wa-meta">受预算限制，这次用了精简方式回答，内容可能不完整。</p>
+          <p v-if="turn.result && turn.result.partial" class="wa-meta">回答尚未完成，已保留生成的内容。</p>
+          <p v-if="turn.result && turn.result.reduced" class="wa-meta">受预算限制，这次用了精简方式回答，内容可能不完整。</p>
           <div v-if="unresolved(turn).length" class="wa-unresolved">
             <p class="wa-meta">站内资料没有覆盖：</p>
             <ul>
@@ -145,6 +146,7 @@ import {
   nextCursor,
   parseFrameData,
   reconnectDelay,
+  updateAnswerPreview,
 } from "@/utils/agentStream.js";
 import {
   FEEDBACK_REASONS,
@@ -266,10 +268,11 @@ export default {
     noticeTitle,
 
     answerMarkdown(turn) {
-      return prepareAnswerMarkdown(turn.result.text, turn.result.sources);
+      const content = turn.result || turn.preview;
+      return prepareAnswerMarkdown(content.text, content.sources);
     },
     sources(turn) {
-      return turn.result ? sourceItems(turn.result.sources) : [];
+      return sourceItems((turn.result || turn.preview).sources);
     },
     unresolved(turn) {
       return unresolvedItems(turn.result && turn.result.unresolved);
@@ -294,6 +297,7 @@ export default {
         phase: "creating",
         progress: "正在提交",
         cursor: 0,
+        preview: { text: "", sources: [] },
         result: null,
         waiting: null,
         error: null,
@@ -383,9 +387,9 @@ export default {
         // 直接重连会死循环：run 已结束且游标追平时，服务端一个事件都不发就关流。
         const { data, failure } = await call(agentGetRun, turn.runId);
         if (this.unmounted || seq !== this.streamSeq) return;
-        if (data && isSettledStatus(data.status)) {
+        if (data) {
           this.applySnapshot(turn, data);
-          return;
+          if (isSettledStatus(data.status)) return;
         }
         if (failure && !describeAgentFailure(failure).retry) {
           this.fail(turn, describeAgentFailure(failure));
@@ -426,7 +430,6 @@ export default {
           resetIdle();
           for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
             received = true;
-            turn.cursor = nextCursor(turn.cursor, frame);
             this.onFrame(turn, frame);
             if (isClosingEvent(frame.event)) return { received };
           }
@@ -443,25 +446,35 @@ export default {
     },
 
     onFrame(turn, frame) {
+      const cursor = nextCursor(turn.cursor, frame);
+      // 快照已经包含到 lastEventSeq 的正文；重放旧帧不能再追加一遍。
+      if (frame.id && cursor <= turn.cursor) return;
+      turn.cursor = cursor;
       const data = parseFrameData(frame);
       if (!data) return;
       if (frame.event === "status") {
         // 最新一条还是 QUEUED（没有 message）时显示「排队中」；之后的 message 是给用户看的中文，只显示最新一条
         if (data.message) turn.progress = data.message;
         else if (data.status === "QUEUED") turn.progress = "排队中";
-      } else if (frame.event === "snapshot" && isSettledStatus(data.status)) {
+      } else if (frame.event === "snapshot") {
         // 游标早于重放窗口时服务端先给整份快照
         this.applySnapshot(turn, data);
+      } else {
+        turn.preview = updateAnswerPreview(turn.preview, frame.event, data);
       }
-      // sources / delta / done / error / clarification_required 的内容都以流结束后的快照为准
+      // delta 也可能来自 notice；结果类型和终态仍以流结束后的快照为准。
     },
 
     applySnapshot(turn, snapshot) {
       turn.cursor = Math.max(turn.cursor, Number(snapshot.lastEventSeq) || 0);
       turn.progress = "";
+      turn.result = isSettledStatus(snapshot.status) ? snapshot.result || null : null;
+      turn.preview = {
+        text: (snapshot.result && snapshot.result.text) || "",
+        sources: (snapshot.result && snapshot.result.sources) || [],
+      };
       if (snapshot.status === "SUCCEEDED") {
         turn.phase = "done";
-        turn.result = snapshot.result || null;
         turn.waiting = null;
         turn.error = null;
       } else if (snapshot.status === "WAITING_USER") {
@@ -634,9 +647,10 @@ export default {
       for (const turn of restored) {
         const { data, failure } = await call(agentGetRun, turn.runId);
         if (this.unmounted) return;
-        if (data && isSettledStatus(data.status)) this.applySnapshot(turn, data);
-        else if (data) this.follow(turn);
-        else this.fail(turn, describeAgentFailure(failure));
+        if (data) {
+          this.applySnapshot(turn, data);
+          if (!isSettledStatus(data.status)) this.follow(turn);
+        } else this.fail(turn, describeAgentFailure(failure));
       }
     },
   },
