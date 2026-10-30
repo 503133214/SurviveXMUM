@@ -151,7 +151,7 @@ const RUN_ERROR_TEXT = {
   BUDGET_EXHAUSTED: '今天的问答额度已经用完，可以先搜索文档。',
 }
 
-/** run 以 FAILED / CANCELLED / EXPIRED 结束时的说明（快照的 result 为 null，原因在 error）。 */
+/** run 以 FAILED / CANCELLED / EXPIRED 结束时的说明；result 仍可能保留部分答案，原因在 error。 */
 export function runErrorText(status, error) {
   if (status === 'CANCELLED') return '已停止。'
   if (status === 'EXPIRED') return '等待补充说明已超时，请重新提问。'
